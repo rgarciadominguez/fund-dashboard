@@ -12101,6 +12101,7 @@ async function mstDoSearch(){
   // ── Sync DP store → DATAPACK (so repo picker can see in-memory funds) ──
   function dpSyncToDatapack(){
     if (typeof DATAPACK === "undefined") return;
+    gistAutoSave();
 
     // Set format to stacked so repoBuildSeriesForFund uses seriesMap
     DATAPACK.format = "stacked";
