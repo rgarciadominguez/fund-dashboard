@@ -12259,9 +12259,20 @@ async function mstDoSearch(){
   }
 
   async function gistDownload(){
-    const token = gistGetToken(), id = gistGetId();
+    const token = gistGetToken();
     if(!token){ dpSetStatus("warn","Introduce un token GitHub con scope 'gist'."); return; }
-    if(!id){ dpSetStatus("warn","Aún no hay datos en la nube. Añade fondos desde el dispositivo principal."); return; }
+    let id = gistGetId();
+    // If no ID stored, search for the gist in user's gists
+    if(!id){
+      dpSetStatus("info","☁️ Buscando datos en la nube…");
+      try{
+        const gr = await fetch("https://api.github.com/gists?per_page=30",{headers:{"Authorization":"token "+token}});
+        const glist = await gr.json();
+        const found = Array.isArray(glist) && glist.find(g=>g.files && g.files["fund_dashboard_datapack.json"]);
+        if(found){ id = found.id; gistSetId(id); gistUpdateInfo(); }
+        else{ dpSetStatus("warn","No se encontraron datos en la nube. Sube primero desde el dispositivo principal."); return; }
+      }catch(e){ dpSetStatus("warn","Error buscando: "+e.message); return; }
+    }
     dpSetStatus("info","☁️ Descargando de la nube…");
     try{
       const resp = await fetch(`https://api.github.com/gists/${id}`,{headers:{"Authorization":"token "+token}});
