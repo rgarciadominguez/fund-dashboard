@@ -1,10 +1,9 @@
 <!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="utf-8"/>
-<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<html lang="es"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1" name="viewport">
 <title>Dashboard fondos — Investing CSV (v9)</title>
-<script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
+<script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script><style id="plotly.js-style-global"></style>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
     :root{
@@ -261,14 +260,14 @@
       <label style="font-size:12px;font-weight:600;color:var(--muted);display:block;margin-bottom:6px">📂 CARGAR DESDE ARCHIVO (Excel/CSV con atributos)</label>
       <label class="btnGhost" style="cursor:pointer;font-size:12px;padding:6px 12px;display:inline-block">
         Seleccionar Excel o CSV
-        <input type="file" id="dpAttrFile" accept=".xlsx,.xlsm,.xls,.csv" style="display:none"/>
+        <input type="file" id="dpAttrFile" accept=".xlsx,.xlsm,.xls,.csv" style="display:none">
       </label>
       <span id="dpAttrFileName" style="font-size:11px;color:var(--muted);margin-left:8px">Sin archivo</span>
       <div style="font-size:11px;color:var(--muted);margin-top:4px">Columnas esperadas: Clase · Fondo · ISIN · Categoría · Tipo activo · Geografía · Divisa · Issuer</div>
     </div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
-      <button class="btn" id="dpLoadAttrBtn" style="font-size:12px;padding:7px 14px" disabled>📥 Cargar atributos (sin series)</button>
-      <button class="btnGhost" id="dpLoadAttrSeriesBtn" style="font-size:12px;padding:7px 14px" disabled title="Carga atributos y descarga también las series históricas de Morningstar">📥 Cargar + descargar series</button>
+      <button class="btn" id="dpLoadAttrBtn" style="font-size:12px;padding:7px 14px" disabled="">📥 Cargar atributos (sin series)</button>
+      <button class="btnGhost" id="dpLoadAttrSeriesBtn" style="font-size:12px;padding:7px 14px" disabled="" title="Carga atributos y descarga también las series históricas de Morningstar">📥 Cargar + descargar series</button>
     </div>
 
     <!-- Separador -->
@@ -280,7 +279,9 @@
     <!-- Modo 2: ISINs manuales -->
     <div style="margin-bottom:10px">
       <label style="font-size:12px;font-weight:600;color:var(--muted);display:block;margin-bottom:6px">✏️ AÑADIR ISINs (descarga series de Morningstar)</label>
-      <textarea id="dpIsinInput" rows="3" style="width:100%;box-sizing:border-box;font-family:monospace;font-size:12px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;resize:vertical" placeholder="ES0138494002&#10;LU1907595398&#10;ES0156572002"></textarea>
+      <textarea id="dpIsinInput" rows="3" style="width:100%;box-sizing:border-box;font-family:monospace;font-size:12px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;resize:vertical" placeholder="ES0138494002
+LU1907595398
+ES0156572002"></textarea>
     </div>
 
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
@@ -295,7 +296,7 @@
       <div style="color:#555;margin-bottom:8px;line-height:1.4">Guarda tus fondos en un Gist privado de GitHub. Se cargarán automáticamente al abrir el dashboard desde cualquier dispositivo.</div>
       <label style="display:block;margin-bottom:4px;color:#64748b">Token GitHub (scope: gist)</label>
       <div style="display:flex;gap:6px;margin-bottom:8px">
-        <input id="dpGistToken" type="password" placeholder="ghp_..." style="flex:1;padding:7px 10px;border:1px solid #cbd5e1;border-radius:10px;font-size:12px;background:#fff"/>
+        <input id="dpGistToken" type="password" placeholder="ghp_..." style="flex:1;padding:7px 10px;border:1px solid #cbd5e1;border-radius:10px;font-size:12px;background:#fff">
         <button id="dpGistSaveTokenBtn" class="btnGhost" style="font-size:11px;padding:6px 10px;white-space:nowrap">Guardar token</button>
       </div>
       <div id="dpGistInfo" style="font-size:11px;color:#64748b;margin-bottom:8px"></div>
@@ -317,7 +318,7 @@
       <div style="display:flex;gap:6px;flex-wrap:wrap">
         <button class="btnGhost" id="dpExportCsvBtn" style="font-size:12px;padding:6px 12px">CSV</button>
         <button class="btnGhost" id="dpExportJsonBtn" style="font-size:12px;padding:6px 12px">JSON</button>
-        <label class="btnGhost" style="cursor:pointer;font-size:12px;padding:6px 12px">Importar <input type="file" id="dpImportFile" accept=".csv,.json" style="display:none"/></label>
+        <label class="btnGhost" style="cursor:pointer;font-size:12px;padding:6px 12px">Importar <input type="file" id="dpImportFile" accept=".csv,.json" style="display:none"></label>
         <button class="btnGhost" id="dpClearAllBtn" style="font-size:12px;padding:6px 12px;color:#c00;border-color:#c00">🗑 Borrar todo</button>
       </div>
     </div>
@@ -337,7 +338,7 @@
 <div class="wrap">
 <h1>Dashboard — Rentabilidad, Volatilidad y Drawdown (CSV Investing)</h1>
 <p class="sub">
-      Carga el CSV descargado desde Investing (columnas típicas: <b>Fecha, Último, Apertura, Máximo, Mínimo, % var.</b>).<br/>
+      Carga el CSV descargado desde Investing (columnas típicas: <b>Fecha, Último, Apertura, Máximo, Mínimo, % var.</b>).<br>
       Default: analiza <b>solo el tramo diario</b>. Opción: análisis <b>mensual</b> (fin de mes).
     </p>
 <div class="row" style="margin-top:10px; justify-content:space-between;">
@@ -361,7 +362,7 @@
   <span style="font-size:11px;color:var(--muted);cursor:pointer" onclick="document.getElementById('dpLegacyRow').style.display=document.getElementById('dpLegacyRow').style.display==='none'?'flex':'none'">⚙ opciones avanzadas</span>
 </div>
 <div id="dpLegacyRow" class="repoBar" style="display:none;margin-top:4px">
-  <input id="datapackFile" type="file" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"/>
+  <input id="datapackFile" type="file" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel">
   <button class="iconBtn" type="button" id="btnLoadDatapack" style="font-size:11px;padding:4px 8px">Cargar datapack CSV</button>
   <button class="iconBtn" type="button" id="btnClearDatapack" style="font-size:11px;padding:4px 8px">Vaciar repo</button>
 </div>
@@ -372,16 +373,16 @@
 <!-- Botones de fuente siempre visibles: Repo · Investing · Morningstar -->
 <div id="s1SourceBtns" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px;">
   <button type="button" class="iconBtn repoPickBtn" id="s1RepoBtnDirect" style="font-size:12px;padding:6px 12px;">📚 Repo</button>
-  <button type="button" class="iconBtn invPickBtn"  id="s1InvBtnDirect"  style="font-size:12px;padding:6px 12px;">🌐 Investing</button>
-  <button type="button" class="iconBtn msPickBtn"   id="s1MstBtnDirect"  style="font-size:12px;padding:6px 12px;">⭐ Morningstar</button>
+  <button type="button" class="iconBtn invPickBtn" id="s1InvBtnDirect" style="font-size:12px;padding:6px 12px;">🌐 Investing</button>
+  <button type="button" class="iconBtn msPickBtn" id="s1MstBtnDirect" style="font-size:12px;padding:6px 12px;">⭐ Morningstar</button>
 </div>
 
 <!-- Opciones avanzadas colapsables: CSV manual + Modo + Outliers -->
 <div style="margin-bottom:10px;">
-  <span id="s1AdvToggle" style="font-size:11px;color:var(--muted);cursor:pointer;user-select:none;">&#9658; Opciones avanzadas (CSV manual · Modo · Outliers)</span>
+  <span id="s1AdvToggle" style="font-size:11px;color:var(--muted);cursor:pointer;user-select:none;">► Opciones avanzadas (CSV manual · Modo · Outliers)</span>
   <div id="s1AdvBody" style="display:none;margin-top:8px;padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:#fafafa;">
     <label>CSV (Investing)</label>
-    <input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="file" type="file"/>
+    <input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="file" type="file">
     <div style="display:flex;gap:10px;margin-top:8px;flex-wrap:wrap;">
       <div style="flex:1;min-width:160px;">
         <label>Modo</label>
@@ -582,20 +583,20 @@
 <div class="card">
 <div class="hd"><span class="pill">Entrada</span><span class="pill" id="cmpStatus">Sin datos</span></div>
 <div class="bd">
-<span id="cmpAdvToggle" style="font-size:11px;color:var(--muted);cursor:pointer;user-select:none;">&#9658; Opciones avanzadas (CSV manual)</span>
+<span id="cmpAdvToggle" style="font-size:11px;color:var(--muted);cursor:pointer;user-select:none;">► Opciones avanzadas (CSV manual)</span>
 <div id="cmpAdvBody" style="display:none;margin-top:8px;padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:#fafafa;">
 <label>CSVs (hasta 10 fondos, formato Investing)</label>
 <div style="display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px;">
-<div><div class="subhd">Fondo 1</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="cmpFile1" type="file"/></div>
-<div><div class="subhd">Fondo 2</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="cmpFile2" type="file"/></div>
-<div><div class="subhd">Fondo 3</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="cmpFile3" type="file"/></div>
-<div><div class="subhd">Fondo 4</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="cmpFile4" type="file"/></div>
-<div><div class="subhd">Fondo 5</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="cmpFile5" type="file"/></div>
-<div><div class="subhd">Fondo 6</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="cmpFile6" type="file"/></div>
-<div><div class="subhd">Fondo 7</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="cmpFile7" type="file"/></div>
-<div><div class="subhd">Fondo 8</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="cmpFile8" type="file"/></div>
-<div><div class="subhd">Fondo 9</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="cmpFile9" type="file"/></div>
-<div><div class="subhd">Fondo 10</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="cmpFile10" type="file"/></div>
+<div><div class="subhd">Fondo 1</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="cmpFile1" type="file"></div>
+<div><div class="subhd">Fondo 2</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="cmpFile2" type="file"></div>
+<div><div class="subhd">Fondo 3</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="cmpFile3" type="file"></div>
+<div><div class="subhd">Fondo 4</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="cmpFile4" type="file"></div>
+<div><div class="subhd">Fondo 5</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="cmpFile5" type="file"></div>
+<div><div class="subhd">Fondo 6</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="cmpFile6" type="file"></div>
+<div><div class="subhd">Fondo 7</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="cmpFile7" type="file"></div>
+<div><div class="subhd">Fondo 8</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="cmpFile8" type="file"></div>
+<div><div class="subhd">Fondo 9</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="cmpFile9" type="file"></div>
+<div><div class="subhd">Fondo 10</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="cmpFile10" type="file"></div>
 </div>
 <div style="height:10px"></div>
 <button class="btn" disabled="" id="cmpRun">Calcular comparación</button>
@@ -655,11 +656,11 @@
 <div class="subhd" style="margin:0; min-width:210px;">Periodo (gráfico de línea)</div>
 <div>
 <div class="subhd" style="margin:0 0 4px 0; font-size:12px; color:var(--muted);">Desde</div>
-<input class="dateInput" id="cmpStartDate" type="date"/>
+<input class="dateInput" id="cmpStartDate" type="date">
 </div>
 <div>
 <div class="subhd" style="margin:0 0 4px 0; font-size:12px; color:var(--muted);">Hasta</div>
-<input class="dateInput" id="cmpEndDate" type="date"/>
+<input class="dateInput" id="cmpEndDate" type="date">
 </div>
 <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
 <button class="iconBtn" id="cmpQuick1">1a</button>
@@ -714,11 +715,11 @@
 <div id="cmpMatRangeWrap" style="display:none; gap:10px; flex-wrap:wrap; align-items:flex-end;">
 <div style="min-width:170px;">
 <label style="margin:0 0 4px 0; display:block;">Inicio</label>
-<input id="cmpMatStart" type="date"/>
+<input id="cmpMatStart" type="date">
 </div>
 <div style="min-width:170px;">
 <label style="margin:0 0 4px 0; display:block;">Fin</label>
-<input id="cmpMatEnd" type="date"/>
+<input id="cmpMatEnd" type="date">
 </div>
 </div>
 <div class="note" id="cmpBetaHelp" style="margin:0; flex:1; min-width:300px;">
@@ -792,26 +793,26 @@
 <div class="row" style="gap:14px; align-items:flex-start; flex-wrap:wrap;">
 <div style="flex:1 1 520px; min-width:330px;">
 <div class="subhd">1) Fondos</div>
-<span id="btAdvToggle" style="font-size:11px;color:var(--muted);cursor:pointer;user-select:none;">&#9658; CSV manual (Investing)</span>
+<span id="btAdvToggle" style="font-size:11px;color:var(--muted);cursor:pointer;user-select:none;">► CSV manual (Investing)</span>
 <div id="btAdvBody" style="display:none;margin-top:6px;padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:#fafafa;">
 <div id="btFiles" style="display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:8px;">
-<div><div class="muted" style="font-size:12px; margin-bottom:4px;">F1</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="btFile1" type="file"/></div>
-<div><div class="muted" style="font-size:12px; margin-bottom:4px;">F2</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="btFile2" type="file"/></div>
-<div><div class="muted" style="font-size:12px; margin-bottom:4px;">F3</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="btFile3" type="file"/></div>
-<div><div class="muted" style="font-size:12px; margin-bottom:4px;">F4</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="btFile4" type="file"/></div>
-<div><div class="muted" style="font-size:12px; margin-bottom:4px;">F5</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="btFile5" type="file"/></div>
-<div><div class="muted" style="font-size:12px; margin-bottom:4px;">F6</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="btFile6" type="file"/></div>
-<div><div class="muted" style="font-size:12px; margin-bottom:4px;">F7</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="btFile7" type="file"/></div>
-<div><div class="muted" style="font-size:12px; margin-bottom:4px;">F8</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="btFile8" type="file"/></div>
-<div><div class="muted" style="font-size:12px; margin-bottom:4px;">F9</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="btFile9" type="file"/></div>
-<div><div class="muted" style="font-size:12px; margin-bottom:4px;">F10</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="btFile10" type="file"/></div> </div>
+<div><div class="muted" style="font-size:12px; margin-bottom:4px;">F1</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="btFile1" type="file"></div>
+<div><div class="muted" style="font-size:12px; margin-bottom:4px;">F2</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="btFile2" type="file"></div>
+<div><div class="muted" style="font-size:12px; margin-bottom:4px;">F3</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="btFile3" type="file"></div>
+<div><div class="muted" style="font-size:12px; margin-bottom:4px;">F4</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="btFile4" type="file"></div>
+<div><div class="muted" style="font-size:12px; margin-bottom:4px;">F5</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="btFile5" type="file"></div>
+<div><div class="muted" style="font-size:12px; margin-bottom:4px;">F6</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="btFile6" type="file"></div>
+<div><div class="muted" style="font-size:12px; margin-bottom:4px;">F7</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="btFile7" type="file"></div>
+<div><div class="muted" style="font-size:12px; margin-bottom:4px;">F8</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="btFile8" type="file"></div>
+<div><div class="muted" style="font-size:12px; margin-bottom:4px;">F9</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="btFile9" type="file"></div>
+<div><div class="muted" style="font-size:12px; margin-bottom:4px;">F10</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="btFile10" type="file"></div> </div>
 </div><!-- /btAdvBody -->
 <div class="row" style="gap:10px; align-items:center; flex-wrap:wrap; margin-top:6px;">
   <div class="muted">Se usa el tramo <b>diario</b> detectado.</div>
   <label class="muted" style="display:flex; gap:6px; align-items:center; margin:0;">
     Outliers:
     <select id="btOutliers" class="select" style="max-width:230px;">
-      <option value="on" selected>ON (corrige errores obvios)</option>
+      <option value="on" selected="">ON (corrige errores obvios)</option>
       <option value="off">OFF</option>
     </select>
   </label>
@@ -826,11 +827,11 @@
 <div class="subhd">3) Rebalanceo</div>
 <div class="row" style="gap:8px; flex-wrap:wrap;">
 <select id="btRebalMode" style="padding:8px 10px; border:1px solid var(--border); border-radius:12px; background:#fff;">
-<option value="none" selected>Buy &amp; hold (sin rebalanceo)</option>
+<option value="none" selected="">Buy &amp; hold (sin rebalanceo)</option>
 <option value="yearly">Anual (rebalanceo a objetivo)</option>
 <option value="bands">Por bandas (test anual)</option>
 </select>
-<input id="btBandX" min="0" step="0.5" style="width:96px; padding:8px 10px; border:1px solid var(--border); border-radius:12px; background:#fff;" title="Umbral de bandas" type="number" value="5"/>
+<input id="btBandX" min="0" step="0.5" style="width:96px; padding:8px 10px; border:1px solid var(--border); border-radius:12px; background:#fff;" title="Umbral de bandas" type="number" value="5">
 </div>
 <div class="muted" id="btBandHelp" style="margin-top:6px;">Bandas: en el <b>primer día disponible</b> de cada año se comprueba objetivo ± X <b>p.p.</b> (ej. 25% y X=5 → [20%,30%]). Si algún activo sale de banda, se rebalancea a objetivo.</div>
 </div>
@@ -839,19 +840,19 @@
 <div class="muted" id="btBenchStatus" style="margin-top:2px;">Sube CSVs y define pesos (100%) para añadir una línea de benchmark.</div>
 <div class="row" style="gap:14px; align-items:flex-start; flex-wrap:wrap; margin-top:10px;">
 <div style="flex:1 1 520px; min-width:330px;">
-<span id="btBenchAdvToggle" style="font-size:11px;color:var(--muted);cursor:pointer;user-select:none;">&#9658; CSV benchmark manual (Investing)</span>
+<span id="btBenchAdvToggle" style="font-size:11px;color:var(--muted);cursor:pointer;user-select:none;">► CSV benchmark manual (Investing)</span>
 <div id="btBenchAdvBody" style="display:none;margin-top:6px;padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:#fafafa;">
 <div id="btBenchFiles" style="display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:8px;">
-<div><div class="muted" style="font-size:12px; margin-bottom:4px;">B1</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="btBFile1" type="file"/></div>
-<div><div class="muted" style="font-size:12px; margin-bottom:4px;">B2</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="btBFile2" type="file"/></div>
-<div><div class="muted" style="font-size:12px; margin-bottom:4px;">B3</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="btBFile3" type="file"/></div>
-<div><div class="muted" style="font-size:12px; margin-bottom:4px;">B4</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="btBFile4" type="file"/></div>
-<div><div class="muted" style="font-size:12px; margin-bottom:4px;">B5</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="btBFile5" type="file"/></div>
-<div><div class="muted" style="font-size:12px; margin-bottom:4px;">B6</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="btBFile6" type="file"/></div>
-<div><div class="muted" style="font-size:12px; margin-bottom:4px;">B7</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="btBFile7" type="file"/></div>
-<div><div class="muted" style="font-size:12px; margin-bottom:4px;">B8</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="btBFile8" type="file"/></div>
-<div><div class="muted" style="font-size:12px; margin-bottom:4px;">B9</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="btBFile9" type="file"/></div>
-<div><div class="muted" style="font-size:12px; margin-bottom:4px;">B10</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="btBFile10" type="file"/></div>
+<div><div class="muted" style="font-size:12px; margin-bottom:4px;">B1</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="btBFile1" type="file"></div>
+<div><div class="muted" style="font-size:12px; margin-bottom:4px;">B2</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="btBFile2" type="file"></div>
+<div><div class="muted" style="font-size:12px; margin-bottom:4px;">B3</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="btBFile3" type="file"></div>
+<div><div class="muted" style="font-size:12px; margin-bottom:4px;">B4</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="btBFile4" type="file"></div>
+<div><div class="muted" style="font-size:12px; margin-bottom:4px;">B5</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="btBFile5" type="file"></div>
+<div><div class="muted" style="font-size:12px; margin-bottom:4px;">B6</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="btBFile6" type="file"></div>
+<div><div class="muted" style="font-size:12px; margin-bottom:4px;">B7</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="btBFile7" type="file"></div>
+<div><div class="muted" style="font-size:12px; margin-bottom:4px;">B8</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="btBFile8" type="file"></div>
+<div><div class="muted" style="font-size:12px; margin-bottom:4px;">B9</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="btBFile9" type="file"></div>
+<div><div class="muted" style="font-size:12px; margin-bottom:4px;">B10</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="btBFile10" type="file"></div>
 </div>
 </div>
 </div><!-- /btBenchAdvBody -->
@@ -867,11 +868,11 @@
 <div class="subhd">Rebalanceo benchmark</div>
 <div class="row" style="gap:8px; flex-wrap:wrap;">
 <select id="btBenchRebalMode" style="padding:8px 10px; border:1px solid var(--border); border-radius:12px; background:#fff;">
-<option value="none" selected>Buy &amp; hold (sin rebalanceo)</option>
+<option value="none" selected="">Buy &amp; hold (sin rebalanceo)</option>
 <option value="yearly">Anual (rebalanceo a objetivo)</option>
 <option value="bands">Por bandas (test anual)</option>
 </select>
-<input id="btBenchBandX" min="0" step="0.5" style="width:96px; padding:8px 10px; border:1px solid var(--border); border-radius:12px; background:#fff; display:none;" title="Umbral de bandas benchmark" type="number" value="5"/>
+<input id="btBenchBandX" min="0" step="0.5" style="width:96px; padding:8px 10px; border:1px solid var(--border); border-radius:12px; background:#fff; display:none;" title="Umbral de bandas benchmark" type="number" value="5">
 </div>
 <div class="muted" id="btBenchBandHelp" style="margin-top:8px; display:none;">Bandas benchmark: mismo criterio (primer día del año; ± X p.p.).</div>
 </div>
@@ -893,7 +894,7 @@
 <div class="row" style="gap:8px; flex-wrap:wrap; justify-content:flex-end;">
 
 <label class="muted" style="display:flex; gap:6px; align-items:center; margin:0 6px 0 0;">
-  <input type="checkbox" id="btShowBench" checked style="transform:translateY(-0.5px);"/>
+  <input type="checkbox" id="btShowBench" checked="" style="transform:translateY(-0.5px);">
   Mostrar benchmark
 </label>
 <button class="btn" id="btLast1" style="padding:8px 10px;">1a</button>
@@ -908,9 +909,9 @@
 <div class="bd">
 <div class="row" style="gap:8px; flex-wrap:wrap; align-items:center;">
 <span class="muted">Inicio</span>
-<input id="btStart" style="padding:8px 10px; border:1px solid var(--border); border-radius:12px; background:#fff;" type="date"/>
+<input id="btStart" style="padding:8px 10px; border:1px solid var(--border); border-radius:12px; background:#fff;" type="date">
 <span class="muted">Fin</span>
-<input id="btEnd" style="padding:8px 10px; border:1px solid var(--border); border-radius:12px; background:#fff;" type="date"/>
+<input id="btEnd" style="padding:8px 10px; border:1px solid var(--border); border-radius:12px; background:#fff;" type="date">
 </div>
 <div id="btPlotGrowth" style="height:520px; margin-top:8px;"></div>
 <div class="muted" id="btGrowthNote" style="margin-top:6px;"></div>
@@ -962,7 +963,7 @@
 <div class="row" style="gap:8px; align-items:center; flex-wrap:wrap; margin-top:10px;">
   <span class="muted">Vista anual</span>
   <select id="btYearView" class="select" style="max-width:250px;">
-    <option value="bars7" selected>Barras (últimos 7 años)</option>
+    <option value="bars7" selected="">Barras (últimos 7 años)</option>
     <option value="lineAll">Línea (todo el histórico)</option>
   </select>
 </div>
@@ -1030,7 +1031,7 @@
     <label class="muted" style="display:flex; gap:6px; align-items:center; margin:0;">
       Frecuencia:
       <select id="btDDMode" class="select" style="max-width:190px;">
-        <option value="daily" selected>Diario</option>
+        <option value="daily" selected="">Diario</option>
         <option value="monthly">Mensual (fin de mes)</option>
       </select>
     </label>
@@ -12194,10 +12195,12 @@ async function mstDoSearch(){
   }
   window.dpSyncToDatapack = dpSyncToDatapack;
 
-  // ── Gist Cloud Sync ──
+  // ── Gist Cloud Sync (auto-save / auto-load) ──
   const GIST_TOKEN_KEY = "fd_gist_token";
   const GIST_ID_KEY    = "fd_gist_id";
   const GIST_FILE      = "fund_dashboard_datapack.json";
+  let   gistSaveTimer  = null;
+  let   gistSaving     = false;
 
   function gistGetToken(){ try{ return localStorage.getItem(GIST_TOKEN_KEY)||""; }catch(_){ return ""; } }
   function gistGetId(){    try{ return localStorage.getItem(GIST_ID_KEY)||""; }catch(_){ return ""; } }
@@ -12208,65 +12211,75 @@ async function mstDoSearch(){
   function gistUpdateInfo(){
     const el = $("dpGistInfo"); if(!el) return;
     const token = gistGetToken(), id = gistGetId();
-    if(!token){ el.innerHTML = "⚠️ Sin token. Introduce tu token GitHub con scope <b>gist</b>."; return; }
+    if(!token){ el.innerHTML = "⚠️ Sin token. Introduce tu token GitHub (scope: <b>gist</b>) y pulsa Guardar."; return; }
     el.innerHTML = id
-      ? `✅ Token guardado · Gist ID: <code style="font-size:10px">${id.substring(0,12)}…</code>`
-      : "✅ Token guardado · Aún no hay Gist (se creará al subir).";
+      ? `✅ Sincronización activa · <code style="font-size:10px">${id.substring(0,12)}…</code> · Los cambios se guardan automáticamente.`
+      : "✅ Token guardado · El Gist se creará automáticamente al añadir el primer fondo.";
   }
 
-  async function gistUpload(){
+  async function gistSaveNow(silent){
     const token = gistGetToken();
-    if(!token){ dpSetStatus("warn","Introduce un token GitHub con scope 'gist' en el panel de nube."); return; }
+    if(!token) return;
+    if(gistSaving) return;
     const data = JSON.stringify(store);
-    if(!Object.keys(store).length){ dpSetStatus("warn","No hay fondos en el Datapack para subir."); return; }
-    dpSetStatus("info","☁️ Subiendo a la nube…");
+    if(!Object.keys(store).length) return;
+    gistSaving = true;
     try{
       const existingId = gistGetId();
       const body = { description:"Fund Dashboard Datapack", public:false,
         files:{ [GIST_FILE]:{ content: data } } };
-      const url = existingId
-        ? `https://api.github.com/gists/${existingId}`
-        : "https://api.github.com/gists";
+      const url    = existingId ? `https://api.github.com/gists/${existingId}` : "https://api.github.com/gists";
       const method = existingId ? "PATCH" : "POST";
-      const resp = await fetch(url,{method,headers:{"Authorization":"token "+token,"Content-Type":"application/json"},body:JSON.stringify(body)});
+      const resp   = await fetch(url,{method,headers:{"Authorization":"token "+token,"Content-Type":"application/json"},body:JSON.stringify(body)});
       const result = await resp.json();
       if(resp.status===200||resp.status===201){
         gistSetId(result.id);
         gistUpdateInfo();
-        dpSetStatus("ok","☁️ Subido correctamente. "+Object.keys(store).length+" fondos en la nube.");
+        if(!silent) dpSetStatus("ok","☁️ Guardado en la nube. "+Object.keys(store).length+" fondos.");
       } else {
-        dpSetStatus("warn","Error al subir: "+(result.message||resp.status));
+        if(!silent) dpSetStatus("warn","☁️ Error al guardar: "+(result.message||resp.status));
       }
-    }catch(e){ dpSetStatus("warn","Error de red: "+e.message); }
+    }catch(e){
+      if(!silent) dpSetStatus("warn","☁️ Error de red: "+e.message);
+    }finally{ gistSaving = false; }
+  }
+
+  function gistAutoSave(){
+    if(!gistGetToken()) return;
+    if(gistSaveTimer) clearTimeout(gistSaveTimer);
+    gistSaveTimer = setTimeout(()=> gistSaveNow(true), 1500);
+  }
+
+  async function gistUpload(){
+    if(!gistGetToken()){ dpSetStatus("warn","Introduce un token GitHub con scope 'gist' y guárdalo primero."); return; }
+    if(!Object.keys(store).length){ dpSetStatus("warn","No hay fondos en el Datapack para subir."); return; }
+    dpSetStatus("info","☁️ Subiendo a la nube…");
+    await gistSaveNow(false);
   }
 
   async function gistDownload(){
     const token = gistGetToken(), id = gistGetId();
     if(!token){ dpSetStatus("warn","Introduce un token GitHub con scope 'gist'."); return; }
-    if(!id){ dpSetStatus("warn","No hay Gist guardado. Sube primero desde el dispositivo principal."); return; }
+    if(!id){ dpSetStatus("warn","Aún no hay datos en la nube. Añade fondos desde el dispositivo principal."); return; }
     dpSetStatus("info","☁️ Descargando de la nube…");
     try{
       const resp = await fetch(`https://api.github.com/gists/${id}`,{headers:{"Authorization":"token "+token}});
       const result = await resp.json();
-      if(resp.status!==200){ dpSetStatus("warn","Error al descargar: "+(result.message||resp.status)); return; }
+      if(resp.status!==200){ dpSetStatus("warn","Error: "+(result.message||resp.status)); return; }
       const fileObj = result.files && result.files[GIST_FILE];
       if(!fileObj){ dpSetStatus("warn","No se encontró el archivo en el Gist."); return; }
-      // Fetch raw content if truncated
       let content = fileObj.content;
-      if(fileObj.truncated && fileObj.raw_url){
-        const r2 = await fetch(fileObj.raw_url); content = await r2.text();
-      }
+      if(fileObj.truncated && fileObj.raw_url){ const r2=await fetch(fileObj.raw_url); content=await r2.text(); }
       const parsed = JSON.parse(content);
       let count=0;
       Object.entries(parsed).forEach(([k,v])=>{ store[k]=v; count++; });
       dpSyncToDatapack(); dpUpdateStats(); dpRenderFundsList();
-      dpSetStatus("ok","☁️ Descargados "+count+" fondos de la nube.");
+      dpSetStatus("ok","☁️ "+count+" fondos descargados de la nube.");
     }catch(e){ dpSetStatus("warn","Error: "+e.message); }
   }
 
   async function gistAutoLoad(){
-    // Auto-load on page open if token + gist id exist and store is empty
-    if(Object.keys(store).length>0) return; // already has data
+    if(Object.keys(store).length>0) return;
     const token = gistGetToken(), id = gistGetId();
     if(!token||!id) return;
     try{
@@ -12282,13 +12295,13 @@ async function mstDoSearch(){
       Object.entries(parsed).forEach(([k,v])=>{ store[k]=v; count++; });
       dpSyncToDatapack(); dpUpdateStats(); dpRenderFundsList();
       setTimeout(()=>{
-        dpSetStatus("ok","☁️ "+count+" fondos cargados automáticamente desde la nube.");
-        setTimeout(()=>{ const el=$("dpStatus"); if(el&&el.innerHTML.includes("nube")) el.style.display="none"; },5000);
+        dpSetStatus("ok","☁️ "+count+" fondos cargados automáticamente de la nube.");
+        setTimeout(()=>{ const el=$("dpStatus"); if(el&&el.innerHTML.includes("nube")) el.style.display="none"; },6000);
       },400);
     }catch(_){}
   }
 
-  // ── Init ──
+    // ── Init ──
   function dpInit(){
     // Drawer toggle
     const btn=$("dpDrawerBtn"), closeBtn=$("dpDrawerClose");
@@ -12361,7 +12374,4 @@ async function mstDoSearch(){
   else dpInit();
 
 })();
-</script>
-
-</body>
-</html>
+</script></div></div></body></html>
