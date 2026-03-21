@@ -286,6 +286,24 @@
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
       <button class="btn" id="dpRunBtn" style="font-size:12px;padding:7px 14px">▶ Descargar y guardar</button>
       <button class="btnGhost" id="dpSaveSnapshotBtn" style="font-size:12px;padding:7px 14px" title="Incrusta los fondos en el HTML y descarga el archivo con memoria incluida">💾 Snapshot HTML</button>
+      <button class="btnGhost" id="dpGistSyncBtn" style="font-size:12px;padding:7px 14px;border-color:#7c3aed;color:#7c3aed" title="Guardar/cargar fondos en la nube (GitHub Gist)">☁️ Nube</button>
+    </div>
+
+    <!-- Gist sync panel (hidden by default) -->
+    <div id="dpGistPanel" style="display:none;margin-bottom:12px;padding:10px 12px;border:1px solid #7c3aed33;border-radius:12px;background:#faf5ff;font-size:12px;">
+      <div style="font-weight:700;color:#7c3aed;margin-bottom:8px">☁️ Sincronización en la nube (GitHub Gist)</div>
+      <div style="color:#555;margin-bottom:8px;line-height:1.4">Guarda tus fondos en un Gist privado de GitHub. Se cargarán automáticamente al abrir el dashboard desde cualquier dispositivo.</div>
+      <label style="display:block;margin-bottom:4px;color:#64748b">Token GitHub (scope: gist)</label>
+      <div style="display:flex;gap:6px;margin-bottom:8px">
+        <input id="dpGistToken" type="password" placeholder="ghp_..." style="flex:1;padding:7px 10px;border:1px solid #cbd5e1;border-radius:10px;font-size:12px;background:#fff"/>
+        <button id="dpGistSaveTokenBtn" class="btnGhost" style="font-size:11px;padding:6px 10px;white-space:nowrap">Guardar token</button>
+      </div>
+      <div id="dpGistInfo" style="font-size:11px;color:#64748b;margin-bottom:8px"></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button id="dpGistUploadBtn" class="btn" style="font-size:12px;padding:7px 14px;background:#7c3aed;border-color:#6d28d9">⬆️ Subir a nube</button>
+        <button id="dpGistDownloadBtn" class="btnGhost" style="font-size:12px;padding:7px 14px;border-color:#7c3aed;color:#7c3aed">⬇️ Descargar de nube</button>
+        <button id="dpGistForgetBtn" class="btnGhost" style="font-size:11px;padding:6px 10px;color:#c00;border-color:#c00">Olvidar token</button>
+      </div>
     </div>
 
     <div id="dpStatus" style="font-size:12px;padding:8px 10px;border-radius:8px;margin-bottom:12px;display:none"></div>
@@ -564,6 +582,8 @@
 <div class="card">
 <div class="hd"><span class="pill">Entrada</span><span class="pill" id="cmpStatus">Sin datos</span></div>
 <div class="bd">
+<span id="cmpAdvToggle" style="font-size:11px;color:var(--muted);cursor:pointer;user-select:none;">&#9658; Opciones avanzadas (CSV manual)</span>
+<div id="cmpAdvBody" style="display:none;margin-top:8px;padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:#fafafa;">
 <label>CSVs (hasta 10 fondos, formato Investing)</label>
 <div style="display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px;">
 <div><div class="subhd">Fondo 1</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="cmpFile1" type="file"/></div>
@@ -579,6 +599,7 @@
 </div>
 <div style="height:10px"></div>
 <button class="btn" disabled="" id="cmpRun">Calcular comparación</button>
+</div><!-- /cmpAdvBody -->
 <div style="height:10px"></div>
 <div class="note" id="cmpMsg"></div>
 <div class="split"></div>
@@ -770,7 +791,9 @@
 <div class="bd">
 <div class="row" style="gap:14px; align-items:flex-start; flex-wrap:wrap;">
 <div style="flex:1 1 520px; min-width:330px;">
-<div class="subhd">1) CSVs (Investing)</div>
+<div class="subhd">1) Fondos</div>
+<span id="btAdvToggle" style="font-size:11px;color:var(--muted);cursor:pointer;user-select:none;">&#9658; CSV manual (Investing)</span>
+<div id="btAdvBody" style="display:none;margin-top:6px;padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:#fafafa;">
 <div id="btFiles" style="display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:8px;">
 <div><div class="muted" style="font-size:12px; margin-bottom:4px;">F1</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="btFile1" type="file"/></div>
 <div><div class="muted" style="font-size:12px; margin-bottom:4px;">F2</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="btFile2" type="file"/></div>
@@ -782,6 +805,7 @@
 <div><div class="muted" style="font-size:12px; margin-bottom:4px;">F8</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="btFile8" type="file"/></div>
 <div><div class="muted" style="font-size:12px; margin-bottom:4px;">F9</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="btFile9" type="file"/></div>
 <div><div class="muted" style="font-size:12px; margin-bottom:4px;">F10</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="btFile10" type="file"/></div> </div>
+</div><!-- /btAdvBody -->
 <div class="row" style="gap:10px; align-items:center; flex-wrap:wrap; margin-top:6px;">
   <div class="muted">Se usa el tramo <b>diario</b> detectado.</div>
   <label class="muted" style="display:flex; gap:6px; align-items:center; margin:0;">
@@ -815,7 +839,8 @@
 <div class="muted" id="btBenchStatus" style="margin-top:2px;">Sube CSVs y define pesos (100%) para añadir una línea de benchmark.</div>
 <div class="row" style="gap:14px; align-items:flex-start; flex-wrap:wrap; margin-top:10px;">
 <div style="flex:1 1 520px; min-width:330px;">
-<div class="subhd">CSV benchmark (Investing)</div>
+<span id="btBenchAdvToggle" style="font-size:11px;color:var(--muted);cursor:pointer;user-select:none;">&#9658; CSV benchmark manual (Investing)</span>
+<div id="btBenchAdvBody" style="display:none;margin-top:6px;padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:#fafafa;">
 <div id="btBenchFiles" style="display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:8px;">
 <div><div class="muted" style="font-size:12px; margin-bottom:4px;">B1</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="btBFile1" type="file"/></div>
 <div><div class="muted" style="font-size:12px; margin-bottom:4px;">B2</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="btBFile2" type="file"/></div>
@@ -829,6 +854,7 @@
 <div><div class="muted" style="font-size:12px; margin-bottom:4px;">B10</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="btBFile10" type="file"/></div>
 </div>
 </div>
+</div><!-- /btBenchAdvBody -->
 <div style="flex:1 1 320px; min-width:260px;">
 <div class="row" style="gap:8px; align-items:center; justify-content:space-between;">
 <div class="subhd" style="margin:0;">Pesos benchmark (%)</div>
@@ -1052,6 +1078,16 @@
 <!-- __DP_DATA_INJECT_HERE__ -->
 <script>
 /* ---------- helpers ---------- */
+// Store clean HTML source immediately on load (before Plotly renders charts)
+// Used by dpSaveSnapshot to avoid the bloated outerHTML approach
+(function(){
+  try{
+    // Only store if not already a snapshot (no __DP_DATA embedded)
+    if(typeof window.__DP_DATA === "undefined"){
+      window.__CLEAN_HTML_SOURCE = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
+    }
+  }catch(_){}
+})();
 const fmtPct = (x,d=2)=> (x==null||Number.isNaN(x))?"n.a.":(x*100).toLocaleString("es-ES",{minimumFractionDigits:d,maximumFractionDigits:d})+"%";
 const fmtPctLabel = (x)=>{ if(x==null||Number.isNaN(x)) return "n.a."; const v=Math.abs(x)*100; const s=v.toLocaleString("es-ES",{minimumFractionDigits:1,maximumFractionDigits:1})+"%"; return x<0?`(${s})`:s; };
 const fmtNum = (x,d=1)=> (x==null||Number.isNaN(x))?"n.a.":Number(x).toLocaleString("es-ES",{minimumFractionDigits:d,maximumFractionDigits:d});
@@ -9569,17 +9605,22 @@ downloadCSV("screen1_daily_series.csv", toCSVSep(cols, rowsPlain, ";", {bom:true
     };
   }
 
-  // Wire advanced-options toggle for screen1
+  // Wire advanced-options toggles (screen1, 2 and 3)
   (function(){
-    const tog = document.getElementById("s1AdvToggle");
-    const body = document.getElementById("s1AdvBody");
-    if (tog && body){
+    function wireToggle(togId, bodyId, closedLabel, openLabel){
+      const tog = document.getElementById(togId);
+      const body = document.getElementById(bodyId);
+      if (!tog || !body) return;
       tog.addEventListener("click", ()=>{
         const open = body.style.display !== "none";
         body.style.display = open ? "none" : "block";
-        tog.textContent = (open ? "\u25B8" : "\u25BE") + " Opciones avanzadas (CSV manual \u00B7 Modo \u00B7 Outliers)";
+        tog.textContent = (open ? "\u25B8" : "\u25BE") + " " + (open ? closedLabel : (openLabel || closedLabel));
       });
     }
+    wireToggle("s1AdvToggle",       "s1AdvBody",       "Opciones avanzadas (CSV manual \u00B7 Modo \u00B7 Outliers)");
+    wireToggle("cmpAdvToggle",      "cmpAdvBody",      "Opciones avanzadas (CSV manual)");
+    wireToggle("btAdvToggle",       "btAdvBody",       "CSV manual (Investing)");
+    wireToggle("btBenchAdvToggle",  "btBenchAdvBody",  "CSV benchmark manual (Investing)");
   })();
 
   window.addEventListener("load", ()=>{
@@ -11205,24 +11246,6 @@ async function mstDoSearch(){
   }
 
 
-  async function checkMapfre(isin){
-    isin = normISIN(isin);
-    if (!isin) return "?";
-    // Mapfre fondo url pattern
-    try{
-      const url = `https://www.mapfre.es/seguros/inversiones/fondos/${isin}/`;
-      const txt = await brokerFetchText(url, 8000);
-      const t = (txt||"").toLowerCase();
-      const isinL = isin.toLowerCase();
-      // Positive: ficha page with ISIN present
-      if ((t.includes("valor liquidativo") || t.includes("fondo de inversión") || t.includes("ficha") || t.includes("rentabilidad")) && t.includes(isinL)) return 1;
-      if (t.includes("error 404") || t.includes("not found") || t.includes("no encontrado") || t.includes("página no encontrada")) return 0;
-    }catch(_){}
-    // Fallback: search engine
-    const se = await searchForISIN("mapfre.es", isin);
-    if (se !== "?") return se;
-    return "?";
-  }
 
   async function checkR4(isin){
     const url = `https://www.r4.com/fondos-de-inversion/fondos/${isin}`;
@@ -11336,9 +11359,9 @@ async function mstDoSearch(){
       if (inflight.has(k)) continue;
       inflight.set(k, true);
 
-      // EBN: sin requests, siempre "?"
-      if (b.id === "ebn"){
-        enqueue(async ()=>{ await setStatus(isin, "ebn", "?"); inflight.delete(k); });
+      // EBN y Mapfre: sin requests directos verificables, siempre "?"
+      if (b.id === "ebn" || b.id === "mapfre"){
+        enqueue(async ()=>{ await setStatus(isin, b.id, "?"); inflight.delete(k); });
         continue;
       }
 
@@ -11348,7 +11371,7 @@ async function mstDoSearch(){
           if (b.id === "r4") v = await checkR4(isin);
           else if (b.id === "ironia") v = await checkIronia(isin);
           else if (b.id === "myi") v = await checkMyi(isin);
-          else if (b.id === "mapfre") v = await checkMapfre(isin);
+
           await setStatus(isin, b.id, (v===0||v===1)?v:"?");
         }catch(_){
           await setStatus(isin, b.id, "?");
@@ -11681,63 +11704,91 @@ async function mstDoSearch(){
     try{
       dpSetStatus("info","Generando snapshot…");
 
-      // 1. Close ALL overlays/drawers before capturing DOM
-      const drawerEl  = document.getElementById("dpDrawer");
-      const overlayEl = document.getElementById("dpOverlay");
-      // Close every modal overlay too (Morningstar, Investing, Repo pickers)
-      document.querySelectorAll(".repoOverlay.open").forEach(el=>el.classList.remove("open"));
-      document.querySelectorAll(".modalOverlay[style*='flex']").forEach(el=>el.style.display="none");
-      if (drawerEl)  drawerEl.style.right   = "-420px";
-      if (overlayEl) overlayEl.style.display = "none";
+      // Helper: inject __DP_DATA into clean HTML source string
+      function injectData(src){
+        // 1. Strip previous injections
+        src = src.replace(/<script[^>]*id="__dp_data__"[^>]*>[\s\S]*?<\/script>[ \t]*\n?/g, "");
 
-      // 2. Capture DOM — need one tick for layout to settle
-      await new Promise(r=>setTimeout(r, 30));
-      let src = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
+        // 2. Build data script — split closing tag so it doesn't break the script block
+        const closeTag = "<\/scr"+"ipt>";
+        const dataJson = JSON.stringify(store)
+          .replace(new RegExp(closeTag, "gi"), "<\\/scr"+"ipt>")
+          .replace(/<!--/g, "<\\!--");
+        const dataScript = '<script id="__dp_data__">window.__DP_DATA=' + dataJson + ';' + closeTag + "\n";
 
-      // 3. Strip ALL previous __dp_data__ injections (handles multiple saves)
-      src = src.replace(/<script[^>]*id="__dp_data__"[^>]*>[\s\S]*?<\/script>\s*/g, "");
-
-      // 4. Build data script — escape closing script tags inside JSON
-      const dataJson = JSON.stringify(store)
-        .replace(/<\/scr"+"ipt>/gi, "<\\/scr"+"ipt>")
-        .replace(/<!--/g, "<\\!--");
-      const dataScript = '<script id="__dp_data__">window.__DP_DATA=' + dataJson + ';<\/script>\n';
-
-      // 5. Inject BEFORE main script using sentinel (must come first so IIFE reads it)
-      if (src.includes("<!-- __DP_DATA_INJECT_HERE__ -->")){
-        src = src.replace("<!-- __DP_DATA_INJECT_HERE__ -->", dataScript + "<!-- __DP_DATA_INJECT_HERE__ -->");
-      } else {
-        // Fallback: inject right before first <script> tag in <body>
-        src = src.replace(/(<body[^>]*>)([\s\S]*?)(<script)/, "$1$2" + dataScript + "$3");
+        // 3. Inject before main script using sentinel
+        const sentinel = "<!-- __DP_DATA_INJECT_HERE__ -->";
+        if (src.includes(sentinel)){
+          return src.replace(sentinel, dataScript + sentinel);
+        }
+        // Fallback: inject right before the first <script> in <body>
+        return src.replace(/(<body[^>]*>[\s\S]*?)(<script[^>]*>)/, "$1" + dataScript + "$2");
       }
 
-      // 6. Build blob and trigger download
+      let src = "";
+
+      // Strategy 1: use pre-cached clean source (captured at page load, before Plotly renders)
+      if (window.__CLEAN_HTML_SOURCE && window.__CLEAN_HTML_SOURCE.includes("__DP_DATA_INJECT_HERE__")){
+        src = window.__CLEAN_HTML_SOURCE;
+        dpSetStatus("info","Usando fuente en caché. Inyectando datos…");
+      }
+
+      // Strategy 2: fetch the original source (works from https://)
+      if (!src){
+        const isBlob = location.href.startsWith("blob:");
+        const isFile = location.protocol === "file:";
+        if (!isBlob && !isFile){
+          try{
+            dpSetStatus("info","Descargando fuente original…");
+            const resp = await fetch(location.href, {cache:"no-store"});
+            if (resp.ok){
+              src = await resp.text();
+              dpSetStatus("info","Fuente obtenida. Inyectando datos…");
+            }
+          }catch(_){ src = ""; }
+        }
+      }
+
+      // Strategy 3: outerHTML last resort (only if nothing else worked)
+      if (!src || !src.includes("__DP_DATA_INJECT_HERE__")){
+        dpSetStatus("info","Capturando página…");
+        document.querySelectorAll(".repoOverlay.open").forEach(el=>el.classList.remove("open"));
+        document.querySelectorAll(".modalOverlay").forEach(el=>{ if(el.style.display==="flex") el.style.display="none"; });
+        const dr=document.getElementById("dpDrawer"); if(dr) dr.style.right="-420px";
+        const ov=document.getElementById("dpOverlay"); if(ov) ov.style.display="none";
+        await new Promise(r=>setTimeout(r,40));
+        src = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
+      }
+
+      src = injectData(src);
+
+      // Verify injection worked
+      if (!src.includes('id="__dp_data__"'))
+        throw new Error("No se pudo inyectar los datos en el HTML. Inténtalo de nuevo.");
+
+      // Build blob and download
       const blob = new Blob([src], {type:"text/html;charset=utf-8"});
       const url  = URL.createObjectURL(blob);
       const stamp = new Date().toISOString().slice(0,10);
       const fname = "fund_dashboard_snapshot_" + stamp + ".html";
 
-      // Remove any previous download link
+      // Remove previous link
       const prev = document.getElementById(dlLinkId);
       if (prev) prev.remove();
 
       const a = document.createElement("a");
-      a.id = dlLinkId;
-      a.href = url;
-      a.download = fname;
+      a.id = dlLinkId;  a.href = url;  a.download = fname;
       a.style.cssText = "display:block;margin-top:8px;font-size:12px;font-weight:700;color:var(--accent);text-decoration:underline;cursor:pointer;";
       a.textContent = "⬇ Si no descargó automáticamente, haz clic aquí: " + fname;
       document.body.appendChild(a);
       a.click();
-
-      // Revoke after generous delay (30s) to allow slow downloads
       setTimeout(()=>{ try{ URL.revokeObjectURL(url); }catch(_){} }, 30000);
 
       const count = Object.keys(store).length;
-      const sizeKb = Math.round(blob.size / 1024);
-      dpSetStatus("ok", "✅ Snapshot generado con " + count + " fondo(s) · " + sizeKb + " KB. Si no descargó automáticamente, pulsa el enlace que aparece abajo del botón.");
+      const sizeKb = Math.round(blob.size/1024);
+      dpSetStatus("ok", "✅ Snapshot con " + count + " fondo(s) · " + sizeKb + " KB. Si no inició la descarga, usa el enlace debajo del botón.");
     }catch(e){
-      dpSetStatus("err","Error al generar snapshot: " + (e?.message||"desconocido"));
+      dpSetStatus("err","Error: " + (e?.message||String(e)));
     }
   }
 
@@ -12143,6 +12194,100 @@ async function mstDoSearch(){
   }
   window.dpSyncToDatapack = dpSyncToDatapack;
 
+  // ── Gist Cloud Sync ──
+  const GIST_TOKEN_KEY = "fd_gist_token";
+  const GIST_ID_KEY    = "fd_gist_id";
+  const GIST_FILE      = "fund_dashboard_datapack.json";
+
+  function gistGetToken(){ try{ return localStorage.getItem(GIST_TOKEN_KEY)||""; }catch(_){ return ""; } }
+  function gistGetId(){    try{ return localStorage.getItem(GIST_ID_KEY)||""; }catch(_){ return ""; } }
+  function gistSetToken(t){ try{ localStorage.setItem(GIST_TOKEN_KEY,t); }catch(_){} }
+  function gistSetId(id){   try{ localStorage.setItem(GIST_ID_KEY,id); }catch(_){} }
+  function gistForget(){    try{ localStorage.removeItem(GIST_TOKEN_KEY); localStorage.removeItem(GIST_ID_KEY); }catch(_){} }
+
+  function gistUpdateInfo(){
+    const el = $("dpGistInfo"); if(!el) return;
+    const token = gistGetToken(), id = gistGetId();
+    if(!token){ el.innerHTML = "⚠️ Sin token. Introduce tu token GitHub con scope <b>gist</b>."; return; }
+    el.innerHTML = id
+      ? `✅ Token guardado · Gist ID: <code style="font-size:10px">${id.substring(0,12)}…</code>`
+      : "✅ Token guardado · Aún no hay Gist (se creará al subir).";
+  }
+
+  async function gistUpload(){
+    const token = gistGetToken();
+    if(!token){ dpSetStatus("warn","Introduce un token GitHub con scope 'gist' en el panel de nube."); return; }
+    const data = JSON.stringify(store);
+    if(!Object.keys(store).length){ dpSetStatus("warn","No hay fondos en el Datapack para subir."); return; }
+    dpSetStatus("info","☁️ Subiendo a la nube…");
+    try{
+      const existingId = gistGetId();
+      const body = { description:"Fund Dashboard Datapack", public:false,
+        files:{ [GIST_FILE]:{ content: data } } };
+      const url = existingId
+        ? `https://api.github.com/gists/${existingId}`
+        : "https://api.github.com/gists";
+      const method = existingId ? "PATCH" : "POST";
+      const resp = await fetch(url,{method,headers:{"Authorization":"token "+token,"Content-Type":"application/json"},body:JSON.stringify(body)});
+      const result = await resp.json();
+      if(resp.status===200||resp.status===201){
+        gistSetId(result.id);
+        gistUpdateInfo();
+        dpSetStatus("ok","☁️ Subido correctamente. "+Object.keys(store).length+" fondos en la nube.");
+      } else {
+        dpSetStatus("warn","Error al subir: "+(result.message||resp.status));
+      }
+    }catch(e){ dpSetStatus("warn","Error de red: "+e.message); }
+  }
+
+  async function gistDownload(){
+    const token = gistGetToken(), id = gistGetId();
+    if(!token){ dpSetStatus("warn","Introduce un token GitHub con scope 'gist'."); return; }
+    if(!id){ dpSetStatus("warn","No hay Gist guardado. Sube primero desde el dispositivo principal."); return; }
+    dpSetStatus("info","☁️ Descargando de la nube…");
+    try{
+      const resp = await fetch(`https://api.github.com/gists/${id}`,{headers:{"Authorization":"token "+token}});
+      const result = await resp.json();
+      if(resp.status!==200){ dpSetStatus("warn","Error al descargar: "+(result.message||resp.status)); return; }
+      const fileObj = result.files && result.files[GIST_FILE];
+      if(!fileObj){ dpSetStatus("warn","No se encontró el archivo en el Gist."); return; }
+      // Fetch raw content if truncated
+      let content = fileObj.content;
+      if(fileObj.truncated && fileObj.raw_url){
+        const r2 = await fetch(fileObj.raw_url); content = await r2.text();
+      }
+      const parsed = JSON.parse(content);
+      let count=0;
+      Object.entries(parsed).forEach(([k,v])=>{ store[k]=v; count++; });
+      dpSyncToDatapack(); dpUpdateStats(); dpRenderFundsList();
+      dpSetStatus("ok","☁️ Descargados "+count+" fondos de la nube.");
+    }catch(e){ dpSetStatus("warn","Error: "+e.message); }
+  }
+
+  async function gistAutoLoad(){
+    // Auto-load on page open if token + gist id exist and store is empty
+    if(Object.keys(store).length>0) return; // already has data
+    const token = gistGetToken(), id = gistGetId();
+    if(!token||!id) return;
+    try{
+      const resp = await fetch(`https://api.github.com/gists/${id}`,{headers:{"Authorization":"token "+token}});
+      if(resp.status!==200) return;
+      const result = await resp.json();
+      const fileObj = result.files && result.files[GIST_FILE];
+      if(!fileObj) return;
+      let content = fileObj.content;
+      if(fileObj.truncated && fileObj.raw_url){ const r2=await fetch(fileObj.raw_url); content=await r2.text(); }
+      const parsed = JSON.parse(content);
+      let count=0;
+      Object.entries(parsed).forEach(([k,v])=>{ store[k]=v; count++; });
+      dpSyncToDatapack(); dpUpdateStats(); dpRenderFundsList();
+      setTimeout(()=>{
+        dpSetStatus("ok","☁️ "+count+" fondos cargados automáticamente desde la nube.");
+        setTimeout(()=>{ const el=$("dpStatus"); if(el&&el.innerHTML.includes("nube")) el.style.display="none"; },5000);
+      },400);
+    }catch(_){}
+  }
+
   // ── Init ──
   function dpInit(){
     // Drawer toggle
@@ -12155,6 +12300,25 @@ async function mstDoSearch(){
     wire("dpRunBtn",          dpRun);
     dpWireAttrFile();
     wire("dpSaveSnapshotBtn", dpSaveSnapshot);
+    // Gist cloud sync
+    wire("dpGistSyncBtn", ()=>{
+      const p=$("dpGistPanel"); if(!p) return;
+      const open = p.style.display==="none";
+      p.style.display = open?"block":"none";
+      if(open){ const t=gistGetToken(); const el=$("dpGistToken"); if(el&&t) el.value=t; gistUpdateInfo(); }
+    });
+    wire("dpGistSaveTokenBtn", ()=>{
+      const el=$("dpGistToken"); if(!el) return;
+      gistSetToken(el.value.trim()); gistUpdateInfo();
+      dpSetStatus("ok","Token guardado en este dispositivo.");
+    });
+    wire("dpGistUploadBtn",   gistUpload);
+    wire("dpGistDownloadBtn", gistDownload);
+    wire("dpGistForgetBtn", ()=>{
+      if(!confirm("¿Olvidar token y Gist ID de este dispositivo?")) return;
+      gistForget(); gistUpdateInfo(); dpSetStatus("ok","Token olvidado.");
+      const el=$("dpGistToken"); if(el) el.value="";
+    });
     wire("dpExportCsvBtn",    dpExportCsv);
     wire("dpExportJsonBtn",   dpExportJson);
     wire("dpClearAllBtn", ()=>{
@@ -12174,7 +12338,8 @@ async function mstDoSearch(){
     dpUpdateStats();
     dpRenderFundsList();
 
-    // If snapshot was loaded with embedded data, show non-blocking notification
+    // Auto-load from Gist if token+id stored and store is empty
+    gistAutoLoad();
     // (do NOT open the drawer - it would block the UI)
     const embeddedCount = Object.keys(store).length;
     if (embeddedCount > 0 && typeof window.__DP_DATA !== "undefined") {
