@@ -292,7 +292,7 @@ ES0156572002"></textarea>
 
     <!-- Gist sync panel (hidden by default) -->
     <div id="dpGistPanel" style="display:none;margin-bottom:12px;padding:10px 12px;border:1px solid #7c3aed33;border-radius:12px;background:#faf5ff;font-size:12px;">
-      <div style="font-weight:700;color:#7c3aed;margin-bottom:8px">☁️ Sincronización en la nube (GitHub Gist)</div>
+      <div style="font-weight:700;color:#7c3aed;margin-bottom:8px">☁️ Sincronización automática (Supabase) (GitHub Gist)</div>
       <div style="color:#555;margin-bottom:8px;line-height:1.4">Guarda tus fondos en un Gist privado de GitHub. Se cargarán automáticamente al abrir el dashboard desde cualquier dispositivo.</div>
       <label style="display:block;margin-bottom:4px;color:#64748b">Token GitHub (scope: gist)</label>
       <div style="display:flex;gap:6px;margin-bottom:8px">
@@ -12295,122 +12295,112 @@ async function mstDoSearch(){
   }
   window.dpSyncToDatapack = dpSyncToDatapack;
 
-  // ── Gist Cloud Sync (auto-save / auto-load) ──
-  const GIST_TOKEN_KEY = "fd_gist_token";
-  const GIST_ID_KEY    = "fd_gist_id";
-  const GIST_FILE      = "fund_dashboard_datapack.json";
-  let   gistSaveTimer  = null;
-  let   gistSaving     = false;
+  // ── Supabase Cloud Sync (auto-save / auto-load) ──
+  const SB_URL  = "https://dcnvdaaexyuhqvyrrkob.supabase.co";
+  const SB_KEY  = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRjbnZkYWFleHl1aHF2eXJya29iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxOTQ1MDUsImV4cCI6MjA4OTc3MDUwNX0.MXp-zIRWIMfKfprSbzvIe3Z52o4swdNW2RK77SZHL-o";
+  const SB_HDR  = () => ({"apikey":SB_KEY,"Authorization":"Bearer "+SB_KEY,"Content-Type":"application/json","Prefer":"resolution=merge-duplicates"});
+  let   sbSaveTimer = null;
+  let   sbSaving    = false;
 
-  function gistGetToken(){ try{ return localStorage.getItem(GIST_TOKEN_KEY)||""; }catch(_){ return ""; } }
-  function gistGetId(){    try{ return localStorage.getItem(GIST_ID_KEY)||""; }catch(_){ return ""; } }
-  function gistSetToken(t){ try{ localStorage.setItem(GIST_TOKEN_KEY,t); }catch(_){} }
-  function gistSetId(id){   try{ localStorage.setItem(GIST_ID_KEY,id); }catch(_){} }
-  function gistForget(){    try{ localStorage.removeItem(GIST_TOKEN_KEY); localStorage.removeItem(GIST_ID_KEY); }catch(_){} }
-
-  function gistUpdateInfo(){
-    const el = $("dpGistInfo"); if(!el) return;
-    const token = gistGetToken(), id = gistGetId();
-    if(!token){ el.innerHTML = "⚠️ Sin token. Introduce tu token GitHub (scope: <b>gist</b>) y pulsa Guardar."; return; }
-    el.innerHTML = id
-      ? `✅ Sincronización activa · <code style="font-size:10px">${id.substring(0,12)}…</code> · Los cambios se guardan automáticamente.`
-      : "✅ Token guardado · El Gist se creará automáticamente al añadir el primer fondo.";
+  // ---- Panel UI helpers ----
+  function sbUpdateInfo(){
+    const el=$("dpGistInfo"); if(!el) return;
+    el.innerHTML='✅ Sincronización automática activa (Supabase). Los cambios se guardan en la nube al instante.';
   }
 
-  async function gistSaveNow(silent){
-    const token = gistGetToken();
-    if(!token) return;
-    if(gistSaving) return;
-    const data = JSON.stringify(store);
-    if(!Object.keys(store).length) return;
-    gistSaving = true;
+  // ---- Save one fund to Supabase ----
+  async function sbSaveFund(isin){
+    const f = store[isin]; if(!f) return;
     try{
-      const existingId = gistGetId();
-      const body = { description:"Fund Dashboard Datapack", public:false,
-        files:{ [GIST_FILE]:{ content: data } } };
-      const url    = existingId ? `https://api.github.com/gists/${existingId}` : "https://api.github.com/gists";
-      const method = existingId ? "PATCH" : "POST";
-      const resp   = await fetch(url,{method,headers:{"Authorization":"token "+token,"Content-Type":"application/json"},body:JSON.stringify(body)});
-      const result = await resp.json();
-      if(resp.status===200||resp.status===201){
-        gistSetId(result.id);
-        gistUpdateInfo();
-        if(!silent) dpSetStatus("ok","☁️ Guardado en la nube. "+Object.keys(store).length+" fondos.");
-      } else {
-        if(!silent) dpSetStatus("warn","☁️ Error al guardar: "+(result.message||resp.status));
-      }
-    }catch(e){
-      if(!silent) dpSetStatus("warn","☁️ Error de red: "+e.message);
-    }finally{ gistSaving = false; }
+      await fetch(SB_URL+"/rest/v1/funds", {
+        method:"POST",
+        headers: SB_HDR(),
+        body: JSON.stringify({isin, meta:f.meta||{}, rows:f.rows||[], updated_at:new Date().toISOString()})
+      });
+    }catch(_){}
   }
 
-  function gistAutoSave(){
-    if(!gistGetToken()) return;
-    if(gistSaveTimer) clearTimeout(gistSaveTimer);
-    gistSaveTimer = setTimeout(()=> gistSaveNow(true), 1500);
-  }
-
-  async function gistUpload(){
-    if(!gistGetToken()){ dpSetStatus("warn","Introduce un token GitHub con scope 'gist' y guárdalo primero."); return; }
-    if(!Object.keys(store).length){ dpSetStatus("warn","No hay fondos en el Datapack para subir."); return; }
-    dpSetStatus("info","☁️ Subiendo a la nube…");
-    await gistSaveNow(false);
-  }
-
-  async function gistDownload(){
-    const token = gistGetToken();
-    if(!token){ dpSetStatus("warn","Introduce un token GitHub con scope 'gist'."); return; }
-    let id = gistGetId();
-    // If no ID stored, search for the gist in user's gists
-    if(!id){
-      dpSetStatus("info","☁️ Buscando datos en la nube…");
+  // ---- Save ALL funds (debounced) ----
+  function sbAutoSave(){
+    if(sbSaveTimer) clearTimeout(sbSaveTimer);
+    sbSaveTimer = setTimeout(async ()=>{
+      if(sbSaving) return;
+      sbSaving = true;
       try{
-        const gr = await fetch("https://api.github.com/gists?per_page=30",{headers:{"Authorization":"token "+token}});
-        const glist = await gr.json();
-        const found = Array.isArray(glist) && glist.find(g=>g.files && g.files["fund_dashboard_datapack.json"]);
-        if(found){ id = found.id; gistSetId(id); gistUpdateInfo(); }
-        else{ dpSetStatus("warn","No se encontraron datos en la nube. Sube primero desde el dispositivo principal."); return; }
-      }catch(e){ dpSetStatus("warn","Error buscando: "+e.message); return; }
-    }
+        const isins = Object.keys(store);
+        if(!isins.length){ sbSaving=false; return; }
+        // Upsert all funds in batches of 20
+        const batch = 20;
+        for(let i=0;i<isins.length;i+=batch){
+          const chunk = isins.slice(i,i+batch).map(isin=>({
+            isin, meta:store[isin]?.meta||{}, rows:store[isin]?.rows||[],
+            updated_at:new Date().toISOString()
+          }));
+          await fetch(SB_URL+"/rest/v1/funds", {
+            method:"POST", headers:SB_HDR(),
+            body:JSON.stringify(chunk)
+          });
+        }
+        sbUpdateInfo();
+      }catch(_){}
+      sbSaving=false;
+    }, 1500);
+  }
+
+  // ---- Manual upload ----
+  async function gistUpload(){
+    if(!Object.keys(store).length){ dpSetStatus("warn","No hay fondos para subir."); return; }
+    dpSetStatus("info","☁️ Subiendo a la nube…");
+    sbSaving=false;
+    if(sbSaveTimer) clearTimeout(sbSaveTimer);
+    sbSaving=true;
+    try{
+      const isins=Object.keys(store);
+      for(let i=0;i<isins.length;i+=20){
+        const chunk=isins.slice(i,i+20).map(isin=>({
+          isin, meta:store[isin]?.meta||{}, rows:store[isin]?.rows||[],
+          updated_at:new Date().toISOString()
+        }));
+        await fetch(SB_URL+"/rest/v1/funds",{method:"POST",headers:SB_HDR(),body:JSON.stringify(chunk)});
+      }
+      dpSetStatus("ok","☁️ "+isins.length+" fondos guardados en la nube.");
+      sbUpdateInfo();
+    }catch(e){ dpSetStatus("warn","Error: "+e.message); }
+    sbSaving=false;
+  }
+
+  // ---- Manual download ----
+  async function gistDownload(){
     dpSetStatus("info","☁️ Descargando de la nube…");
     try{
-      const resp = await fetch(`https://api.github.com/gists/${id}`,{headers:{"Authorization":"token "+token}});
-      const result = await resp.json();
-      if(resp.status!==200){ dpSetStatus("warn","Error: "+(result.message||resp.status)); return; }
-      const fileObj = result.files && result.files[GIST_FILE];
-      if(!fileObj){ dpSetStatus("warn","No se encontró el archivo en el Gist."); return; }
-      let content = fileObj.content;
-      if(fileObj.truncated && fileObj.raw_url){ const r2=await fetch(fileObj.raw_url); content=await r2.text(); }
-      const parsed = JSON.parse(content);
-      let count=0;
-      Object.entries(parsed).forEach(([k,v])=>{ store[k]=v; count++; });
+      const r=await fetch(SB_URL+"/rest/v1/funds?select=isin,meta,rows&limit=1000",{headers:SB_HDR()});
+      const data=await r.json();
+      if(!Array.isArray(data)||!data.length){ dpSetStatus("warn","No hay fondos en la nube todavía."); return; }
+      data.forEach(f=>{ if(f.isin) store[f.isin]={meta:f.meta||{},rows:f.rows||[],updatedAt:Date.now()}; });
       dpSyncToDatapack(); dpUpdateStats(); dpRenderFundsList();
-      dpSetStatus("ok","☁️ "+count+" fondos descargados de la nube.");
+      dpSetStatus("ok","☁️ "+data.length+" fondos cargados de la nube.");
     }catch(e){ dpSetStatus("warn","Error: "+e.message); }
   }
 
+  // ---- Auto-load on page open ----
   async function gistAutoLoad(){
     if(Object.keys(store).length>0) return;
-    const token = gistGetToken(), id = gistGetId();
-    if(!token||!id) return;
     try{
-      const resp = await fetch(`https://api.github.com/gists/${id}`,{headers:{"Authorization":"token "+token}});
-      if(resp.status!==200) return;
-      const result = await resp.json();
-      const fileObj = result.files && result.files[GIST_FILE];
-      if(!fileObj) return;
-      let content = fileObj.content;
-      if(fileObj.truncated && fileObj.raw_url){ const r2=await fetch(fileObj.raw_url); content=await r2.text(); }
-      const parsed = JSON.parse(content);
-      let count=0;
-      Object.entries(parsed).forEach(([k,v])=>{ store[k]=v; count++; });
+      const r=await fetch(SB_URL+"/rest/v1/funds?select=isin,meta,rows&limit=1000",{headers:SB_HDR()});
+      if(!r.ok) return;
+      const data=await r.json();
+      if(!Array.isArray(data)||!data.length) return;
+      data.forEach(f=>{ if(f.isin) store[f.isin]={meta:f.meta||{},rows:f.rows||[],updatedAt:Date.now()}; });
       dpSyncToDatapack(); dpUpdateStats(); dpRenderFundsList();
       setTimeout(()=>{
-        dpSetStatus("ok","☁️ "+count+" fondos cargados automáticamente de la nube.");
+        dpSetStatus("ok","☁️ "+data.length+" fondos cargados automáticamente de la nube.");
         setTimeout(()=>{ const el=$("dpStatus"); if(el&&el.innerHTML.includes("nube")) el.style.display="none"; },6000);
       },400);
     }catch(_){}
   }
+
+  // gistAutoSave = alias for sbAutoSave (called from dpSyncToDatapack)
+  function gistAutoSave(){ sbAutoSave(); }
 
     // ── Init ──
   function dpInit(){
