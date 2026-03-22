@@ -255,33 +255,75 @@
       </div>
     </div>
 
-    <!-- Añadir ISINs -->
+    <!-- Modo 1: cargar Excel/CSV con atributos -->
     <div style="margin-bottom:10px">
-      <label style="font-size:11px;font-weight:700;color:var(--muted);display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em">Añadir por ISIN (Morningstar)</label>
-      <textarea id="dpIsinInput" rows="3" style="width:100%;box-sizing:border-box;font-family:monospace;font-size:12px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;resize:vertical" placeholder="ES0138494002&#10;LU1907595398&#10;ES0156572002"></textarea>
+      <label style="font-size:12px;font-weight:600;color:var(--muted);display:block;margin-bottom:6px">📂 CARGAR DESDE ARCHIVO (Excel/CSV con atributos)</label>
+      <label class="btnGhost" style="cursor:pointer;font-size:12px;padding:6px 12px;display:inline-block">
+        Seleccionar Excel o CSV
+        <input type="file" id="dpAttrFile" accept=".xlsx,.xlsm,.xls,.csv" style="display:none">
+      </label>
+      <span id="dpAttrFileName" style="font-size:11px;color:var(--muted);margin-left:8px">Sin archivo</span>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">Columnas esperadas: Clase · Fondo · ISIN · Categoría · Tipo activo · Geografía · Divisa · Issuer</div>
     </div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+      <button class="btn" id="dpLoadAttrBtn" style="font-size:12px;padding:7px 14px" disabled="">📥 Cargar atributos (sin series)</button>
+      <button class="btnGhost" id="dpLoadAttrSeriesBtn" style="font-size:12px;padding:7px 14px" disabled="" title="Carga atributos y descarga también las series históricas de Morningstar">📥 Cargar + descargar series</button>
+    </div>
+
+    <!-- Separador -->
+    <div style="border-top:1px solid var(--border);margin:10px 0 10px;display:flex;align-items:center;gap:8px">
+      <span style="font-size:11px;color:var(--muted);white-space:nowrap">O añadir ISINs manualmente</span>
+      <div style="flex:1;height:1px;background:var(--border)"></div>
+    </div>
+
+    <!-- Modo 2: ISINs manuales -->
+    <div style="margin-bottom:10px">
+      <label style="font-size:12px;font-weight:600;color:var(--muted);display:block;margin-bottom:6px">✏️ AÑADIR ISINs (descarga series de Morningstar)</label>
+      <textarea id="dpIsinInput" rows="3" style="width:100%;box-sizing:border-box;font-family:monospace;font-size:12px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;resize:vertical" placeholder="ES0138494002
+LU1907595398
+ES0156572002"></textarea>
+    </div>
+
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
       <button class="btn" id="dpRunBtn" style="font-size:12px;padding:7px 14px">▶ Descargar y guardar</button>
+      <button class="btnGhost" id="dpSaveSnapshotBtn" style="font-size:12px;padding:7px 14px" title="Incrusta los fondos en el HTML y descarga el archivo con memoria incluida">💾 Snapshot HTML</button>
+      <button class="btnGhost" id="dpGistSyncBtn" style="font-size:12px;padding:7px 14px;border-color:#7c3aed;color:#7c3aed" title="Guardar/cargar fondos en la nube (GitHub Gist)">☁️ Nube</button>
     </div>
 
-    <!-- Nube status -->
-    <div id="dpCloudStatus" style="font-size:11px;color:#059669;margin-bottom:10px;display:flex;align-items:center;gap:6px">
-      <span>☁️</span><span>Sincronización automática activa</span>
-      <button id="dpGistUploadBtn" style="margin-left:auto;background:none;border:1px solid #059669;border-radius:6px;padding:2px 8px;font-size:10px;color:#059669;cursor:pointer">↑ Subir</button>
-      <button id="dpGistDownloadBtn" style="background:none;border:1px solid #059669;border-radius:6px;padding:2px 8px;font-size:10px;color:#059669;cursor:pointer">↓ Bajar</button>
+    <!-- Gist sync panel (hidden by default) -->
+    <div id="dpGistPanel" style="display:none;margin-bottom:12px;padding:10px 12px;border:1px solid #7c3aed33;border-radius:12px;background:#faf5ff;font-size:12px;">
+      <div style="font-weight:700;color:#7c3aed;margin-bottom:8px">☁️ Sincronización automática (Supabase) (GitHub Gist)</div>
+      <div style="color:#555;margin-bottom:8px;line-height:1.4">Guarda tus fondos en un Gist privado de GitHub. Se cargarán automáticamente al abrir el dashboard desde cualquier dispositivo.</div>
+      <label style="display:block;margin-bottom:4px;color:#64748b">Token GitHub (scope: gist)</label>
+      <div style="display:flex;gap:6px;margin-bottom:8px">
+        <input id="dpGistToken" type="password" placeholder="ghp_..." style="flex:1;padding:7px 10px;border:1px solid #cbd5e1;border-radius:10px;font-size:12px;background:#fff">
+        <button id="dpGistSaveTokenBtn" class="btnGhost" style="font-size:11px;padding:6px 10px;white-space:nowrap">Guardar token</button>
+      </div>
+      <div id="dpGistInfo" style="font-size:11px;color:#64748b;margin-bottom:8px"></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button id="dpGistUploadBtn" class="btn" style="font-size:12px;padding:7px 14px;background:#7c3aed;border-color:#6d28d9">⬆️ Subir a nube</button>
+        <button id="dpGistDownloadBtn" class="btnGhost" style="font-size:12px;padding:7px 14px;border-color:#7c3aed;color:#7c3aed">⬇️ Descargar de nube</button>
+        <button id="dpGistForgetBtn" class="btnGhost" style="font-size:11px;padding:6px 10px;color:#c00;border-color:#c00">Olvidar token</button>
+      </div>
     </div>
 
-    <div id="dpStatus"    <div id="dpStatus" style="font-size:12px;padding:8px 10px;border-radius:8px;margin-bottom:12px;display:none"></div>
+    <div id="dpStatus" style="font-size:12px;padding:8px 10px;border-radius:8px;margin-bottom:12px;display:none"></div>
 
     <div style="font-size:11px;color:var(--muted);margin-bottom:6px">Cola: <span id="dpQueueList">—</span></div>
     <div id="dpErrorBox" style="font-size:11px;color:#c00;margin-bottom:12px;display:none"></div>
 
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;padding-top:4px">
-      <label class="btnGhost" style="cursor:pointer;font-size:11px;padding:5px 10px">Importar JSON <input type="file" id="dpImportFile" accept=".csv,.json" style="display:none"/></label>
-      <button class="btnGhost" id="dpClearAllBtn" style="font-size:11px;padding:5px 10px;color:#c00;border-color:#c00">🗑 Borrar todo</button>
+    <!-- Exportar/Importar -->
+    <div style="border-top:1px solid var(--border);padding-top:12px;margin-bottom:12px">
+      <div style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:8px">EXPORTAR / IMPORTAR</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btnGhost" id="dpExportCsvBtn" style="font-size:12px;padding:6px 12px">CSV</button>
+        <button class="btnGhost" id="dpExportJsonBtn" style="font-size:12px;padding:6px 12px">JSON</button>
+        <label class="btnGhost" style="cursor:pointer;font-size:12px;padding:6px 12px">Importar <input type="file" id="dpImportFile" accept=".csv,.json" style="display:none"></label>
+        <button class="btnGhost" id="dpClearAllBtn" style="font-size:12px;padding:6px 12px;color:#c00;border-color:#c00">🗑 Borrar todo</button>
+      </div>
     </div>
 
-        <!-- Lista de fondos guardados -->
+    <!-- Lista de fondos guardados -->
     <div style="border-top:1px solid var(--border);padding-top:12px">
       <div style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:8px">FONDOS GUARDADOS</div>
       <div id="dpFundsList" style="display:flex;flex-direction:column;gap:6px">
@@ -335,7 +377,96 @@
   <button type="button" class="iconBtn msPickBtn" id="s1MstBtnDirect" style="font-size:12px;padding:6px 12px;">⭐ Morningstar</button>
 </div>
 
-<!-- advanced options removed -->
+<!-- Opciones avanzadas colapsables: CSV manual + Modo + Outliers -->
+<div style="margin-bottom:10px;">
+  <span id="s1AdvToggle" style="font-size:11px;color:var(--muted);cursor:pointer;user-select:none;">► Opciones avanzadas (CSV manual · Modo · Outliers)</span>
+  <div id="s1AdvBody" style="display:none;margin-top:8px;padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:#fafafa;">
+    <label>CSV (Investing)</label>
+    <input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="file" type="file">
+    <div style="display:flex;gap:10px;margin-top:8px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:160px;">
+        <label>Modo</label>
+        <select id="mode">
+          <option selected="" value="daily">Diario (recorta al tramo diario)</option>
+          <option value="monthly">Mensual (fin de mes, histórico completo)</option>
+        </select>
+      </div>
+      <div style="flex:1;min-width:160px;">
+        <label>Outliers</label>
+        <select id="outliers">
+          <option selected="" value="on">ON (errores obvios)</option>
+          <option value="off">OFF</option>
+        </select>
+      </div>
+    </div>
+  </div>
+</div>
+
+<button class="btn" disabled="" id="run">Calcular</button>
+<div style="height:10px"></div>
+<div class="note" id="msg"></div>
+<div class="split"></div>
+<div class="note">
+          Para comparar con Morningstar/Finect: volatilidades desde <b>cierres mensuales</b> (√12). Este dashboard usa cierres mensuales para vol y “max caída” comparable.
+        </div>
+</div>
+</div>
+<div class="card">
+<div class="hd">
+<span class="pill">KPIs</span>
+<span class="pill" id="kInfo">—</span>
+</div>
+<div class="bd">
+<!-- KPI row 1 -->
+<div class="kpis3">
+<div class="kpi"><div class="t">Rent. anualizada (CAGR)</div><div class="v" id="kCagr">—</div></div>
+<div class="kpi"><div class="t">Volatilidad media (histórica)</div><div class="v" id="kVolAll">—</div></div>
+<div class="kpi"><div class="t">Max drawdown desde creación</div><div class="v" id="kMddAll">—</div></div>
+</div>
+
+<div class="kpiSep"></div>
+<div class="kpiNote">Estilo Finect (última fecha - periodo)</div>
+
+<div class="kpis4">
+<div class="kpi"><div class="t">Rent. anualizada 10 años</div><div class="v" id="kR10">—</div></div>
+<div class="kpi"><div class="t">Rent. anualizada 5 años</div><div class="v" id="kR5">—</div></div>
+<div class="kpi"><div class="t">Rent. anualizada 3 años</div><div class="v" id="kR3">—</div></div>
+<div class="kpi"><div class="t">Rent. anualizada 1 año</div><div class="v" id="kR1">—</div></div>
+</div>
+<div class="kpis4" style="margin-top:10px;">
+<div class="kpi"><div class="t">Vol media 10 años</div><div class="v" id="kV10">—</div></div>
+<div class="kpi"><div class="t">Vol media 5 años</div><div class="v" id="kV5">—</div></div>
+<div class="kpi"><div class="t">Vol media 3 años</div><div class="v" id="kV3">—</div></div>
+<div class="kpi"><div class="t">Vol media 1 año</div><div class="v" id="kV1">—</div></div>
+</div>
+
+<div class="kpiSep"></div>
+<div class="kpiNote">Media histórica (rolling) de todos los horizontes disponibles</div>
+
+<div class="kpis4">
+<div class="kpi"><div class="t">Rent. anualizada media 10 años</div><div class="v" id="kAvgR10">—</div></div>
+<div class="kpi"><div class="t">Rent. anualizada media 5 años</div><div class="v" id="kAvgR5">—</div></div>
+<div class="kpi"><div class="t">Rent. anualizada media 3 años</div><div class="v" id="kAvgR3">—</div></div>
+<div class="kpi"><div class="t">Rent. anualizada media 1 año</div><div class="v" id="kAvgR1">—</div></div>
+</div>
+<div class="kpis4" style="margin-top:10px; margin-bottom:0;">
+<div class="kpi"><div class="t">Vol media rolling 10 años</div><div class="v" id="kAvgV10">—</div></div>
+<div class="kpi"><div class="t">Vol media rolling 5 años</div><div class="v" id="kAvgV5">—</div></div>
+<div class="kpi"><div class="t">Vol media rolling 3 años</div><div class="v" id="kAvgV3">—</div></div>
+<div class="kpi"><div class="t">Vol media rolling 1 año</div><div class="v" id="kAvgV1">—</div></div>
+</div>
+<div style="height:12px"></div>
+<!-- Row 1 charts -->
+<div class="plotsGrid2">
+<div class="card" style="border-radius:14px;">
+<div class="hd" style="border-radius:14px 14px 0 0;">
+<span class="pill">Rentabilidad anual</span>
+<button class="iconBtn" id="dlYearlyRet">Descargar</button>
+</div>
+<div class="bd">
+<div class="plot" id="plotYearlyRet"></div>
+<div id="warnYearlyRet" class="warn" style="margin-top:10px; display:none;"></div>
+<details><summary>Ver / descargar tabla</summary><div id="tblYearlyRet"></div></details>
 </div>
 </div>
 <div class="card" style="border-radius:14px;">
@@ -345,7 +476,206 @@
 </div>
 <div class="bd">
 <div class="plot" id="plotYearlyVol"></div>
-<!-- cmp csv manual removed -->
+<details><summary>Ver / descargar tabla</summary><div id="tblYearlyVol"></div></details>
+</div>
+</div>
+</div>
+<div style="height:12px"></div>
+<!-- Row 2 charts -->
+<div class="plotsGrid2">
+<div class="card" style="border-radius:14px;">
+<div class="hd" style="border-radius:14px 14px 0 0;">
+<span class="pill">Rentabilidad rolling anualizada</span>
+<div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+<span class="pill" style="border-color:#cbd5e1;">Rolling</span>
+<select id="rollWin" style="max-width:140px; padding:6px 10px; border-radius:12px; border:1px solid var(--border); background:#fff; color:var(--text);">
+<option value="3">3 meses</option>
+<option selected="" value="12">1 año</option>
+<option value="36">3 años</option>
+<option value="60">5 años</option>
+<option value="120">10 años</option>
+</select>
+</div>
+<button class="iconBtn" id="dlRollRet">Descargar</button>
+</div>
+<div class="bd">
+<div class="plot" id="plotRollRet"></div>
+<details><summary>Ver / descargar tabla</summary><div id="tblRollRet"></div></details>
+</div>
+</div>
+<div class="card" style="border-radius:14px;">
+<div class="hd" style="border-radius:14px 14px 0 0;">
+<span class="pill">Volatilidad rolling anualizada</span>
+<button class="iconBtn" id="dlRollVol">Descargar</button>
+</div>
+<div class="bd">
+<div class="plot" id="plotRollVol"></div>
+<details><summary>Ver / descargar tabla</summary><div id="tblRollVol"></div></details>
+</div>
+</div>
+</div>
+<div style="height:12px"></div>
+<!-- Drawdown -->
+<div class="card" style="border-radius:14px;">
+<div class="hd" style="border-radius:14px 14px 0 0;">
+<span class="pill">Drawdown (HWM) — diario (modo diario) / mensual (modo mensual)</span>
+<button class="iconBtn" id="dlDD">Descargar</button>
+</div>
+<div class="bd">
+<div class="plot" id="plotDD"></div>
+<details open=""><summary>Top 3 eventos (por profundidad, mensual comparable)</summary><div id="tblDD"></div></details>
+</div>
+</div>
+<div style="height:12px"></div>
+<!-- Dispersion -->
+<div class="card" style="border-radius:14px;">
+<div class="hd" style="border-radius:14px 14px 0 0;">
+<span class="pill">Intervalos anuales — Retornos (cierre-cierre)</span>
+<div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+<span class="pill" style="border-color:#cbd5e1;">Modo</span>
+<select id="boxFreq" style="max-width:210px; padding:6px 10px; border-radius:12px; border:1px solid var(--border); background:#fff; color:var(--text);">
+<option selected="" value="daily">Retornos diarios</option>
+<option value="monthly">Retornos mensuales (fin de mes)</option>
+<option value="multi">Retornos multi-horizonte (intra-año)</option>
+</select>
+<span class="pill" style="border-color:#cbd5e1;">Bigotes</span>
+<select id="boxExt" style="max-width:260px; padding:6px 10px; border-radius:12px; border:1px solid var(--border); background:#fff; color:var(--text);">
+<option selected="" value="global">Mín/Max del año</option>
+<option value="sign">Mín negativo / Máx positivo</option>
+</select>
+</div>
+<button class="iconBtn" id="dlBox">Descargar</button>
+</div>
+<div class="bd">
+<div class="plot" id="plotBox"></div>
+<details><summary>Ver / descargar tabla</summary><div id="tblBox"></div></details>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Modal: Calidad de datos -->
+<div aria-hidden="true" class="modalOverlay" id="qualityOverlay">
+<div aria-labelledby="qualityTitle" aria-modal="true" class="modal" role="dialog">
+<div class="modalHd">
+<div class="modalTitle" id="qualityTitle">Rangos de frecuencia (diario / semanal / mensual)</div>
+<div style="display:flex; gap:8px; align-items:center;">
+<button class="iconBtn" id="dlQuality">Descargar CSV</button>
+<button aria-label="Cerrar" class="iconBtn" id="closeQuality">Cerrar</button>
+</div>
+</div>
+<div class="bd">
+<div class="note" style="margin-bottom:10px">
+        Clasificación por gap de días naturales entre observaciones: ≤5 = diario, 6–12 = semanal, &gt;12 = mensual.
+      </div>
+<div id="qualityTable"></div>
+<div class="note" id="qualityNote" style="margin-top:10px"></div>
+</div>
+</div>
+</div>
+</div>
+<div class="screen hidden" id="screen2">
+<div class="wrap">
+<h2 style="margin:0 0 6px 0;">Comparación de fondos y correlación</h2>
+<p class="sub">Sube hasta 10 fondos de Investing. Verás comparativa anual, crecimiento en base 100 desde inicio común y matrices R²/beta con ventana común.</p>
+<div class="grid">
+<div class="card">
+<div class="hd"><span class="pill">Entrada</span><span class="pill" id="cmpStatus">Sin datos</span></div>
+<div class="bd">
+<span id="cmpAdvToggle" style="font-size:11px;color:var(--muted);cursor:pointer;user-select:none;">► Opciones avanzadas (CSV manual)</span>
+<div id="cmpAdvBody" style="display:none;margin-top:8px;padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:#fafafa;">
+<label>CSVs (hasta 10 fondos, formato Investing)</label>
+<div style="display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px;">
+<div><div class="subhd">Fondo 1</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="cmpFile1" type="file"></div>
+<div><div class="subhd">Fondo 2</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="cmpFile2" type="file"></div>
+<div><div class="subhd">Fondo 3</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="cmpFile3" type="file"></div>
+<div><div class="subhd">Fondo 4</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="cmpFile4" type="file"></div>
+<div><div class="subhd">Fondo 5</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="cmpFile5" type="file"></div>
+<div><div class="subhd">Fondo 6</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="cmpFile6" type="file"></div>
+<div><div class="subhd">Fondo 7</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="cmpFile7" type="file"></div>
+<div><div class="subhd">Fondo 8</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="cmpFile8" type="file"></div>
+<div><div class="subhd">Fondo 9</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="cmpFile9" type="file"></div>
+<div><div class="subhd">Fondo 10</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="cmpFile10" type="file"></div>
+</div>
+<div style="height:10px"></div>
+<button class="btn" disabled="" id="cmpRun">Calcular comparación</button>
+</div><!-- /cmpAdvBody -->
+<div style="height:10px"></div>
+<div class="note" id="cmpMsg"></div>
+<div class="split"></div>
+<div style="display:none;"><label>Horizonte para correlación / beta</label>
+<select id="cmpHorizon">
+<option value="1">1 año</option>
+<option selected="" value="3">3 años</option>
+<option value="5">5 años</option>
+<option value="10">10 años</option>
+<option value="dd1">Stress DD1 (peor)</option>
+<option value="dd2">Stress DD2</option>
+<option value="dd3">Stress DD3</option>
+</select>
+<div style="height:10px"></div>
+<label>Frecuencia para matrices</label>
+<select id="cmpFreq">
+<option selected="" value="daily">Diaria (fechas exactas)</option>
+<option value="weekly">Semanal (último cierre de semana)</option>
+<option value="monthly">Mensual (fin de mes)</option>
+</select></div>
+<div class="two" style="margin-top:10px;">
+<div>
+<label>Optimizar solo con top N fondos (por peso actual)</label>
+<select id="optTopN">
+<option selected="" value="0">Todos</option>
+<option value="2">Top 2</option>
+<option value="3">Top 3</option>
+<option value="4">Top 4</option>
+<option value="5">Top 5</option>
+<option value="6">Top 6</option>
+<option value="7">Top 7</option>
+<option value="8">Top 8</option>
+<option value="9">Top 9</option>
+<option value="10">Top 10</option>
+</select>
+</div>
+<div>
+<label>Fondos seleccionados para optimizar</label>
+<div class="note" id="optSelFunds" style="margin:0; min-height:42px;">—</div>
+</div>
+</div>
+<div class="note" style="margin-top:10px;">
+            *Correlación y beta se calculan con retornos diarios en fechas comunes por pareja (cada celda puede tener distinto nº de observaciones).
+          </div>
+</div>
+</div>
+<div class="card">
+<div class="hd"><span class="pill">Resumen</span><span class="pill" id="cmpLimit">—</span></div>
+<div class="bd">
+<div class="note" id="cmpList">Sube hasta 10 fondos para ver comparación.</div>
+<div style="height:12px"></div>
+<div style="display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap; margin-bottom:8px;">
+<div class="subhd" style="margin:0; min-width:210px;">Periodo (gráfico de línea)</div>
+<div>
+<div class="subhd" style="margin:0 0 4px 0; font-size:12px; color:var(--muted);">Desde</div>
+<input class="dateInput" id="cmpStartDate" type="date">
+</div>
+<div>
+<div class="subhd" style="margin:0 0 4px 0; font-size:12px; color:var(--muted);">Hasta</div>
+<input class="dateInput" id="cmpEndDate" type="date">
+</div>
+<div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+<button class="iconBtn" id="cmpQuick1">1a</button>
+<button class="iconBtn" id="cmpQuick3">3a</button>
+<button class="iconBtn" id="cmpQuick5">5a</button>
+<button class="iconBtn" id="cmpQuick10">10a</button>
+<button class="iconBtn" id="cmpQuickAll">Máximo común</button>
+</div>
+</div>
+<div class="note" id="cmpGrowthNote" style="margin-top:2px; margin-bottom:6px;"></div>
+<div id="cmpGrowth" style="height:560px;"></div>
+<details class="details" style="margin-top:8px;">
+<summary>Descargar serie común (normalizada)</summary>
+<button class="iconBtn" id="cmpDlGrowth">Descargar</button>
+</details>
 </div>
 </div>
 <div class="card full">
@@ -7279,7 +7609,7 @@ async function repoAnalyzeDatapackToExcel(){
         const _ib = document.getElementById("s1InvBtnDirect");
         const _mb = document.getElementById("s1MstBtnDirect");
         if (_rb) _rb.addEventListener("click", ()=>repoPickerOpen(_s1ctx));
-        if (_ib) _ib.addEventListener("click", ()=>inv2Open(_s1ctx));
+        if (_ib) _ib.addEventListener("click", ()=>invPickerOpen(_s1ctx));
         if (_mb) _mb.addEventListener("click", ()=>mstPickerOpen(_s1ctx));
       }catch(_){}
       for (let i=1;i<=10;i++){
@@ -7385,185 +7715,1924 @@ if (typeof cmpHandleInputs === "function"){
 
 
 /* =============================
-   Investing.com picker v2 — búsqueda directa sin URL manual
+   v19: Investing picker (global) + Screen1 enhancements
+   - Adds 🌐 Investing button next to 📚 Repo for all inputs
+   - Dynamic search (tolerant to accents/punct) using TVC URL from user session
+   - Only Funds & Indices
+   - Currency + first date (best-effort; full when selected)
+   - Applies same outliers/DQ pipeline as CSV upload
+   - Screen1: year range filter + daily line chart + boxplot initial resize + point inspector + download CSV
    ============================= */
+
 (function(){
-  const INV2 = window.INV2 || (window.INV2 = {});
-  INV2.ctx  = { kind:"screen1", slot:0, isBench:false };
-  INV2.cache = new Map();
-  INV2.lastResults = [];
-  INV2.selected = null;
+  // ---------- helpers ----------
+  const INV = window.INV || (window.INV = {});
+  INV.ctx = { kind:null, slot:null, isBench:false, inputId:null, screenId:null, role:"fund" };
+  INV.cache = new Map(); // symbol -> {rawSeries, meta, parsedByScreen: Map(screenId->parsed)}
+  INV.searchTimer = null;
+  INV.lastResults = [];
+  INV.selected = null;
 
-  const PROXIES = [
-    "https://corsproxy.io/?url=",
-    "https://api.allorigins.win/raw?url=",
-    "https://api.codetabs.com/v1/proxy/?quest="
-  ];
+  function normLoose(s){
+    return String(s||"")
+      .toLowerCase()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+      .replace(/&/g," and ")
+      .replace(/[^a-z0-9]+/g," ")
+      .replace(/\s+/g," ")
+      .trim();
+  }
+  function escapeHTML_(s){ try{ return escapeHTML(String(s||"")); }catch(_){ return String(s||""); } }
 
-  function inv2Esc(s){ return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+  function invStatusBadge(txt, kind){
+    const el = document.getElementById("invStatusBadge");
+    if (!el) return;
+    el.textContent = txt;
+    el.style.borderColor = kind==="ok" ? "#86efac" : kind==="warn" ? "#fdba74" : "#fecaca";
+    el.style.background = kind==="ok" ? "#ecfdf5" : kind==="warn" ? "#fff7ed" : "#fef2f2";
+    el.style.color = kind==="ok" ? "#166534" : kind==="warn" ? "#9a3412" : "#991b1b";
+  }
 
-  async function inv2FetchJson(url){
-    // 1. Try direct (works from https://)
+  function invGetProxyOn(){
+    const el=document.getElementById("invUseProxy");
+    return el ? !!el.checked : true;
+  }
+  function invProxyWrap(url){
+    // Best-effort proxy for local file:// CORS restrictions
+    // Uses AllOrigins raw endpoint.
+    // If proxy is off, return original.
+    if (!invGetProxyOn()) return url;
+    const u = encodeURIComponent(url);
+    return "https://api.allorigins.win/raw?url="+u;
+  }
+
+  function invLoadSavedTvcUrl(){
     try{
-      const r = await fetch(url, {signal:AbortSignal.timeout(5000),
-        headers:{"X-Requested-With":"XMLHttpRequest","Accept":"application/json"}});
-      if(r.ok) return await r.json();
+      const v = localStorage.getItem("inv_tvc_url") || "";
+      const el = document.getElementById("invTvcUrl");
+      if (el && v) el.value = v;
     }catch(_){}
-    // 2. Try proxies
-    for(const px of PROXIES){
+  }
+  function invSaveTvcUrl(v){
+    try{ localStorage.setItem("inv_tvc_url", String(v||"").trim()); }catch(_){}
+  }
+
+  function invDeriveBaseFromUrl(url){
+    const u = new URL(url);
+    const parts = u.pathname.split("/").filter(Boolean);
+    const idx = parts.findIndex(p=>["search","history","quotes","symbols","symbol_info"].includes(String(p).toLowerCase()));
+    const tokenParts = idx>=0 ? parts.slice(0, idx) : parts.slice(0, 1);
+    const basePath = tokenParts.join("/");
+    const base = u.origin + "/" + basePath + "/";
+    return { base, tokenPath: basePath, origin: u.origin };
+  }
+
+  function invGetBase(){
+    const el = document.getElementById("invTvcUrl");
+    const raw = el ? String(el.value||"").trim() : "";
+    if (!raw) return null;
+    try{
+      const info = invDeriveBaseFromUrl(raw);
+      return { ...info, raw };
+    }catch(e){
+      return null;
+    }
+  }
+
+  
+  function invFetchUrlCandidates(url){
+    if (!invGetProxyOn()) return [url];
+    const enc = encodeURIComponent(url);
+    // Try multiple CORS proxies (best-effort)
+    return [
+      "https://corsproxy.io/?" + enc,
+      "https://api.allorigins.win/raw?url=" + enc,
+    ];
+  }
+
+  function invSafeJsonParse(text){
+    let t = String(text||"").trim();
+    if (!t) throw new Error("Empty response");
+    // Remove common XSSI prefix
+    if (t.startsWith(")]}'")){
+      const lines = t.split(/\r?\n/);
+      t = lines.slice(1).join("\n").trim();
+    }
+    // Some proxies wrap in HTML; try to extract JSON-ish content
+    if (t.startsWith("<")){
+      // If HTML, try to extract any JSON payload inside <p>...</p> (seen in some proxies)
+      const m = t.match(/<p[^>]*>([\s\S]*?)<\/p>/i);
+      if (m) t = String(m[1]||"").trim();
+      if (t.startsWith("<")) throw new Error("Challenge/HTML");
+    }
+    try{ return JSON.parse(t); }catch(_){}
+    // Try to extract the first {...} or [...]
+    const fObj = t.indexOf("{"), lObj = t.lastIndexOf("}");
+    if (fObj>=0 && lObj>fObj){
+      try{ return JSON.parse(t.slice(fObj, lObj+1)); }catch(_){}
+    }
+    const fArr = t.indexOf("["), lArr = t.lastIndexOf("]");
+    if (fArr>=0 && lArr>fArr){
+      try{ return JSON.parse(t.slice(fArr, lArr+1)); }catch(_){}
+    }
+    throw new Error("JSON parse failed");
+  }
+
+  async function invFetchJson(url){
+    let lastErr = null;
+    for (const u of invFetchUrlCandidates(url)){
       try{
-        const r = await fetch(px+encodeURIComponent(url), {signal:AbortSignal.timeout(8000)});
-        if(r.ok){ const t=await r.text(); return JSON.parse(t); }
+        const res = await fetch(u, { credentials:"omit", headers: {"Accept":"*/*"} });
+        if (!res.ok) throw new Error("HTTP "+res.status);
+        const txt = await res.text();
+        return invSafeJsonParse(txt);
+      }catch(e){
+        lastErr = e;
+      }
+    }
+    throw lastErr || new Error("Fetch failed");
+  }
+
+
+  function invIsFundIndex(item){
+    const tRaw = (item && item.type!=null) ? item.type : (item && item.instrument_type!=null) ? item.instrument_type : (item && item.kind!=null) ? item.kind : "";
+    const t = String(tRaw||"").toLowerCase();
+    const d = String(item.description || item.desc || item.full_name || item.name || "").toLowerCase();
+    const ex = String(item.exchange || item.market || item.exchange_name || "").toLowerCase();
+    const sym = String(item.symbol || item.ticker || item.code || item.id || "").toUpperCase();
+
+    // Common textual signals
+    if (t.includes("fund") || t.includes("mutual")) return true;
+    if (t.includes("index")) return true;
+    if (d.includes("fund")) return true;
+    if (d.includes("index")) return true;
+    if (ex.includes("fund") || ex.includes("index") || ex.includes("indices")) return true;
+
+    // Investing mutual funds often have OP######## style symbols
+    if (/^OP\d{6,}/.test(sym)) return true;
+
+    return false;
+  }
+
+    function invGetCcyOverride(symbol){
+    try{
+      const k = "inv_ccy_override:" + String(symbol||"").trim();
+      const v = localStorage.getItem(k);
+      const c = String(v||"").trim().toUpperCase();
+      return (c && /^[A-Z]{3}$/.test(c)) ? c : "";
+    }catch(_){ return ""; }
+  }
+  function invSetCcyOverride(symbol, ccy){
+    try{
+      const k = "inv_ccy_override:" + String(symbol||"").trim();
+      const c = String(ccy||"").trim().toUpperCase();
+      if (!c || c==="N.A." || c==="N/A" || c==="NA" || c==="N.A"){
+        localStorage.removeItem(k);
+        return;
+      }
+      localStorage.setItem(k, c);
+    }catch(_){}
+  }
+  function invGetCcyOverrideFromItem(item){
+    const sym = item && (item.symbol || item.ticker || item.code || item.id);
+    return sym ? invGetCcyOverride(sym) : "";
+  }
+
+  function invCurrencyCandidate(item){
+    // Priority: manual override (localStorage) → search fields → guess from text → n.a.
+    const over = invGetCcyOverrideFromItem(item||{});
+    if (over) return over;
+
+    const raw = `${item.currency_code||""} ${item.currency||""} ${item.ccy||""} ${item.quoteCurrency||""}`.trim();
+    if (raw){
+      const c = String(raw).trim().split(/\s+/)[0].toUpperCase();
+      if (/^[A-Z]{3}$/.test(c)) return c;
+    }
+    const txt = `${item.full_name||""} ${item.description||""} ${item.name||""}`.toUpperCase();
+    const m = txt.match(/\b(EUR|USD|GBP|CHF|JPY|AUD|CAD|NOK|SEK|DKK|NZD|SGD|HKD|CNY|CNH|ZAR|MXN|BRL|INR|KRW|TWD|PLN|HUF|CZK|ILS|RUB|TRY)\b/);
+    return m ? m[1] : "n.a.";
+  }
+
+  function invItemLabel(item){
+    const name = item.full_name || item.name || item.symbol || "—";
+    const desc = item.description || item.exchange || item.country || "";
+    const type = item.type || item.instrument_type || "";
+    const code = item.symbol || item.ticker || item.code || "";
+    return { name, desc, type, code };
+  }
+
+  function invScore(item, qNorm){
+    const label = invItemLabel(item);
+    const hay = normLoose(`${label.name} ${label.desc} ${label.type} ${label.code}`);
+    if (!qNorm) return 0;
+    if (hay.startsWith(qNorm)) return 100;
+    // token-start
+    if (hay.split(" ").some(tok=>tok.startsWith(qNorm))) return 85;
+    if (hay.includes(" "+qNorm)) return 75;
+    if (hay.includes(qNorm)) return 60;
+    return 10;
+  }
+
+  async function invSearch(query){
+    const base = invGetBase();
+    if (!base) { invStatusBadge("Pega una URL TVC (tu sesión)", "warn"); return []; }
+
+    invSaveTvcUrl(base.raw);
+    const qRaw = String(query||"").trim();
+    const qNorm = normLoose(qRaw);
+    if (qNorm.length < 1) return [];
+
+    // Build query set: raw, norm, prefix2 (broad)
+    const prefix2 = qNorm.slice(0, Math.min(2, qNorm.length));
+    const qSet = [];
+    if (qRaw) qSet.push(qRaw);
+    if (qNorm && qNorm !== qRaw.toLowerCase()) qSet.push(qNorm);
+    if (prefix2 && !qSet.includes(prefix2)) qSet.push(prefix2);
+
+    // Use high limit
+    const limit = (document.getElementById('invShowAll')?.checked ? 300 : 80);
+
+    const merged = new Map(); // symbol -> item
+    let anyOk = false;
+
+    for (const q of qSet){
+      const url = new URL(base.raw);
+      // normalize to /search endpoint
+      const parts = url.pathname.split("/").filter(Boolean);
+      const idx = parts.findIndex(p=>["search","history"].includes(String(p).toLowerCase()));
+      const tokenParts = idx>=0 ? parts.slice(0, idx) : parts.slice(0, 1);
+      url.pathname = "/" + tokenParts.join("/") + "/search";
+      url.searchParams.set("query", q);
+      url.searchParams.set("limit", String(limit));
+      try{
+        const js = await invFetchJson(url.toString());
+        anyOk = true;
+        const arr = (js && (js.data || js.d || js.symbols || js)) || [];
+        // some responses: {s:'ok', d:[...]}
+        const items = Array.isArray(arr) ? arr : (Array.isArray(js.d) ? js.d : []);
+        for (const it of items){
+          const sym = it.symbol || it.ticker || it.code || it.id;
+          if (!sym) continue;
+          if (!merged.has(sym)) merged.set(sym, it);
+        }
+      }catch(e){
+        // ignore individual failures; keep trying others
+      }
+    }
+
+    if (!anyOk){
+      invStatusBadge("Sin acceso (bloqueo/challenge/CORS)", "bad");
+      return [];
+    }
+    invStatusBadge("OK", "ok");
+
+    // Filter funds/indices
+    const out = [];
+    for (const it of merged.values()){
+      if (invIsFundIndex(it)) out.push(it);
+    }
+
+    // Rank by prefix (full query) then contains
+    out.sort((a,b)=>{
+      const sa = invScore(a, qNorm);
+      const sb = invScore(b, qNorm);
+      if (sb!==sa) return sb-sa;
+      const la = (invItemLabel(a).name||"").length;
+      const lb = (invItemLabel(b).name||"").length;
+      return la-lb;
+    });
+
+    return out;
+  }
+
+  async function invFetchHistory(symbol){
+    const base = invGetBase();
+    if (!base) throw new Error("Falta URL TVC");
+    const now = Math.floor(Date.now()/1000);
+    // Try several param patterns
+    const tries = [
+      {resolution:"D", from:0},
+      {resolution:"D", from:315532800}, // 1980-01-01
+      {resolution:"1D", from:0},
+      {resolution:"1D", from:315532800},
+    ];
+    let lastErr = null;
+    for (const t of tries){
+      const url = base.base + "history?symbol=" + encodeURIComponent(symbol) +
+        "&resolution=" + encodeURIComponent(t.resolution) +
+        "&from=" + String(t.from) + "&to=" + String(now);
+      try{
+        const js = await invFetchJson(url);
+        if (js && (js.s==="ok" || js.s==="OK" || js.status==="ok" || Array.isArray(js.t))){
+          const tt = js.t || js.times || js.time || [];
+          const cc = js.c || js.close || js.prices || js.o || [];
+          // accept 'c' array only
+          if (!Array.isArray(tt) || !Array.isArray(cc) || tt.length<10) throw new Error("no_data");
+          const series = [];
+          for (let i=0;i<tt.length;i++){
+            const ts = Number(tt[i]); const v = Number(cc[i]);
+            if (!Number.isFinite(ts) || !Number.isFinite(v) || !(v>0)) continue;
+            series.push({date:new Date(ts*1000), nav:v});
+          }
+          // meta
+          const meta = js.meta || js.symbol || js.m || {};
+          return { series, meta };
+        }
+        lastErr = new Error("no_data");
+      }catch(e){
+        lastErr = e;
+      }
+    }
+    throw lastErr || new Error("No se pudo cargar histórico");
+  }
+
+  // ---------- Investing picker DOM ----------
+  function invEnsurePickerDOM(){
+    if (document.getElementById("invPickerOverlay")) return;
+    const ov = document.createElement("div");
+    ov.id="invPickerOverlay";
+    ov.className="repoOverlay";
+    ov.innerHTML = `
+      <div class="repoModal" role="dialog" aria-modal="true">
+        <div class="repoHd">
+          <div>
+            <div class="t">Buscar en Investing (Fondos &amp; Índices)</div>
+            <div class="sub" id="invPickerCtx" style="margin-top:2px;">—</div>
+          </div>
+          <div class="row" style="gap:8px;align-items:center;">
+            <span class="pill" id="invStatusBadge" style="border-color:#fecaca;background:#fef2f2;color:#991b1b;">Sin URL TVC</span>
+            <button type="button" class="iconBtn" id="invPickerClose">✕</button>
+          </div>
+        </div>
+        <div class="repoBd">
+          <div class="note" style="margin-top:0;">
+            Para que funcione desde HTML local, pega una <b>URL TVC</b> de tu sesión (DevTools &gt; Network, petición a tvc*.investing.com). Se guarda en tu navegador.
+          </div>
+          <div class="repoControls" style="margin-top:8px;">
+            <input id="invTvcUrl" type="text" placeholder="Pega aquí una URL TVC (search o history) de tu sesión…"/>
+            <label class="row" style="gap:6px;align-items:center;font-size:12px;color:var(--muted);">
+              <input id="invUseProxy" type="checkbox" checked/> Usar proxy CORS
+            </label>
+            <button type="button" class="iconBtn" id="invTvcSave">Guardar</button>
+          </div>
+
+          <div class="split"></div>
+
+          <div class="repoControls">
+            <input id="invSearchBox" type="text" placeholder="Escribe (mín. 1 letra). Ej: Tresorerie / Trésorerie / DNCA…"/>
+            <select id="invCcyFilter">
+              <option value="all">Divisa: todas</option>
+            </select>
+            <label class="row" style="gap:6px;align-items:center;font-size:12px;color:var(--muted);">
+              <input id="invShowAll" type="checkbox" checked/> Listado amplio
+            </label>
+          </div>
+
+          <div class="invGrid" style="margin-top:10px;">
+            <div>
+              <div class="invList" id="invList"></div>
+              <div class="repoPickerInfo" id="invInfo"></div>
+            </div>
+            <div class="invPreview">
+              <div class="h" id="invPrevName">—</div>
+              <div class="k" id="invPrevMeta">Selecciona un resultado para ver divisa y 1º dato.</div>
+              <div class="row" id="invManualCcyWrap" style="gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;display:none;">
+                <span class="pill" style="border-color:#cbd5e1;">Divisa (manual)</span>
+                <select id="invManualCcy" style="max-width:180px; padding:8px 10px; border-radius:12px; border:1px solid var(--border); background:#fff; color:var(--text);">
+                  <option value="n.a.">n.a.</option>
+                  <option value="EUR">EUR</option>
+                  <option value="USD">USD</option>
+                  <option value="GBP">GBP</option>
+                  <option value="CHF">CHF</option>
+                  <option value="JPY">JPY</option>
+                  <option value="AUD">AUD</option>
+                  <option value="CAD">CAD</option>
+                  <option value="NOK">NOK</option>
+                  <option value="SEK">SEK</option>
+                  <option value="DKK">DKK</option>
+                </select>
+                <button type="button" class="iconBtn" id="invManualCcySave" title="Guardar divisa para este instrumento (local)">Guardar</button>
+              </div>
+              <div class="note" id="invManualCcyNote" style="margin-top:6px;display:none;"></div>
+
+              <div class="row" style="gap:8px;margin-top:10px;">
+                <button type="button" class="btn" id="invLoadBtn" disabled>Cargar en este slot</button>
+                <button type="button" class="iconBtn" id="invClearSel" title="Limpiar selección">Limpiar</button>
+              </div>
+              <div class="note" id="invPrevNote" style="margin-top:10px;">—</div>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    document.body.appendChild(ov);
+
+    document.getElementById("invPickerClose").addEventListener("click", invPickerClose);
+    ov.addEventListener("click", (e)=>{ if (e.target===ov) invPickerClose(); });
+
+    document.getElementById("invTvcSave").addEventListener("click", ()=>{
+      const el=document.getElementById("invTvcUrl");
+      invSaveTvcUrl(el ? el.value : "");
+      if (typeof invSaveAndBadge === "function") invSaveAndBadge();
+      invStatusBadge("Guardado", "ok");
+    });
+    const invTvcUrlEl = document.getElementById("invTvcUrl");
+    const invSaveAndBadge = ()=>{
+      const v = invTvcUrlEl ? invTvcUrlEl.value : "";
+      invSaveTvcUrl(v);
+      const baseNow = invGetBase();
+      invStatusBadge(baseNow ? "OK" : "Pega una URL TVC (tu sesión)", baseNow ? "ok" : "warn");
+    };
+    if (invTvcUrlEl){
+      invTvcUrlEl.addEventListener("input", invSaveAndBadge);
+      invTvcUrlEl.addEventListener("change", invSaveAndBadge);
+    }
+
+    document.getElementById("invSearchBox").addEventListener("input", ()=>{
+      if (INV.searchTimer) clearTimeout(INV.searchTimer);
+      INV.searchTimer = setTimeout(invDoSearch, 180);
+    });
+    document.getElementById("invCcyFilter").addEventListener("change", ()=>invRenderList());
+    document.getElementById("invShowAll").addEventListener("change", ()=>invDoSearch());
+    document.getElementById("invLoadBtn").addEventListener("click", ()=>invLoadSelectedToCtx());
+    document.getElementById("invClearSel").addEventListener("click", ()=>invSetSelected(null));
+
+// Manual currency override (local)
+const mBtn = document.getElementById("invManualCcySave");
+if (mBtn){
+  mBtn.addEventListener("click", ()=>{
+    try{
+      if (!INV.selected) return;
+      const sym = INV.selected.symbol;
+      const sel = document.getElementById("invManualCcy");
+      const ccy = sel ? String(sel.value||"n.a.").trim().toUpperCase() : "n.a.";
+      invSetCcyOverride(sym, ccy);
+      const cached = INV.cache.get(sym);
+      if (cached && cached.meta){
+        cached.meta.currency = invGetCcyOverride(sym) || (ccy && ccy!=="N.A." ? ccy : cached.meta.currency) || "n.a.";
+        // Force reparse for all screens so currency updates everywhere
+        cached.parsedByScreen = new Map();
+      }
+      const note = document.getElementById("invManualCcyNote");
+      if (note){
+        note.style.display="block";
+        note.innerHTML = (ccy && ccy!=="n.a.") ? `Divisa guardada localmente: <b>${escapeHTML_(ccy)}</b>.` : `Divisa eliminada (se mostrará n.a. si no se detecta automáticamente).`;
+      }
+      invRenderList();
+      // Refresh preview text
+      if (cached) invUpdatePreviewFromCache(sym, cached);
+    }catch(e){
+      console.warn(e);
+    }
+  });
+}
+
+invLoadSavedTvcUrl();
+    // update badge
+    const base = invGetBase();
+    invStatusBadge(base ? "OK" : "Sin URL TVC", base ? "ok" : "warn");
+  }
+
+  function invPickerOpen(ctx){
+    invEnsurePickerDOM();
+    INV.ctx.kind = ctx.kind;
+    INV.ctx.slot = ctx.slot ?? null;
+    INV.ctx.isBench = !!ctx.isBench;
+    INV.ctx.inputId = ctx.inputId || null;
+    INV.ctx.screenId = ctx.screenId || activeScreenId();
+    INV.ctx.role = ctx.role || "fund";
+
+    const ctxEl = document.getElementById("invPickerCtx");
+    const label = (INV.ctx.kind==="screen1") ? "Tab 1 · Fondo" :
+                  (INV.ctx.kind==="cmp") ? `Tab 2 · Fondo ${Number(INV.ctx.slot)+1}` :
+                  (INV.ctx.kind==="bt") ? `Tab 3 · ${(INV.ctx.isBench?"Benchmark":"Cartera")} ${Number(INV.ctx.slot)+1}` : "—";
+    ctxEl.textContent = label;
+
+    document.getElementById("invSearchBox").value = "";
+    document.getElementById("invInfo").textContent = "";
+    document.getElementById("invList").innerHTML = "";
+    invSetSelected(null);
+
+    const ov = document.getElementById("invPickerOverlay");
+    ov.classList.add("open");
+    setTimeout(()=>{ try{ document.getElementById("invSearchBox").focus(); }catch(_){} }, 0);
+  }
+
+  function invPickerClose(){
+    const ov = document.getElementById("invPickerOverlay");
+    if (ov) ov.classList.remove("open");
+  }
+
+  
+    async function invDoSearch(){
+    const base = invGetBase();
+    const q = document.getElementById("invSearchBox").value || "";
+    const qNorm = normLoose(q);
+
+    // If no TVC URL, show a clear message and stop.
+    if (!base){
+      document.getElementById("invList").innerHTML = `<div class="invItem"><div class="m"><b>Falta la URL TVC</b>. Pega una URL TVC de tu sesión (DevTools → Network → tvc*.investing.com) y pulsa <b>Guardar</b>.</div></div>`;
+      document.getElementById("invInfo").textContent = "";
+      invStatusBadge("Pega una URL TVC (tu sesión)", "warn");
+      return;
+    }
+
+    // Allow 1+ chars (no mínimo 2). If empty, just clear list.
+    if (qNorm.length < 1){
+      document.getElementById("invList").innerHTML = `<div class="invItem"><div class="m">Escribe para buscar…</div></div>`;
+      document.getElementById("invInfo").textContent = "";
+      return;
+    }
+
+    document.getElementById("invList").innerHTML = `<div class="invItem"><div class="m">Buscando…</div></div>`;
+    try{
+      const res = await invSearch(q);
+      INV.lastResults = res || [];
+      invBuildCurrencyFilter();
+      invRenderList();
+      invPrefetchTopMeta();
+    }catch(e){
+      document.getElementById("invList").innerHTML = `<div class="invItem"><div class="m">Error: ${escapeHtml(String(e && e.message ? e.message : e))}</div></div>`;
+      document.getElementById("invInfo").textContent = "";
+    }
+  }
+
+  function invBuildCurrencyFilter(){
+    const sel = document.getElementById("invCcyFilter");
+    if (!sel) return;
+    const prev = sel.value || "all";
+    const set = new Set();
+    for (const it of (INV.lastResults||[])){
+      const c = invCurrencyCandidate(it);
+      if (c && c!=="n.a.") set.add(c);
+    }
+    const arr = Array.from(set).sort();
+    sel.innerHTML = `<option value="all">Divisa: todas</option>` + arr.map(c=>`<option value="${c}">${c}</option>`).join("");
+    sel.value = arr.includes(prev) ? prev : "all";
+  }
+
+  function invRenderList(){
+    const list = document.getElementById("invList");
+    const q = document.getElementById("invSearchBox").value || "";
+    const qNorm = normLoose(q);
+    const ccy = document.getElementById("invCcyFilter").value || "all";
+    const showAll = !!document.getElementById("invShowAll").checked;
+
+    let items = (INV.lastResults||[]).slice();
+    if (ccy !== "all"){
+      items = items.filter(it=>invCurrencyCandidate(it)===ccy);
+    }
+    if (!showAll){
+      items = items.slice(0, 60);
+    } else {
+      items = items.slice(0, 200);
+    }
+
+    if (!items.length){
+      list.innerHTML = `<div class="invItem"><div class="m">Sin resultados.</div></div>`;
+      return;
+    }
+
+    const html = items.map((it, idx)=>{
+      const lab = invItemLabel(it);
+      const sym = it.symbol || it.ticker || it.code || it.id || "";
+      const meta = (it.type ? String(it.type) : (it.instrument_type||"")) || "";
+      const place = [it.exchange||"", it.country||""].filter(Boolean).join(" · ");
+      const cur = invCurrencyCandidate(it);
+      const cached = INV.cache.get(sym);
+      const first = cached && cached.meta && cached.meta.firstDate ? cached.meta.firstDate : "—";
+      const cur2 = cached && cached.meta && cached.meta.currency ? cached.meta.currency : cur;
+      const active = (INV.selected && INV.selected.symbol===sym) ? "active" : "";
+      return `
+        <div class="invItem ${active}" data-sym="${escapeHTML_(sym)}" data-idx="${idx}">
+          <div class="row" style="justify-content:space-between;gap:10px;align-items:flex-start;">
+            <div style="flex:1;min-width:0;">
+              <div class="n">${escapeHTML_(lab.name||"—")}</div>
+              <div class="m">
+                <span>${escapeHTML_(meta||"")}${place?(" · "+escapeHTML_(place)):""}</span>
+                <span>Divisa: <b>${escapeHTML_(cur2||"n.a.")}</b></span>
+                <span>1º dato: <b>${escapeHTML_(first||"—")}</b></span>
+              </div>
+            </div>
+            <div class="code">${escapeHTML_(sym)}</div>
+          </div>
+        </div>`;
+    }).join("");
+    list.innerHTML = html;
+
+
+    // click binding
+    list.querySelectorAll(".invItem").forEach(el=>{
+      el.addEventListener("click", async ()=>{
+        const sym = el.getAttribute("data-sym");
+        const it = items.find(x=>String(x.symbol||x.ticker||x.code||x.id)===String(sym));
+        invSetSelected({symbol:sym, item:it});
+        // Prefetch history+meta for preview
+        try{
+          await invEnsureHistoryCached(sym, it);
+        }catch(e){
+          // show in preview note
+          document.getElementById("invPrevNote").innerHTML = `No se pudo leer histórico: ${escapeHTML_(e.message||String(e))}`;
+        }
+        // rerender to update first-date display
+        invRenderList();
+      });
+    });
+  }
+
+  function invSetSelected(sel){
+    INV.selected = sel;
+    const btn = document.getElementById("invLoadBtn");
+    if (btn) btn.disabled = !sel;
+    document.getElementById("invPrevName").textContent = sel ? (invItemLabel(sel.item||{}).name || sel.symbol) : "—";
+    if (!sel){
+      document.getElementById("invPrevMeta").textContent = "Selecciona un resultado para ver divisa y 1º dato.";
+      document.getElementById("invPrevNote").textContent = "—";
+} else {
+  const over = invGetCcyOverride(sel.symbol);
+  const c0 = over || invCurrencyCandidate(sel.item||{});
+  document.getElementById("invPrevMeta").innerHTML = `Código: <b>${escapeHTML_(sel.symbol)}</b> · Divisa: <b>${escapeHTML_(c0)}</b> · 1º dato: <b>—</b>`;
+  document.getElementById("invPrevNote").textContent = "Cargando histórico para extraer 1º dato…";
+
+  // Manual override UI (only if unknown currency)
+  const w = document.getElementById("invManualCcyWrap");
+  const n = document.getElementById("invManualCcyNote");
+  if (w){
+    w.style.display = (c0==="n.a.") ? "flex" : "none";
+    const s = document.getElementById("invManualCcy");
+    if (s) s.value = over || "n.a.";
+  }
+  if (n){ n.style.display="none"; n.textContent=""; }
+}
+  }
+
+  async function invEnsureHistoryCached(symbol, item){
+    if (INV.cache.has(symbol) && INV.cache.get(symbol).rawSeries) {
+      const c = INV.cache.get(symbol);
+      invUpdatePreviewFromCache(symbol, c);
+      return c;
+    }
+    invUpdatePreviewLoading(symbol);
+
+    const {series, meta} = await invFetchHistory(symbol);
+    const s = dedupeSort(series);
+    if (s.length < 30) throw new Error("Histórico demasiado corto");
+
+    const firstDate = fmtDate(s[0].date);
+    const lastDate  = fmtDate(s[s.length-1].date);
+    const m = meta || {};
+    const partial = !!m.__partial;
+    const partialReason = m.__partialReason ? String(m.__partialReason) : "";
+
+    // Currency: manual override → meta → search result → symbol_info → guess → n.a.
+    let cur = invGetCcyOverride(symbol);
+    if (!cur){
+      cur = (m.currency_code || m.currency || m.currencyCode || m.ccy || "").toString().trim().toUpperCase();
+      if (!/^[A-Z]{3}$/.test(cur)) cur = "";
+    }
+    if (!cur){
+      const c0 = invCurrencyCandidate(item||{});
+      if (c0 && c0!=="n.a." && /^[A-Z]{3}$/.test(c0)) cur = c0;
+    }
+    if (!cur){
+      const c2 = await invFetchSymbolInfoCurrency(symbol);
+      if (c2 && /^[A-Z]{3}$/.test(c2)) cur = c2;
+    }
+    if (!cur){
+      const g = invGuessCurrencyFromName(invItemLabel(item||{}).name||"");
+      if (g && /^[A-Z]{3}$/.test(g)) cur = g;
+    }
+    if (!cur) cur = "n.a.";
+
+    const obj = { rawSeries: s, meta:{ currency: cur, firstDate, lastDate, partial, partialReason } , parsedByScreen:new Map() };
+    INV.cache.set(symbol, obj);
+    invUpdatePreviewFromCache(symbol, obj);
+    return obj;
+  }
+
+  function invUpdatePreviewLoading(symbol){
+    const el = document.getElementById("invPrevNote");
+    if (el) el.textContent = "Cargando histórico…";
+  }
+  function invUpdatePreviewFromCache(symbol, cached){
+    const cur = cached.meta && cached.meta.currency ? cached.meta.currency : "n.a.";
+    const first = cached.meta && cached.meta.firstDate ? cached.meta.firstDate : "—";
+    const last = cached.meta && cached.meta.lastDate ? cached.meta.lastDate : "—";
+    const partial = !!(cached.meta && cached.meta.partial);
+    const partialReason = cached.meta && cached.meta.partialReason ? String(cached.meta.partialReason) : "";
+
+    document.getElementById("invPrevMeta").innerHTML =
+      `Código: <b>${escapeHTML_(symbol)}</b> · Divisa: <b>${escapeHTML_(cur)}</b> · ` +
+      `Rango cargado: <b>${escapeHTML_(first)}</b> → <b>${escapeHTML_(last)}</b>`;
+
+    const note = document.getElementById("invPrevNote");
+    if (note){
+      note.innerHTML = partial
+        ? `<b>Histórico parcial.</b> Rango cargado: <b>${escapeHTML_(first)}</b> → <b>${escapeHTML_(last)}</b>` +
+          (partialReason ? `<br/><span class="muted">Motivo: ${escapeHTML_(partialReason)}</span>` : "")
+        : `Rango cargado: <b>${escapeHTML_(first)}</b> → <b>${escapeHTML_(last)}</b>.`;
+    }
+
+    // Manual override UI (only if unknown currency)
+    const w = document.getElementById("invManualCcyWrap");
+    const n = document.getElementById("invManualCcyNote");
+    const over = invGetCcyOverride(symbol);
+    if (w){
+      const show = (!cur || cur==="n.a.");
+      w.style.display = show ? "flex" : "none";
+      const s = document.getElementById("invManualCcy");
+      if (s) s.value = over || "n.a.";
+    }
+    if (n){ n.style.display="none"; n.textContent=""; }
+  }
+
+  // Build parsed object through same pipeline as other sources
+  async function invBuildParsedForScreen(symbol, item, screenId){
+    const cache = await invEnsureHistoryCached(symbol, item);
+    if (cache.parsedByScreen && cache.parsedByScreen.has(screenId)) return cache.parsedByScreen.get(screenId);
+
+    let s = cache.rawSeries.map(p=>({date:p.date, nav:p.nav}));
+    let invalid = 0;
+    // Outliers: screen1 respects toggle; others default ON
+    if (screenId === "screen1"){
+      const outMode = (document.getElementById("outliers")?.value || "on");
+      if (outMode === "on"){
+        const fixed = fixOutliers(s);
+        s = fixed.series;
+        // If suspicious but not fixed, prompt DQ with lower threshold
+        const analysis = analyzeSeriesDQ(s, 0.60);
+        if (analysis && analysis.events && analysis.events.length){
+          const key = `inv|${symbol}`;
+          const existing = (typeof loadDQ==="function") ? loadDQ(key) : null;
+          if (!existing){
+            // Ask user once
+            const cfg = await showDQModal("screen1", key, analysis);
+            s = applyDQ(s, cfg);
+          } else {
+            s = applyDQ(s, existing);
+          }
+        }
+      }
+      // DQ normal
+      const dqKey = `inv|${symbol}`;
+      const dqCfg = await ensureDQ(dqKey, s, "screen1");
+      s = applyDQ(s, dqCfg);
+    } else if (screenId !== "screen3"){
+      const fixed = fixOutliers(s);
+      s = fixed.series;
+      const dqKey = `inv|${symbol}`;
+      const dqCfg = await ensureDQ(dqKey, s, screenId);
+      s = applyDQ(s, dqCfg);
+    } else {
+      // screen3: DQ handled later (keep only outliers fix)
+      const fixed = fixOutliers(s);
+      s = fixed.series;
+    }
+
+    const dailyIdx = detectDailyStart(s);
+    const dailySeries = s.slice(dailyIdx);
+    const monthlySeries = monthEnd(s);
+    const freqSegs = freqSegments(s);
+
+    const name = (invItemLabel(item||{}).name || symbol) + " (Investing)";
+    const parsed = {
+      name,
+      fileName: `inv:${symbol}`,
+      series: s,
+      dailyIdx, dailySeries, monthlySeries, freqSegs,
+      invalid,
+      currency: (cache.meta && cache.meta.currency) ? cache.meta.currency : "n.a.",
+      firstDate: (cache.meta && cache.meta.firstDate) ? cache.meta.firstDate : null,
+    };
+    if (screenId === "screen3") parsed.seriesRaw = cache.rawSeries.map(p=>({date:p.date, nav:p.nav}));
+
+    if (cache.parsedByScreen) cache.parsedByScreen.set(screenId, parsed);
+    return parsed;
+  }
+
+  async function invLoadSelectedToCtx(){
+    if (!INV.selected) return;
+    const sym = INV.selected.symbol;
+    const item = INV.selected.item || {};
+    const ctx = INV.ctx;
+    try{
+      const parsed = await invBuildParsedForScreen(sym, item, ctx.screenId || activeScreenId());
+      invPickerClose();
+      await new Promise(r=>setTimeout(r,0));
+      // Apply similarly to repoPickerSelect but without repo parsing
+      if (ctx.kind === "screen1"){
+        const fi=document.getElementById("file"); if (fi) fi.value="";
+        STATE.rawSeries = parsed.series;
+        STATE.dailyIdx = parsed.dailyIdx;
+        STATE.dailySeries = parsed.dailySeries;
+        STATE.monthlySeries = parsed.monthlySeries;
+        STATE.freqSegs = parsed.freqSegs;
+
+        // annotate source
+        STATE.sourceKey = `inv|${sym}`;
+        STATE.sourceCurrency = parsed.currency || "n.a.";
+        STATE.sourceFirstDate = parsed.firstDate || null;
+        STATE.sourceName = parsed.name || sym;
+
+        const _invC = INV.cache.get(sym);
+        const _invPartial = !!(_invC && _invC.meta && _invC.meta.partial);
+        const _invPartialReason = (_invC && _invC.meta && _invC.meta.partialReason) ? String(_invC.meta.partialReason) : "";
+
+        renderQuality();
+        document.getElementById("status").textContent = "Datos cargados";
+        setMsg("ok", [
+          `Origen: <b>INVESTING</b> · Fondo/índice: <b>${escapeHTML_(parsed.name)}</b> · Divisa: <b>${escapeHTML_(parsed.currency||"n.a.")}</b> · Filas válidas: <b>${parsed.series.length}</b>.`,
+          `Rango cargado: <b>${escapeHTML_(parsed.firstDate||fmtDate(parsed.series[0].date))}</b> → <b>${fmtDate(parsed.series[parsed.series.length-1].date)}</b>.` + (_invPartial ? ` <b>Histórico parcial.</b>` + (_invPartialReason ? ` <span class="muted">(${escapeHTML_(_invPartialReason)})</span>` : ``) : ``),
+          `Tramo diario detectado desde: <b>${fmtDate(parsed.series[parsed.dailyIdx].date)}</b> (obs: <b>${parsed.dailySeries.length}</b>).`
+        ].join("<br/>"));
+        const runBtn=document.getElementById("run");
+        if (runBtn) runBtn.disabled=false;
+        computeAndRender();
+        return;
+      }
+
+      if (ctx.kind === "cmp"){
+        if (typeof CMP !== "undefined"){
+          if (!CMP.repoFunds) CMP.repoFunds = Array(10).fill(null);
+          CMP.repoFunds[ctx.slot] = parsed;
+        }
+        const id = `cmpFile${Number(ctx.slot)+1}`;
+        const fi=document.getElementById(id); if (fi) fi.value="";
+        if (typeof cmpHandleInputs === "function") await cmpHandleInputs();
+        return;
+      }
+
+      if (ctx.kind === "bt"){
+        const slot = Number(ctx.slot);
+        const targetArr = ctx.isBench ? BT.benchFunds : BT.funds;
+        targetArr[slot] = parsed;
+
+        const id = ctx.isBench ? `btBFile${slot+1}` : `btFile${slot+1}`;
+        const fi=document.getElementById(id); if (fi) fi.value="";
+
+        if (!ctx.isBench){
+          const idxs = btLoadedIdxs();
+          const allZero = idxs.length && idxs.every(i=>(Number(BT.weights[i])||0)===0);
+          if (allZero){
+            const each = 100/idxs.length;
+            idxs.forEach(i=>BT.weights[i]=each);
+          }
+          if (typeof btRenderWeightsTable==="function") btRenderWeightsTable();
+          if (typeof btUpdatePeriodInfo==="function") btUpdatePeriodInfo();
+          const st=document.getElementById("btStatus"); if (st) st.textContent = `Cargados: ${btLoadedIdxs().length} archivos`;
+        } else {
+          const idxs = btBenchLoadedIdxs();
+          const allZero = idxs.length && idxs.every(i=>(Number(BT.benchWeights[i])||0)===0);
+          if (allZero){
+            const each = 100/idxs.length;
+            idxs.forEach(i=>BT.benchWeights[i]=each);
+          }
+          if (typeof btRenderBenchWeightsTable==="function") btRenderBenchWeightsTable();
+          if (typeof btUpdatePeriodInfo==="function") btUpdatePeriodInfo();
+          const st=document.getElementById("btBenchStatus"); if (st) st.textContent = `Cargados: ${btBenchLoadedIdxs().length} archivos`;
+        }
+        return;
+      }
+    }catch(e){
+      console.warn(e);
+      // show inside modal
+      const note = document.getElementById("invPrevNote");
+      if (note) note.innerHTML = `Error: ${escapeHTML_(e.message||String(e))}`;
+    }
+  }
+
+  
+  /* ===== v20 FIX: Investing search/history wired like working v75_7/v75_9 =====
+     Goal: make 🌐 Investing picker functional (DNCA / Groupama) using TVC URL from user's session.
+     - Robust TVC URL parsing (tvc4/tvc6)
+     - Search endpoint params: limit, query, type, exchange (as in working build)
+     - Multi-proxy attempts when proxy enabled (corsproxy.io -> allorigins)
+     - More robust fund/index filtering and ranking by prefix
+  */
+
+  function invGuessCurrencyFromName(name){
+    const txt = String(name||"").toUpperCase();
+    const m = txt.match(/\b(EUR|USD|GBP|CHF|JPY|AUD|CAD|NOK|SEK|DKK|NZD|SGD|HKD|CNY|CNH|ZAR|MXN|BRL|INR|KRW|TWD|PLN|HUF|CZK|ILS|RUB|TRY)\b/);
+    return m ? m[1] : "";
+  }
+
+  function invNormalizeQueryForApi(q){
+    // Remove diacritics & normalize spacing, but keep letters/digits and spaces.
+    // This helps when the endpoint is accent-sensitive.
+    return String(q||"")
+      .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+      .replace(/&/g," ")
+      .replace(/[^\w\s]+/g," ")
+      .replace(/\s+/g," ")
+      .trim();
+  }
+
+  function invParseTvcUrl(u){
+    try{
+      const url = new URL(String(u||"").trim());
+      const host = url.hostname || "";
+      if (!/^tvc\d*\.investing\.com$/i.test(host)) return null;
+      const parts = url.pathname.split("/").filter(Boolean);
+      // Expected: /<hash>/<ts>/<a>/<b>/<c>/<endpoint>
+      if (parts.length < 6) return null;
+      const hash = parts[0];
+      const ts = parseInt(parts[1], 10);
+      const a = parseInt(parts[2], 10);
+      const b = parseInt(parts[3], 10);
+      const c = parseInt(parts[4], 10);
+      if (!hash || !Number.isFinite(ts) || !Number.isFinite(a) || !Number.isFinite(b) || !Number.isFinite(c)) return null;
+      return { origin: url.origin, host, hash, ts, a, b, c, raw: url.toString() };
+    }catch(e){
+      return null;
+    }
+  }
+
+  // Override base getter with robust TVC parsing
+  function invGetBase(){
+    const el = document.getElementById("invTvcUrl");
+    const raw = el ? String(el.value||"").trim() : "";
+    if (!raw) return null;
+    const parsed = invParseTvcUrl(raw);
+    if (!parsed) return null;
+    return parsed;
+  }
+
+  function invTvcSearchUrl(base, q, limit){
+    const lim = Number(limit)||200;
+    return `${base.origin}/${base.hash}/${base.ts}/${base.a}/${base.b}/${base.c}/search?limit=${lim}&query=${encodeURIComponent(q)}&type=&exchange=`;
+  }
+  function invTvcHistoryUrl(base, symbolId, fromSec, toSec){
+    return `${base.origin}/${base.hash}/${base.ts}/${base.a}/${base.b}/${base.c}/history?symbol=${encodeURIComponent(symbolId)}&resolution=D&from=${Math.floor(fromSec)}&to=${Math.floor(toSec)}`;
+  }
+
+
+function invExtractCurrencyFromAny(obj){
+  // Best-effort: search common keys recursively (limited depth) and scan strings.
+  const seen = new Set();
+  const isCcy = (v)=> (typeof v==="string" && /^[A-Z]{3}$/.test(v.trim().toUpperCase()));
+  const pick = (v)=> isCcy(v) ? v.trim().toUpperCase() : "";
+
+  function walk(x, depth){
+    if (!x || depth>5) return "";
+    if (typeof x === "string"){
+      const m = x.toUpperCase().match(/\b(EUR|USD|GBP|CHF|JPY|AUD|CAD|NOK|SEK|DKK|NZD|SGD|HKD|CNY|CNH|ZAR|MXN|BRL|INR|KRW|TWD|PLN|HUF|CZK|ILS|RUB|TRY)\b/);
+      return m ? m[1] : "";
+    }
+    if (typeof x !== "object") return "";
+    if (seen.has(x)) return "";
+    seen.add(x);
+
+    // If object has a currency-like key, prioritize it
+    for (const k of Object.keys(x)){
+      const kl = String(k||"").toLowerCase();
+      if (kl.includes("currency") || kl==="ccy" || kl.includes("quote") || kl.includes("base")){
+        const v = x[k];
+        if (typeof v === "string"){
+          const c = pick(v);
+          if (c) return c;
+        }
+      }
+    }
+
+    // Recurse
+    for (const k of Object.keys(x)){
+      const v = x[k];
+      if (typeof v === "string"){
+        const c = pick(v);
+        if (c) return c;
+        const m = v.toUpperCase().match(/\b(EUR|USD|GBP|CHF|JPY|AUD|CAD|NOK|SEK|DKK|NZD|SGD|HKD|CNY|CNH|ZAR|MXN|BRL|INR|KRW|TWD|PLN|HUF|CZK|ILS|RUB|TRY)\b/);
+        if (m) return m[1];
+      } else if (Array.isArray(v)){
+        for (const it of v){
+          const c = walk(it, depth+1);
+          if (c) return c;
+        }
+      } else if (typeof v === "object"){
+        const c = walk(v, depth+1);
+        if (c) return c;
+      }
+    }
+    return "";
+  }
+
+  try{ return walk(obj, 0) || ""; }catch(_){ return ""; }
+}
+
+async function invFetchSymbolInfoCurrency(symbol){
+  // Try extra TVC endpoints that sometimes include currency metadata.
+  try{
+    const base = invGetBase();
+    if (!base) return "";
+    const s = encodeURIComponent(symbol);
+    const mk = (ep)=> `${base.origin}/${base.hash}/${base.ts}/${base.a}/${base.b}/${base.c}/${ep}`;
+    const urls = [
+      mk(`symbol_info?symbol=${s}`),
+      mk(`symbols?symbol=${s}`),
+      mk(`quotes?symbol=${s}`),
+      mk(`quotes?symbols=${s}`),
+    ];
+    for (const u of urls){
+      try{
+        const js = await invFetchJSON(u);
+        const c = invExtractCurrencyFromAny(js);
+        if (c) return c;
       }catch(_){}
     }
-    throw new Error("No se pudo conectar con Investing.com");
-  }
+  }catch(_){}
+  return "";
+}
 
-  async function inv2Search(term){
-    // Investing.com autocomplete endpoint (public, no auth needed)
-    const url = "https://www.investing.com/search/service/searchTopBar?search_text="+encodeURIComponent(term)+"&term="+encodeURIComponent(term)+"&country_id=0&tab_type=quotes";
-    const data = await inv2FetchJson(url);
-    const hits = data?.quotes?.results || [];
-    return hits.map(h => ({
-      id: h.pairId || h.id,
-      symbol: h.symbol || h.pair_short_name || "",
-      name: h.name || h.full_name || h.pair_long_name || "",
-      type: h.type || "",
-      exchange: h.exchange || h.countryName || "",
-      currency: h.currency || "",
-      link: h.link || ""
-    }));
-  }
-
-  async function inv2FetchHistory(pairId){
-    const to   = Math.floor(Date.now()/1000);
-    const from = to - (12*365*86400);
-    const url  = "https://api.investing.com/api/financialdata/"+pairId+"/historical/chart/?period=Daily&startDate="+from+"&endDate="+to+"&pointscount=120";
-    const data = await inv2FetchJson(url);
-    const arr  = data?.data || data?.candles || [];
-    return arr.map(c=>{
-      const ts = Array.isArray(c)?c[0]:c.timestamp||c.date;
-      const cl = Array.isArray(c)?c[4]:c.close||c[1];
-      if(!ts||!cl) return null;
-      const d = new Date(typeof ts==="number"?(ts<1e12?ts*1000:ts):ts);
-      if(isNaN(d)) return null;
-      const dd = new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate()));
-      const ds = dd.toISOString().substring(0,10).replace(/-/g,"/");
-      return {date:ds, value:parseFloat(cl)};
-    }).filter(Boolean).sort((a,b)=>a.date.localeCompare(b.date));
-  }
-
-  function inv2EnsureModal(){
-    if(document.getElementById("inv2Overlay")) return;
-    const ov=document.createElement("div");
-    ov.id="inv2Overlay";
-    ov.className="repoOverlay";
-    ov.innerHTML=`<div class="repoModal" style="width:min(800px,96vw)">
-      <div class="repoHd"><div class="t">🌐 Investing.com — Buscar fondo / ETF / índice</div>
-        <button onclick="document.getElementById('inv2Overlay').classList.remove('open')" style="background:none;border:none;cursor:pointer;font-size:20px;color:#64748b">✕</button></div>
-      <div class="repoBd">
-        <div class="repoControls" style="margin-bottom:10px">
-          <input id="inv2SearchBox" type="text" placeholder="Ej: Vanguard Global, S&P 500, Cobas…" style="flex:1;min-width:200px;padding:10px;border:1px solid var(--border);border-radius:12px"/>
-          <button onclick="inv2DoSearch()" class="btn" style="width:auto;padding:10px 18px">Buscar</button>
-        </div>
-        <div id="inv2Status" style="font-size:12px;color:var(--muted);margin-bottom:8px">Escribe para buscar fondos, ETFs o índices.</div>
-        <div id="inv2List" class="repoList" style="max-height:50vh"></div>
-      </div>
-      <div style="padding:12px 14px;border-top:1px solid #eee;display:flex;justify-content:flex-end;gap:8px">
-        <button id="inv2ConfirmBtn" class="btn" style="width:auto;padding:9px 20px" disabled onclick="inv2Confirm()">Cargar seleccionado</button>
-        <button onclick="document.getElementById('inv2Overlay').classList.remove('open')" style="padding:9px 16px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;cursor:pointer;font-size:13px">Cancelar</button>
-      </div></div>`;
-    document.body.appendChild(ov);
-    document.getElementById("inv2SearchBox").addEventListener("keydown",e=>{ if(e.key==="Enter") inv2DoSearch(); });
-  }
-
-  window.inv2DoSearch = async function(){
-    const q=(document.getElementById("inv2SearchBox")?.value||"").trim();
-    if(!q) return;
-    const st=document.getElementById("inv2Status");
-    const li=document.getElementById("inv2List");
-    if(st) st.textContent="Buscando...";
-    if(li) li.innerHTML="";
-    document.getElementById("inv2ConfirmBtn").disabled=true;
-    INV2.selected=null;
-    try{
-      const res=await inv2Search(q);
-      INV2.lastResults=res;
-      if(!res.length){ if(st) st.textContent="Sin resultados. Prueba otro término."; return; }
-      if(st) st.textContent=res.length+" resultados";
-      if(li) li.innerHTML=res.map((r,i)=>`<div class="repoItem" onclick="inv2Select(${i})" id="inv2R${i}">
-        <div class="n">${inv2Esc(r.name)}</div>
-        <div class="m">
-          ${r.symbol?`<span class="code">${inv2Esc(r.symbol)}</span>`:""}
-          ${r.type?`<span>${inv2Esc(r.type)}</span>`:""}
-          ${r.exchange?`<span>${inv2Esc(r.exchange)}</span>`:""}
-          ${r.currency?`<span>${inv2Esc(r.currency)}</span>`:""}
-        </div></div>`).join("");
-    }catch(e){ if(st) st.textContent="Error: "+e.message; }
-  };
-
-  window.inv2Select = function(i){
-    INV2.selected=INV2.lastResults[i];
-    document.querySelectorAll("#inv2List .repoItem").forEach(el=>el.classList.remove("active"));
-    document.getElementById("inv2R"+i)?.classList.add("active");
-    document.getElementById("inv2ConfirmBtn").disabled=false;
-  };
-
-  window.inv2Confirm = async function(){
-    const item=INV2.selected; if(!item) return;
-    const ctx=INV2.ctx;
-    document.getElementById("inv2Overlay")?.classList.remove("open");
-
-    function setStatus(msg,kind){
-      const ids={"screen1":"s1Status","cmp":"cmpStatus","bt":"btStatus"};
-      const el=document.getElementById(ids[ctx.kind]||"s1Status");
-      if(!el) return;
-      el.className=kind==="ok"?"ok":kind==="warn"?"warn":"note";
-      el.textContent=msg; el.style.display="block";
+  async function invFetchText(url){
+    const useProxy = !!document.getElementById("invUseProxy")?.checked;
+    const attempts = [];
+    if (useProxy){
+      // Try corsproxy first (often works for TVC), then allorigins
+      attempts.push("https://corsproxy.io/?" + encodeURIComponent(url));
+      attempts.push("https://api.allorigins.win/raw?url=" + encodeURIComponent(url));
+    } else {
+      attempts.push(url);
     }
 
-    setStatus("⏳ Descargando "+item.name+"…","info");
-    try{
-      let rows=INV2.cache.get(item.id);
-      if(!rows){ rows=await inv2FetchHistory(item.id); INV2.cache.set(item.id,rows); }
-      if(!rows.length) throw new Error("Sin datos históricos");
-
-      // Build CSV compatible with parseInvestingFile
-      const lines=["Fecha,Último,Apertura,Máximo,Mínimo,% var."];
-      for(const r of [...rows].reverse()) lines.push(r.date+","+r.value.toFixed(4)+",,,,");
-      const blob=new Blob([lines.join("\n")],{type:"text/csv"});
-      const file=new File([blob],(item.symbol||"fund")+".csv",{type:"text/csv"});
-
-      if(ctx.kind==="screen1"){
-        const p=await parseInvestingFile(file,"screen1");
-        if(p){ window.currentParsed=p; renderAllCharts(); }
-      } else if(ctx.kind==="cmp"){
-        const p=await parseInvestingFile(file,"screen2");
-        if(p){ CMP.rawFunds[ctx.slot]=p; updateCmp(); }
-      } else if(ctx.kind==="bt"){
-        const p=await parseInvestingFile(file,"screen3",ctx.isBench?"benchmark":"fund");
-        if(p){ if(ctx.isBench) BT.benchmark=p; else { BT.funds=BT.funds||[]; BT.funds[ctx.slot]=p; } updateBt(); }
+    let last = null;
+    for (const u of attempts){
+      try{
+        const resp = await fetch(u, { headers: {"Accept":"*/*"}, credentials:"omit" });
+        const text = await resp.text();
+        if (!resp.ok){
+          last = {ok:false, status:resp.status, text:text.slice(0,800), finalUrl:u};
+          continue;
+        }
+        return {ok:true, status:resp.status, text, finalUrl:u};
+      }catch(e){
+        last = {ok:false, status:0, text:String(e||"").slice(0,400), finalUrl:u};
       }
-      setStatus("✅ "+item.name+" — "+rows.length+" puntos","ok");
-    }catch(e){ setStatus("❌ "+e.message,"warn"); }
+    }
+    return last || {ok:false, status:0, text:"", finalUrl:url};
+  }
+
+  async function invFetchJSON(url){
+    const r = await invFetchText(url);
+    if (!r || !r.ok) throw new Error("HTTP " + (r ? r.status : "0"));
+    let txt = String(r.text||"").trim();
+    if (txt.startsWith("<")){
+      // Proxy sometimes wraps in HTML
+      const m = txt.match(/<p[^>]*>([\s\S]*?)<\/p>/i);
+      if (m) txt = m[1].trim();
+      // Challenge?
+      const low = txt.toLowerCase();
+      if (low.includes("cloudflare") || low.includes("challenge") || low.includes("attention required")){
+        throw new Error("Challenge/HTML");
+      }
+    }
+    return JSON.parse(txt);
+  }
+
+  function invNormalizeType(t){
+    const s = String(t||"").toLowerCase();
+    if (!s) return "";
+    if (s.includes("fund") || s.includes("mutual") || s.includes("fondo")) return "fund";
+    if (s.includes("index") || s.includes("indice") || s.includes("índice")) return "index";
+    return s;
+  }
+
+  function invIsFundIndex(item){
+    // More robust than previous heuristic: check multiple fields
+    const t = invNormalizeType(item.type || item.instrument_type || item.kind || item.category || item.assetType || item.asset_type);
+    if (t==="fund" || t==="index") return true;
+    const hay = (String(item.description||"")+" "+String(item.full_name||"")+" "+String(item.name||"")+" "+String(item.type||"")+" "+String(item.rawType||"")).toLowerCase();
+    if (hay.includes("fund") || hay.includes("fondo") || hay.includes("mutual")) return true;
+    if (hay.includes("index") || hay.includes("índice") || hay.includes("indice")) return true;
+    return false;
+  }
+
+  function invParseTvcSearch(json){
+    const items = [];
+    if (!json) return items;
+
+    // Common shapes:
+    //  - {s:'ok', d:[...]}
+    //  - {symbols:[...]} / {data:[...]} / [...]
+    const list =
+      Array.isArray(json) ? json :
+      (Array.isArray(json.d) ? json.d :
+       Array.isArray(json.data) ? json.data :
+       Array.isArray(json.symbols) ? json.symbols :
+       Array.isArray(json.results) ? json.results :
+       (json && Array.isArray(json.items) ? json.items : []));
+    if (!Array.isArray(list)) return items;
+
+    for (const it of list){
+      const symbol = it.symbol ?? it.id ?? it.pair_ID ?? it.pairId ?? it.pair_id ?? it.pairId;
+      if (symbol == null) continue;
+
+      const name = it.description ?? it.name ?? it.full_name ?? it.fullName ?? it.title ?? "";
+      const type = it.type ?? it.instrument_type ?? it.instrumentType ?? it.pair_type ?? it.pairType ?? it.category ?? "";
+      const exchange = it.exchange ?? it.exchange_name ?? it.exchangeName ?? "";
+      const country = it.country ?? it.flag ?? "";
+      let currency = it.currency ?? it.ccy ?? it.quoteCurrency ?? it.currency_code ?? "";
+      if (!currency) currency = invGuessCurrencyFromName(name);
+
+      // Map into the structure used by invItemLabel()
+      items.push({
+        symbol: String(symbol),
+        full_name: String(name||"").trim(),
+        name: String(name||"").trim(),
+        description: exchange || country || "",
+        type,
+        exchange,
+        country,
+        currency,
+        currency_code: currency
+      });
+    }
+    return items;
+  }
+
+  // Override search with TVC-style search (like working build)
+  async function invSearch(query){
+    const base = invGetBase();
+    if (!base){
+      invStatusBadge("Pega una URL TVC (tu sesión)", "warn");
+      return [];
+    }
+    invSaveTvcUrl(base.raw);
+
+    const qRaw = String(query||"").trim();
+    const qNorm = normLoose(qRaw);
+    if (qNorm.length < 1) return [];
+
+    const qApi = invNormalizeQueryForApi(qRaw);
+    const prefix2 = qNorm.slice(0, Math.min(2, qNorm.length));
+
+    // Query set to avoid missing results (accent/punct sensitivity)
+    const qSet = [];
+    if (qRaw) qSet.push(qRaw);
+    if (qApi && qApi.toLowerCase() !== qRaw.toLowerCase()) qSet.push(qApi);
+    if (prefix2 && !qSet.map(x=>x.toLowerCase()).includes(prefix2.toLowerCase())) qSet.push(prefix2);
+
+    const merged = new Map(); // symbol -> item
+    let anyOk = false;
+
+    for (const q of qSet){
+      const url = invTvcSearchUrl(base, q, 200);
+      try{
+        const js = await invFetchJSON(url);
+        anyOk = true;
+        const items = invParseTvcSearch(js);
+        for (const it of items){
+          const sym = it.symbol;
+          if (!sym) continue;
+          if (!merged.has(sym)) merged.set(sym, it);
+        }
+      }catch(e){
+        // ignore individual query failures
+      }
+    }
+
+    if (!anyOk){
+      invStatusBadge("Sin acceso (bloqueo/challenge/CORS)", "bad");
+      return [];
+    }
+    invStatusBadge("OK", "ok");
+
+    const out = [];
+    for (const it of merged.values()){
+      if (invIsFundIndex(it)) out.push(it);
+    }
+
+    // Rank: prefix > token-start > contains, using normalized query
+    out.sort((a,b)=>{
+      const sa = invScore(a, qNorm);
+      const sb = invScore(b, qNorm);
+      if (sb!==sa) return sb-sa;
+      const la = (invItemLabel(a).name||"").length;
+      const lb = (invItemLabel(b).name||"").length;
+      return la-lb;
+    });
+
+    return out;
+  }
+
+  // Override history fetch (full daily history) using TVC base from user's session
+async function invFetchHistory(symbol){
+  const base = invGetBase();
+  if (!base) throw new Error("Falta URL TVC");
+  const now = Math.floor(Date.now()/1000);
+
+  const okPayload = (js)=> (js && (js.s==="ok" || js.s==="OK" || js.status==="ok" || Array.isArray(js.t)));
+  const parsePayload = (js)=>{
+    const tt = js.t || js.times || js.time || [];
+    const cc = js.c || js.close || js.prices || [];
+    if (!Array.isArray(tt) || !Array.isArray(cc) || tt.length<2) return {series:[], earliest:null, latest:null};
+    const series=[];
+    let earliest=null, latest=null;
+    for (let i=0;i<tt.length;i++){
+      const ts = Number(tt[i]);
+      const v  = Number(cc[i]);
+      if (!Number.isFinite(ts) || !Number.isFinite(v) || !(v>0)) continue;
+      const d0 = new Date(ts*1000);
+      const d  = new Date(Date.UTC(d0.getUTCFullYear(), d0.getUTCMonth(), d0.getUTCDate()));
+      series.push({ts, date:d, nav:v});
+      if (earliest==null || ts<earliest) earliest=ts;
+      if (latest==null || ts>latest) latest=ts;
+    }
+    return {series, earliest, latest};
   };
 
-  window.inv2Open = function(ctx){
-    inv2EnsureModal();
-    INV2.ctx={ kind:"screen1", slot:0, isBench:false, ...ctx };
-    INV2.selected=null;
-    document.getElementById("inv2ConfirmBtn").disabled=true;
-    document.getElementById("inv2SearchBox").value="";
-    document.getElementById("inv2List").innerHTML="";
-    document.getElementById("inv2Status").textContent="Escribe para buscar fondos, ETFs o índices.";
-    document.getElementById("inv2Overlay").classList.add("open");
-    setTimeout(()=>{ try{ document.getElementById("inv2SearchBox").focus(); }catch(_){} },50);
-  };
+  const CHUNK_DAYS = 3600;               // ~10 años (seguro vs límites típicos)
+  const CHUNK_SEC  = CHUNK_DAYS * 86400;
+  const floorCandidates = [0, 315532800, 631152000]; // 1970/1980/1990
 
-  // Replace old INV.open calls with inv2Open in button wiring
-  // (Buttons already use window.inv2Open after next patch)
+  let best = null;
+
+  for (const floor of floorCandidates){
+    let to = now;
+    let lastEarliest = null;
+    let metaOut = null;
+    let partial = false;
+    let partialReason = "";
+
+    const map = new Map(); // ts -> nav
+
+    for (let iter=0; iter<90; iter++){
+      const from = Math.max(floor, to - CHUNK_SEC);
+
+      let js;
+      try{
+        const url = invTvcHistoryUrl(base, symbol, from, to);
+js = await invFetchJSON(url);
+if (!okPayload(js)){
+  // Some endpoints require 1D instead of D
+  const url2 = url.replace("resolution=D","resolution=1D");
+  js = await invFetchJSON(url2);
+}
+}catch(e){
+        partial = true;
+        partialReason = "Fallo en descarga (CORS/bloqueo/red) al pedir un tramo.";
+        break;
+      }
+
+      if (!okPayload(js)){
+        partial = true;
+        partialReason = "Respuesta sin datos (no ok) al pedir un tramo.";
+        break;
+      }
+
+      const parsed = parsePayload(js);
+      if (!parsed.series.length){
+        // Si ya tenemos datos, paramos (hemos llegado al inicio / no hay más)
+        if (map.size>0) break;
+        partial = true;
+        partialReason = "Sin datos en el tramo solicitado.";
+        break;
+      }
+
+      if (!metaOut) metaOut = js.meta || js.symbol || js.m || null;
+
+      // Merge (dedupe por timestamp)
+      for (const p of parsed.series){
+        if (!map.has(p.ts)) map.set(p.ts, p.nav);
+      }
+
+      const earliest = parsed.earliest;
+      if (earliest==null) break;
+
+      // Stop conditions
+      if (lastEarliest!=null && earliest>=lastEarliest){
+        // No avanzamos hacia atrás → cortar para evitar bucle
+        break;
+      }
+      lastEarliest = earliest;
+
+      if (from<=floor && earliest <= (from + 86400)){
+        // Hemos llegado al inicio (o al límite floor) / instrumento empieza aquí.
+        break;
+      }
+
+      // Continue backwards: next 'to' is just before earliest.
+to = earliest - 86400;
+if (to>floor && iter>=88){
+  partial = true;
+  partialReason = "Límite de tramos alcanzado; histórico posiblemente parcial.";
+  break;
+}
+if (to<=floor) break;
+    }
+
+    const series = Array.from(map.entries())
+      .map(([ts,nav])=>({date:new Date(ts*1000), nav}))
+      .map(p=>{
+        const d0=p.date;
+        const d=new Date(Date.UTC(d0.getUTCFullYear(), d0.getUTCMonth(), d0.getUTCDate()));
+        return {date:d, nav:p.nav};
+      })
+      .sort((a,b)=>a.date-b.date);
+
+    if (series.length>=10){
+      const first = series[0].date;
+      const last  = series[series.length-1].date;
+      const meta = metaOut || {};
+      meta.__partial = partial;
+      meta.__partialReason = partialReason;
+      meta.__loadedStart = fmtDate(first);
+      meta.__loadedEnd   = fmtDate(last);
+      meta.__chunks = true;
+
+      const candidate = {series, meta};
+
+      if (!best || candidate.series.length > best.series.length){
+        best = candidate;
+        // If we have a non-partial run, keep it as best and stop early.
+        if (!partial) break;
+      }
+    }
+  }
+
+  if (!best) throw new Error("No se pudo cargar histórico");
+  return best;
+}
+
+
+// ---------- Patch: add Investing button next to Repo ----------
+  if (typeof repoAttachButton === "function"){
+    const _repoAttachButton = repoAttachButton;
+    repoAttachButton = function(inputId, ctx){
+      const el = document.getElementById(inputId);
+      if (!el || el.dataset.repoWrapped) return;
+      el.dataset.repoWrapped="1";
+      const parent = el.parentElement;
+      const wrap = document.createElement("div");
+      wrap.className="pickRow";
+      wrap.style.gap="6px";
+      wrap.style.alignItems="center";
+      parent.insertBefore(wrap, el);
+      wrap.appendChild(el);
+      el.style.flex="1";
+
+      const btnRepo = document.createElement("button");
+      btnRepo.type="button";
+      btnRepo.className="iconBtn repoPickBtn";
+      btnRepo.textContent="📚 Repo";
+      btnRepo.addEventListener("click", ()=>repoPickerOpen(ctx));
+      wrap.appendChild(btnRepo);
+
+      const btnInv = document.createElement("button");
+      btnInv.type="button";
+      btnInv.className="iconBtn invPickBtn";
+      btnInv.textContent="🌐 Investing";
+      btnInv.addEventListener("click", ()=>invPickerOpen(ctx));
+      wrap.appendChild(btnInv);
+
+      const btnMs = document.createElement("button");
+      btnMs.type="button";
+      btnMs.className="iconBtn msPickBtn";
+      btnMs.textContent="⭐ Morningstar";
+      btnMs.addEventListener("click", ()=>mstPickerOpen(ctx));
+      wrap.appendChild(btnMs);
+    };
+  }
+
+  // ---------- Screen1 enhancements ----------
+  function s1EnsureUI(){
+    // Period controls inserted before "Calcular" button
+    if (document.getElementById("s1YearStart")) return;
+    const runBtn = document.getElementById("run");
+    if (!runBtn) return;
+    const parent = runBtn.parentElement;
+    const mkLabel = (txt)=>{ const l=document.createElement("label"); l.textContent=txt; return l; };
+    const y0 = document.createElement("select");
+    y0.id="s1YearStart";
+    y0.style.cssText="width:auto;padding:4px 8px;border-radius:10px;border:1px solid var(--border);background:#fff;font-size:12px;";
+    const y1 = document.createElement("select");
+    y1.id="s1YearEnd";
+    y1.style.cssText="width:auto;padding:4px 8px;border-radius:10px;border:1px solid var(--border);background:#fff;font-size:12px;";
+    const allBtn = document.createElement("button");
+    allBtn.type="button";
+    allBtn.className="iconBtn";
+    allBtn.id="s1YearAll";
+    allBtn.textContent="Todo";
+    allBtn.style.cssText="font-size:11px;padding:4px 8px;";
+    // Compact row wrapper
+    const yearRow = document.createElement("div");
+    yearRow.style.cssText="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px;";
+    const lbl = document.createElement("span");
+    lbl.style.cssText="font-size:12px;color:var(--muted);";
+    lbl.textContent="Periodo:";
+    yearRow.appendChild(lbl);
+    yearRow.appendChild(y0);
+    const sep = document.createElement("span");
+    sep.style.cssText="font-size:12px;color:var(--muted);";
+    sep.textContent="–";
+    yearRow.appendChild(sep);
+    yearRow.appendChild(y1);
+    yearRow.appendChild(allBtn);
+    parent.insertBefore(yearRow, runBtn);
+
+    const xlsxBtn = document.createElement("button");
+    xlsxBtn.type="button";
+    xlsxBtn.className="iconBtn";
+    xlsxBtn.id="s1ExportXlsx";
+    xlsxBtn.textContent="Exportar a Excel";
+    // lo colocamos justo después de "Calcular"
+    runBtn.insertAdjacentElement("afterend", xlsxBtn);
+
+    xlsxBtn.addEventListener("click", ()=>{ try{ s1ExportToExcel(); }catch(e){ console.warn(e); setMsg("warn","No se pudo exportar a Excel."); } });
+
+    
+
+    // Brokers row placeholder (in KPIs card)
+    try{
+      const kInfo = document.getElementById("kInfo");
+      const card = kInfo ? kInfo.closest(".card") : null;
+      const bd = card ? card.querySelector(".bd") : null;
+      if (bd && !document.getElementById("s1BrokersRow")){
+        const br = document.createElement("div");
+        br.id="s1BrokersRow";
+        br.className="brokerRow";
+        br.style.marginBottom="10px";
+        bd.insertBefore(br, bd.firstChild);
+      }
+    }catch(_){}
+y0.addEventListener("change", ()=>computeAndRender());
+    y1.addEventListener("change", ()=>computeAndRender());
+    allBtn.addEventListener("click", ()=>{
+      if (!STATE || !STATE.rawSeries || !STATE.rawSeries.length) return;
+      const years = s1YearsFromSeries(STATE.rawSeries);
+      y0.value = String(years[0]);
+      y1.value = String(years[years.length-1]);
+      computeAndRender();
+    });
+
+    // Insert daily line card after KPI card
+    const kInfo = document.getElementById("kInfo");
+    if (kInfo){
+      const card = kInfo.closest(".card");
+      if (card && !document.getElementById("s1DailyCard")){
+        const div = document.createElement("div");
+        div.className="card";
+        div.id="s1DailyCard";
+        div.innerHTML = `
+          <div class="hd">
+            <span class="pill">Evolución histórica (diaria)</span>
+            <div class="row" style="gap:8px;align-items:center;justify-content:flex-end;">
+              <button class="iconBtn" type="button" id="s1DlCsv">Descargar CSV</button>
+            </div>
+          </div>
+          <div class="bd">
+            <div id="s1DailyLine" style="height:340px;"></div>
+            <div class="note" id="s1DailyNote">—</div>
+          </div>`;
+        card.insertAdjacentElement("afterend", div);
+
+        document.getElementById("s1DlCsv").addEventListener("click", ()=>{
+          const ser = (window.__S1_LAST_DAILY_SERIES || []);
+          if (!ser.length){ setMsg("warn","No hay serie diaria para descargar."); return; }
+          const cols = ["Date","NAV"];
+const rowsPlain = ser.map(p=>[fmtDate(p.date), p.nav]);
+downloadCSV("screen1_daily_series.csv", toCSVSep(cols, rowsPlain, ";", {bom:true}));
+        });
+      }
+    }
+  }
+
+  function s1YearsFromSeries(series){
+    const ys = [];
+    let last=null;
+    for (const p of (series||[])){
+      const y = p.date.getUTCFullYear();
+      if (y!==last){ ys.push(y); last=y; }
+    }
+    // unique, sorted
+    const set = Array.from(new Set(ys)).sort((a,b)=>a-b);
+    return set;
+  }
+
+  function s1PopulateYearControls(series){
+    const y0 = document.getElementById("s1YearStart");
+    const y1 = document.getElementById("s1YearEnd");
+    if (!y0 || !y1) return;
+    const years = s1YearsFromSeries(series);
+    if (!years.length) return;
+
+    const key = (series && series.length)
+      ? `${fmtDate(series[0].date)}_${fmtDate(series[series.length-1].date)}_${series.length}`
+      : "";
+    const prevKey = window.__S1_YEAR_SERIES_KEY || "";
+    const isNewSeries = key && (key !== prevKey);
+    window.__S1_YEAR_SERIES_KEY = key;
+
+    const prev0 = y0.value;
+    const prev1 = y1.value;
+
+    y0.innerHTML = years.map(y=>`<option value="${y}">${y}</option>`).join("");
+    y1.innerHTML = years.map(y=>`<option value="${y}">${y}</option>`).join("");
+
+    // Al cargar un fondo nuevo: por defecto, año inicio = primer año disponible.
+    if (isNewSeries){
+      y0.value = String(years[0]);
+      y1.value = String(years[years.length-1]);
+    } else {
+      y0.value = years.includes(Number(prev0)) ? prev0 : String(years[0]);
+      y1.value = years.includes(Number(prev1)) ? prev1 : String(years[years.length-1]);
+    }
+
+    if (Number(y0.value) > Number(y1.value)) y1.value = y0.value;
+  }
+
+  function s1ApplyYearFilter(series){
+    const y0 = Number(document.getElementById("s1YearStart")?.value || NaN);
+    const y1 = Number(document.getElementById("s1YearEnd")?.value || NaN);
+    if (!Number.isFinite(y0) || !Number.isFinite(y1)) return series;
+    const a = Math.min(y0,y1), b = Math.max(y0,y1);
+    return (series||[]).filter(p=>{
+      const y = p.date.getUTCFullYear();
+      return y>=a && y<=b;
+    });
+  }
+
+
+  function s1ExportToExcel(){
+  if (!window.XLSX || !XLSX.utils){ setMsg("warn","No se cargó la librería XLSX (SheetJS)."); return; }
+  if (!STATE || !STATE.rawSeries || STATE.rawSeries.length<2){ setMsg("warn","Primero carga un fondo (Repo / Morningstar)."); return; }
+
+  // Solo exportamos si tenemos ISIN (repo / Morningstar). Si no, dejamos brokers deshabilitado y export parcial.
+  const meta = STATE.sourceMeta || {};
+  const isin = (meta.isin || meta.ISIN || "").toString().trim().toUpperCase();
+  const name = (meta.name || STATE.sourceName || "n.a.").toString();
+
+  // Periodo visible (filtro de años)
+  let series = s1ApplyYearFilter(STATE.rawSeries);
+  if (!series || series.length<2){ setMsg("warn","No hay datos en el periodo seleccionado."); return; }
+
+  const monthly = monthEnd(series);
+  if (!monthly || monthly.length<2){ setMsg("warn","No hay suficientes cierres mensuales en el periodo seleccionado."); return; }
+
+  const a = monthly[0], b = monthly[monthly.length-1];
+  const years = daysBetween(a.date, b.date)/365.25;
+  const total = (b.nav/a.nav) - 1;
+
+  const rentHist = annualizeReturn(total, years);
+  const rets = returnsFromLevels(monthly).map(x=>x.r).filter(Number.isFinite);
+  const volHist = rets.length >= 2 ? std(rets) * Math.sqrt(12) : NaN;
+
+  const km10 = kpiRollingMeans(monthly, 120);
+  const km5  = kpiRollingMeans(monthly, 60);
+  const km3  = kpiRollingMeans(monthly, 36);
+  const km1  = kpiRollingMeans(monthly, 12);
+
+  const r10 = km10.annMean, r5 = km5.annMean, r3 = km3.annMean;
+  const v10 = km10.volMean, v5 = km5.volMean, v1 = km1.volMean;
+
+  const ddObj = computeDrawdownEvents(monthly);
+  let maxDD = 0, uwDays = 0;
+  if (ddObj && ddObj.events && ddObj.events.length){
+    let worst = ddObj.events[0];
+    for (const ev of ddObj.events){ if (ev.depth < worst.depth) worst = ev; }
+    maxDD = worst.depth;
+    uwDays = worst.uw;
+  }
+
+  const cleanNum = (x)=> (typeof x==="number" && Number.isFinite(x)) ? x : null;
+  const cleanInt = (x)=> (typeof x==="number" && Number.isFinite(x)) ? Math.round(x) : null;
+
+  const br = (window.BROKERS && isin) ? BROKERS.getSync(isin) : {myi:"?", r4:"?", ironia:"?", ebn:"?"};
+
+  const cols = ["ISIN","FONDO","Rent. Hist","Vol. Hist","Rentabilidad media 10 años","Rentabilidad media 5 años","Rentabilidad media 3 años","Volatilidad media 10 años","Volatilidad media 5 años","Volatilidad media 1 año","Max DD","Under water (dias)","Broker_MyInvestor","Broker_Renta4","Broker_Ironia","Broker_Mapfre","Broker_EBN"];
+  const rows = [[
+    isin || null,
+    name,
+    cleanNum(rentHist),
+    cleanNum(volHist),
+    cleanNum(r10), cleanNum(r5), cleanNum(r3),
+    cleanNum(v10), cleanNum(v5), cleanNum(v1),
+    cleanNum(maxDD), cleanInt(uwDays),
+    br.myi, br.r4, br.ironia, br.mapfre !== undefined ? br.mapfre : "?", "?"
+  ]];
+
+  const aoa = [Array(cols.length).fill(""), cols, ...rows];
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+  // Column widths (similar a repoAnalyze)
+  ws["!cols"] = [
+    {wch:14},{wch:44},
+    {wch:12},{wch:12},
+    {wch:22},{wch:22},{wch:22},
+    {wch:22},{wch:22},{wch:22},
+    {wch:12},{wch:18},
+    {wch:16},{wch:14},{wch:14},{wch:14},{wch:10}
+  ];
+
+  // Formats: % for returns/vol/dd, integer for uw, brokers as general
+  const pctCols = [3,4,5,6,7,8,9,10,11]; // 1-indexed in Excel terms? We'll format via cell addresses.
+  // Apply number formats by scanning cells in row 3 (data row) for numeric columns
+  const pctFmt = "0.00%";
+  const intFmt = "0";
+  const rng = XLSX.utils.decode_range(ws["!ref"]);
+  for (let R=rng.s.r; R<=rng.e.r; R++){
+    for (let C=rng.s.c; C<=rng.e.c; C++){
+      const addr = XLSX.utils.encode_cell({r:R, c:C});
+      const cell = ws[addr];
+      if (!cell) continue;
+      // Data row is R==2 (0 blank, 1 headers, 2 first data)
+      if (R===2){
+        // percentage columns indices (0-based): 2..10
+        if ([2,3,4,5,6,7,8,9,10].includes(C) && typeof cell.v==="number"){
+          cell.z = pctFmt;
+        }
+        if (C===11 && typeof cell.v==="number"){
+          cell.z = intFmt;
+        }
+      }
+    }
+  }
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Lista fondos interesantes_vAll");
+
+  // Meta sheet
+  const metaAoa = [
+    ["Provider", meta.provider || ""],
+    ["Nombre", name],
+    ["ISIN", isin],
+    ["Fecha inicio", fmtDate(a.date)],
+    ["Fecha fin", fmtDate(b.date)],
+    ["Modo", (document.getElementById("mode")?.value || "")],
+    ["Outliers", (document.getElementById("outliers")?.value || "off")]
+  ];
+  const ws2 = XLSX.utils.aoa_to_sheet(metaAoa);
+  ws2["!cols"] = [{wch:18},{wch:48}];
+  XLSX.utils.book_append_sheet(wb, ws2, "Meta");
+
+  const fname = `analisis_fondo_${(isin||"SINISIN")}.xlsx`;
+  XLSX.writeFile(wb, fname);
+  setMsg("ok", "Excel generado.");
+}
+
+// Patch applyDQ to support excludeDates (single points), without breaking existing
+  if (typeof applyDQ === "function"){
+    const _applyDQ = applyDQ;
+    applyDQ = function(series, cfg){
+      let s = _applyDQ(series, cfg);
+      if (cfg && Array.isArray(cfg.excludeDates) && cfg.excludeDates.length){
+        const set = new Set(cfg.excludeDates.map(String));
+        s = s.filter(p=>!set.has(fmtDate(p.date)));
+      }
+      return s;
+    }
+  }
+
+  function s1RenderDailyLine(dailySeriesFiltered){
+    if (!window.Plotly) return;
+    const el = document.getElementById("s1DailyLine");
+    if (!el) return;
+
+    const x = dailySeriesFiltered.map(p=>p.date);
+    const y = dailySeriesFiltered.map(p=>p.nav);
+    const name = (STATE && STATE.sourceName) ? STATE.sourceName : "Serie diaria";
+
+    const data=[{
+      x, y,
+      type:"scatter",
+      mode:"lines",
+      name,
+      hovertemplate:"%{x|%Y-%m-%d}<br><b>Valor</b>: %{y:.6g}<extra></extra>"
+    }];
+
+    const layout={
+      margin:{l:50,r:20,t:10,b:40},
+      hovermode:"x unified",
+      dragmode:"pan",
+      xaxis:{
+        type:"date",
+        title:"",
+        rangeslider:{visible:true},
+        rangeselector:{
+          buttons:[
+            {count:1, label:"1Y", step:"year", stepmode:"backward"},
+            {count:3, label:"3Y", step:"year", stepmode:"backward"},
+            {count:5, label:"5Y", step:"year", stepmode:"backward"},
+            {step:"all", label:"Max"}
+          ]
+        },
+        showspikes:true,
+        spikemode:"across",
+        spikesnap:"cursor"
+      },
+      yaxis:{title:"Valor"},
+      showlegend:false,
+      paper_bgcolor:"rgba(0,0,0,0)",
+      plot_bgcolor:"rgba(0,0,0,0)",
+      font:{family:"Trebuchet MS", size:12, color:"#0f172a"},
+    };
+
+    Plotly.newPlot(el, data, layout, {
+      displayModeBar:true,
+      responsive:true,
+      scrollZoom:true,
+      displaylogo:false
+    });
+
+    // click inspector
+    el.on("plotly_click", (ev)=>{
+      try{
+        const pt = ev && ev.points && ev.points[0];
+        if (!pt) return;
+        const dt = new Date(pt.x);
+        s1OpenPointInspector(dt, dailySeriesFiltered);
+      }catch(e){ console.warn(e); }
+    });
+  }
+
+  function s1OpenPointInspector(dateObj, series){
+    const key = (STATE && STATE.sourceKey) ? STATE.sourceKey : (typeof dqFileKey==="function" ? dqFileKey(document.getElementById("file")?.files[0]) : "screen1");
+    const dStr = fmtDate(dateObj);
+    const idx = series.findIndex(p=>fmtDate(p.date)===dStr);
+    if (idx<0) return;
+
+    const win = 5;
+    const start = Math.max(0, idx-win);
+    const end = Math.min(series.length-1, idx+win);
+    const rows = [];
+    for (let i=start;i<=end;i++){
+      const p=series[i];
+      const prev = i>0 ? series[i-1].nav : null;
+      const ret = (prev && prev>0) ? (p.nav/prev-1) : null;
+      rows.push({i, date:fmtDate(p.date), nav:p.nav, ret});
+    }
+
+    // overlay
+    let ov = document.getElementById("s1PointOv");
+    if (!ov){
+      ov = document.createElement("div");
+      ov.id="s1PointOv";
+      ov.className="repoOverlay";
+      ov.innerHTML = `
+        <div class="repoModal" role="dialog" aria-modal="true" style="width:min(860px,96vw);">
+          <div class="repoHd">
+            <div>
+              <div class="t">Inspección de dato (posible error)</div>
+              <div class="sub" id="s1PtSub" style="margin-top:2px;">—</div>
+            </div>
+            <button type="button" class="iconBtn" id="s1PtClose">✕</button>
+          </div>
+          <div class="repoBd">
+            <div class="note" id="s1PtNote">—</div>
+            <div class="repoList" style="max-height:40vh;">
+              <table class="table" id="s1PtTable" style="margin:0;">
+                <thead><tr><th>Fecha</th><th>Valor</th><th>Ret. diaria</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+            <div class="split"></div>
+            <div class="row" style="gap:8px;flex-wrap:wrap;justify-content:flex-start;">
+              <button type="button" class="iconBtn" id="s1PtExcludeDate">Excluir este día</button>
+              <button type="button" class="iconBtn" id="s1PtExcludeYear">Excluir año</button>
+              <button type="button" class="iconBtn" id="s1PtScaleBefore10">Ajustar tramo anterior ÷10</button>
+              <button type="button" class="iconBtn" id="s1PtScaleBefore100">Ajustar tramo anterior ÷100</button>
+              <button type="button" class="iconBtn" id="s1PtRestore">Restaurar DQ</button>
+            </div>
+          </div>
+        </div>`;
+      document.body.appendChild(ov);
+      ov.addEventListener("click",(e)=>{ if (e.target===ov) ov.classList.remove("open"); });
+      document.getElementById("s1PtClose").addEventListener("click", ()=>ov.classList.remove("open"));
+    }
+
+    // fill
+    document.getElementById("s1PtSub").textContent = `Fecha seleccionada: ${dStr} · Fuente: ${key}`;
+    const tb = document.querySelector("#s1PtTable tbody");
+    tb.innerHTML = rows.map(r=>{
+      const is = r.date===dStr;
+      const retTxt = (r.ret==null) ? "—" : (r.ret*100).toFixed(2)+"%";
+      return `<tr ${is?'style="background:#eef6ff;"':''}><td>${r.date}</td><td>${r.nav.toFixed(6)}</td><td>${retTxt}</td></tr>`;
+    }).join("");
+    const cur = (STATE && STATE.sourceCurrency) ? STATE.sourceCurrency : "n.a.";
+    document.getElementById("s1PtNote").innerHTML = `Divisa: <b>${escapeHTML_(cur)}</b>. Si esta caída es un error de datos, puedes excluir el día o aplicar un ajuste de escala al tramo anterior.`;
+
+    ov.classList.add("open");
+
+    const year = dateObj.getUTCFullYear();
+    const setAndRecompute = (cfg)=>{
+      if (typeof saveDQ==="function") saveDQ(key, cfg);
+      // Re-run compute with the same source already in STATE
+      computeAndRender();
+      ov.classList.remove("open");
+    };
+
+    document.getElementById("s1PtExcludeDate").onclick = ()=>{
+      const cfg = (typeof loadDQ==="function" ? loadDQ(key) : null) || {ack:true, excludeYears:[], scale:null, excludeDates:[]};
+      if (!cfg.excludeDates) cfg.excludeDates=[];
+      if (!cfg.excludeDates.includes(dStr)) cfg.excludeDates.push(dStr);
+      setAndRecompute(cfg);
+    };
+    document.getElementById("s1PtExcludeYear").onclick = ()=>{
+      const cfg = (typeof loadDQ==="function" ? loadDQ(key) : null) || {ack:true, excludeYears:[], scale:null, excludeDates:[]};
+      cfg.excludeYears = Array.isArray(cfg.excludeYears) ? cfg.excludeYears : [];
+      if (!cfg.excludeYears.includes(year)) cfg.excludeYears.push(year);
+      setAndRecompute(cfg);
+    };
+    document.getElementById("s1PtScaleBefore10").onclick = ()=>{
+      const cfg = (typeof loadDQ==="function" ? loadDQ(key) : null) || {ack:true, excludeYears:[], scale:null, excludeDates:[]};
+      cfg.scale = {cutDate:dStr, multiplier: 0.1, side:"before"}; // ÷10
+      setAndRecompute(cfg);
+    };
+    document.getElementById("s1PtScaleBefore100").onclick = ()=>{
+      const cfg = (typeof loadDQ==="function" ? loadDQ(key) : null) || {ack:true, excludeYears:[], scale:null, excludeDates:[]};
+      cfg.scale = {cutDate:dStr, multiplier: 0.01, side:"before"}; // ÷100
+      setAndRecompute(cfg);
+    };
+    document.getElementById("s1PtRestore").onclick = ()=>{
+      setAndRecompute({ack:true, excludeYears:[], scale:null, excludeDates:[]});
+    };
+  }
+
+  // Wrap computeAndRender to apply year filter and render daily chart + fix initial boxplot sizing
+  if (typeof computeAndRender === "function"){
+    const _computeAndRender = computeAndRender;
+    computeAndRender = function(){
+      try{
+        s1EnsureUI();
+      try{ if (window.BROKERS) BROKERS.boot(); }catch(_){}
+        if (STATE && STATE.rawSeries && STATE.rawSeries.length){
+          s1PopulateYearControls(STATE.rawSeries);
+          const rawBak = STATE.rawSeries;
+          const dailyBak = STATE.dailySeries;
+          const monthlyBak = STATE.monthlySeries;
+          const dailyIdxBak = STATE.dailyIdx;
+
+          // Apply year filter on raw series then recompute daily/monthly
+          const rawF = s1ApplyYearFilter(rawBak);
+          STATE.rawSeries = rawF;
+          STATE.dailyIdx = detectDailyStart(rawF);
+          STATE.dailySeries = rawF.slice(STATE.dailyIdx);
+          STATE.monthlySeries = monthEnd(rawF);
+
+          // Run original
+          _computeAndRender();
+
+          // Render daily line chart based on filtered daily series
+          window.__S1_LAST_DAILY_SERIES = STATE.dailySeries || [];
+          s1RenderDailyLine(window.__S1_LAST_DAILY_SERIES);
+          const note = document.getElementById("s1DailyNote");
+          if (note){
+            const a = window.__S1_LAST_DAILY_SERIES;
+            note.innerHTML = a.length ? `Obs: <b>${a.length}</b> · ${fmtDate(a[0].date)} → ${fmtDate(a[a.length-1].date)}` : "—";
+          }
+
+          
+    // Brokers availability (Tab 1) — only when ISIN is known (repo / Morningstar)
+    try{
+      const brEl = document.getElementById("s1BrokersRow");
+      const isin = (STATE && STATE.sourceMeta && (STATE.sourceMeta.isin || STATE.sourceMeta.ISIN))
+        ? String(STATE.sourceMeta.isin || STATE.sourceMeta.ISIN) : "";
+      if (window.BROKERS && brEl) BROKERS.attach(brEl, isin, {disabled: !isin});
+    }catch(_){}
+
+    // Restore (so internal STATE isn't permanently truncated if other routines expect full)
+          STATE.rawSeries = rawBak;
+          STATE.dailySeries = dailyBak;
+          STATE.monthlySeries = monthlyBak;
+          STATE.dailyIdx = dailyIdxBak;
+
+          // Ensure plots resize (fix boxplot on first open)
+          setTimeout(()=>{ try{ resizePlotsIn("screen1"); }catch(_){} }, 40);
+          return;
+        }
+        _computeAndRender();
+        setTimeout(()=>{ try{ resizePlotsIn("screen1"); }catch(_){} }, 40);
+      }catch(e){
+        console.warn(e);
+        try{ _computeAndRender(); }catch(_){}
+      }
+    };
+  }
+
+  // Wire advanced-options toggles (screen1, 2 and 3)
+  (function(){
+    function wireToggle(togId, bodyId, closedLabel, openLabel){
+      const tog = document.getElementById(togId);
+      const body = document.getElementById(bodyId);
+      if (!tog || !body) return;
+      tog.addEventListener("click", ()=>{
+        const open = body.style.display !== "none";
+        body.style.display = open ? "none" : "block";
+        tog.textContent = (open ? "\u25B8" : "\u25BE") + " " + (open ? closedLabel : (openLabel || closedLabel));
+      });
+    }
+    wireToggle("s1AdvToggle",       "s1AdvBody",       "Opciones avanzadas (CSV manual \u00B7 Modo \u00B7 Outliers)");
+    wireToggle("cmpAdvToggle",      "cmpAdvBody",      "Opciones avanzadas (CSV manual)");
+    wireToggle("btAdvToggle",       "btAdvBody",       "CSV manual (Investing)");
+    wireToggle("btBenchAdvToggle",  "btBenchAdvBody",  "CSV benchmark manual (Investing)");
+  })();
+
+  window.addEventListener("load", ()=>{
+    try{
+      s1EnsureUI();
+      setTimeout(()=>{ try{ resizePlotsIn("screen1"); }catch(_){} }, 60);
+    }catch(_){}
+  });
 
 })();
+
 
 
 /* =============================
@@ -9724,7 +11793,7 @@ async function mstDoSearch(){
     dpRunning = false;
     $("dpRunBtn") && ($("dpRunBtn").disabled=false);
     if($("dpQueueList")) $("dpQueueList").textContent="—";
-    dpSetStatus(errors?"warn":"ok", errors ? `Hecho con ${errors} error(es). Ver detalle arriba.` : `✅ ${isins.length - errors} fondo(s) guardados. Guardado automáticamente en la nube.`);
+    dpSetStatus(errors?"warn":"ok", errors ? `Hecho con ${errors} error(es). Ver detalle arriba.` : `✅ ${isins.length - errors} fondo(s) guardados. Pulsa "💾 Snapshot HTML" para hacer la memoria permanente.`);
   }
 
   function dpSetStat(id,v){ const e=$(id); if(e) e.textContent=String(v); }
