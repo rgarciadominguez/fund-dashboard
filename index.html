@@ -11594,7 +11594,8 @@ async function mstDoSearch(){
     tipoActivo:["RV","RF MP","RF LP","Mixto","Alternativo","Monetario"],
     geografia:["Global","Europa","USA","España","Asia","Emergentes","Latam"],
     divisa:["Euro","EuroHedge","USD","GBP","JPY","Otra"],
-    issuer:["Gubernamental","Corporativa","Mixto","High Yield","Inflación"]
+    issuer:["Gubernamental","Corporativa","Mixto","High Yield","Inflación"],
+    clasificacion:["Top","Bueno","Medio","Malo","Clase similar","Clase sucia"]
   };
 
   function dpMakeSelect(id,opts,current){
@@ -11652,7 +11653,9 @@ async function mstDoSearch(){
       {id:'ef_tipo',   label:'Tipo activo',         type:'select', key:'tipoActivo', val:m.tipoActivo||''},
       {id:'ef_geo',    label:'Geografía',           type:'select', key:'geografia',  val:m.geografia||''},
       {id:'ef_div',    label:'Divisa',              type:'select', key:'divisa',     val:m.divisa||''},
-      {id:'ef_issuer', label:'Subcategoría/Issuer', type:'select', key:'issuer',     val:m.issuer||''},
+      {id:'ef_issuer',  label:'Subcategoría/Issuer',  type:'select', key:'issuer',        val:m.issuer||''},
+      {id:'ef_clasif',  label:'Clasificación ⭐',       type:'select', key:'clasificacion', val:m.clasificacion||''},
+      {id:'ef_opinion', label:'Opinión',               type:'text',   key:null,            val:m.opinion||''},
     ];
     body.innerHTML=`<div style="font-size:11px;color:#64748b;font-family:monospace;margin-bottom:4px">${dpEsc(isin)}</div>
     ${FIELDS.map(fi=>`<div>
@@ -11667,7 +11670,8 @@ async function mstDoSearch(){
       store[isin].meta={...m, name:nm,
         clase:dpGetFieldVal('ef_clase'), categoria:dpGetFieldVal('ef_cat'),
         tipoActivo:dpGetFieldVal('ef_tipo'), geografia:dpGetFieldVal('ef_geo'),
-        divisa:dpGetFieldVal('ef_div'), issuer:dpGetFieldVal('ef_issuer')};
+        divisa:dpGetFieldVal('ef_div'), issuer:dpGetFieldVal('ef_issuer'),
+        clasificacion:dpGetFieldVal('ef_clasif'), opinion:($('ef_opinion')?.value||'').trim()};
       ['ef_clase','ef_cat','ef_tipo','ef_geo','ef_div','ef_issuer'].forEach((fid,i)=>{
         const keys=['clase','categoria','tipoActivo','geografia','divisa','issuer'];
         const val=dpGetFieldVal(fid);
