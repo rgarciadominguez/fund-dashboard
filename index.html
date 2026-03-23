@@ -6939,6 +6939,16 @@ function repoEnsurePickerDOM(){
             <option value="retail">Retail</option>
             <option value="other">Otras</option>
           </select>
+          <select id="repoPickerClasif">
+            <option value="all">Clasificación: todas</option>
+            <option value="Top">⭐ Top</option>
+            <option value="Bueno">👍 Bueno</option>
+            <option value="Medio">👌 Medio</option>
+            <option value="Malo">👎 Malo</option>
+            <option value="Clase similar">Clase similar</option>
+            <option value="Clase sucia">Clase sucia</option>
+            <option value="none">Sin clasificar</option>
+          </select>
 
           <!-- Quick dropdown filters: auto-generated for meta fields with <= 5 unique values -->
           <div class="repoQuickFilters" id="repoQuickFilters"></div>
@@ -6962,6 +6972,7 @@ function repoEnsurePickerDOM(){
 
   document.getElementById("repoPickerSearch").addEventListener("input", ()=>repoPickerRender());
   document.getElementById("repoPickerClass").addEventListener("change", ()=>repoPickerRender());
+  document.getElementById("repoPickerClasif")?.addEventListener("change", ()=>repoPickerRender());
   document.getElementById("repoPickerField").addEventListener("change", ()=>repoPickerOnFieldChange());
   document.getElementById("repoPickerFieldVal").addEventListener("input", ()=>repoPickerRender());
   document.getElementById("repoPickerClearFilters").addEventListener("click", ()=>repoPickerClearFilters());
@@ -7190,7 +7201,8 @@ function repoPickerOpen(ctx){
   repoPickerPopulateFields();
   const s = document.getElementById("repoPickerSearch");
   s.value = "";
-  document.getElementById("repoPickerClass").value = "all";
+  document.getElementById("repoPickerClass").value="all";
+  const rc=document.getElementById("repoPickerClasif");if(rc)rc.value="all";
   document.getElementById("repoPickerField").value = "all";
   repoPickerOnFieldChange(true);
   repoPickerRender();
@@ -7208,7 +7220,8 @@ function repoPickerRender(){
   if (!list || !info) return;
 
   const q = repoNorm(document.getElementById("repoPickerSearch")?.value);
-  const cls = document.getElementById("repoPickerClass")?.value || "all";
+  const cls=document.getElementById("repoPickerClass")?.value||"all";
+  const clasifFilter=document.getElementById("repoPickerClasif")?.value||"all";
 
   // Quick dropdown filters (exact match on normalized values)
   const quickBox = document.getElementById("repoQuickFilters");
@@ -7227,7 +7240,8 @@ function repoPickerRender(){
   const fieldVal = repoNorm(document.getElementById("repoPickerFieldVal")?.value);
 
   let arr = DATAPACK.funds || [];
-  if (cls !== "all") arr = arr.filter(f=>f.classNorm===cls);
+  if(cls!=="all")arr=arr.filter(f=>f.classNorm===cls);
+  if(clasifFilter!=="all")arr=arr.filter(f=>{const fc=(typeof store!=="undefined"&&f.isin&&store[f.isin]?.meta?.clasificacion)||"";return clasifFilter==="none"?!fc:fc===clasifFilter;});
 
   // Apply quick filters
   if (quickFilters.length){
@@ -12130,13 +12144,29 @@ async function mstDoSearch(){
 
   // ── Load attributes + download series ──
   async function dpLoadAttrAndSeries(funds){
-    let done=0, errors=0;
-    $("dpRunBtn") && ($("dpRunBtn").disabled=true);
-    $("dpLoadAttrBtn") && ($("dpLoadAttrBtn").disabled=true);
-    $("dpLoadAttrSeriesBtn") && ($("dpLoadAttrSeriesBtn").disabled=true);
-    const myToken = ++dpToken;
-
-    for (let i=0; i<funds.length; i++){
+    let done=0, errors=0, skipped=0;
+    $("dpRunBtn")&&($("dpRunBtn").disabled=true);
+    $("dpLoadAttrBtn")&&($("dpLoadAttrBtn").disabled=true);
+    $("dpLoadAttrSeriesBtn")&&($("dpLoadAttrSeriesBtn").disabled=true);
+    const myToken=++dpToken;
+    const toDownload=funds.filter(f=>f.isin&&!store[f.isin]);
+    const toUpdate=funds.filter(f=>f.isin&&store[f.isin]);
+    for(const f of toUpdate){
+      const prev=store[f.isin].meta||{};
+      store[f.isin].meta={...prev,name:f.name||prev.name||f.isin,className:f.className||prev.className||"",category:f.category||prev.category||"",assetType:f.assetType||prev.assetType||"",geography:f.geography||prev.geography||"",currency:f.currency||prev.currency||"",issuer:f.issuer||prev.issuer||"",clase:f.clase||prev.clase||"",clasificacion:prev.clasificacion||"",opinion:prev.opinion||""};
+      skipped++;
+    }
+    if(skipped){dpSyncToDatapack();dpUpdateStats();dpRenderFundsList();}
+    if(!toDownload.length){
+      dpRunning=false;$("dpRunBtn")&&($("dpRunBtn").disabled=false);$("dpLoadAttrBtn")&&($("dpLoadAttrBtn").disabled=false);$("dpLoadAttrSeriesBtn")&&($("dpLoadAttrSeriesBtn").disabled=false);
+      if($("dpQueueList"))$("dpQueueList").textContent="—";
+      dpSetStatus("ok","✅ "+skipped+" fondos actualizados (ya existían, no se re-descargaron).");return;
+    }
+    dpSetStatus("info",skipped+" existentes actualizados. Descargando "+toDownload.length+" nuevos…");
+    for(let i=0;i<toDownload.length;i++){
+      if(dpToken!==myToken)break;
+      const f=toDownload[i];
+      if($("dpQueueList"))$("dpQueueList").textContent=f.isin+" ("+(i+1)+"/"+toDownload.length+")";
       if (dpToken !== myToken) break;
       const f = funds[i];
       if($("dpQueueList")) $("dpQueueList").textContent = f.isin+" ("+( i+1)+"/"+funds.length+")";
