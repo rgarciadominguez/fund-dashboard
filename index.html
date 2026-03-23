@@ -12177,11 +12177,16 @@ async function mstDoSearch(){
         store[f.isin] = {
           meta: {
             isin: f.isin, name: f.name||f.isin,
-            className: f.className||"", category: f.category||"",
-            assetType: f.assetType||"", geography: f.geography||"",
-            currency: ccy, issuer: f.issuer||""
+            clase:         f.className    ||"",
+            categoria:     f.category     ||"",
+            tipoActivo:    f.assetType    ||"",
+            geografia:     f.geography    ||"",
+            divisa:        ccy,
+            issuer:        f.issuer       ||"",
+            clasificacion: f.clasificacion||"",
+            opinion:       f.opinion      ||""
           },
-          rows,
+          rows: [],
           updatedAt: Date.now()
         };
         done++;
