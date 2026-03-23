@@ -12513,7 +12513,7 @@ async function mstDoSearch(){
 })();
 </script></div></div>
 <script id="v117-js">
-(function(){
+(function(){try{
   function mk(tag,css,txt){var el=document.createElement(tag);if(css)el.style.cssText=css;if(txt)el.textContent=txt;return el;}
   window.v117_showPending=function(){
     var store=window.__dpStore||{};
@@ -12605,6 +12605,6 @@ Solo puntos nuevos."))return;
     window.dpSyncToDatapack=function(){if(os)os.apply(this,arguments);upd();};
   }
   if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",init);}else{init();}
-})();
+}}catch(e){window.v117_error=e.message;console.error("v117 error:",e);}})();
 </script>
 </body>
