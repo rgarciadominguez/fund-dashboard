@@ -206,8 +206,7 @@
 #s1AdvToggle, #cmpAdvToggle, #btAdvToggle, #btBenchAdvToggle { display:none !important; }
 </style>
 <style>
-#s1AdvBody,span#s1AdvToggle,
-span#cmpAdvToggle,span#btAdvToggle,span#btBenchAdvToggle,
+#s1AdvBody,span#s1AdvToggle,span#cmpAdvToggle,span#btAdvToggle,span#btBenchAdvToggle,
 #cmpAdvBody input[type="file"],#cmpAdvBody>label,button#cmpRun,
 #btAdvBody input[type="file"],#btBenchAdvBody input[type="file"]{display:none!important}
 #cmpAdvBody,#btAdvBody{display:block!important;padding:4px 0!important;background:none!important;border:none!important}
@@ -11573,11 +11572,11 @@ async function mstDoSearch(){
   }
 
   window.dpDeleteFund = function(isin){
-    if(!confirm("Eliminar "+dpEsc(store[isin]?.meta?.name||isin)+"?")) return;
+    if (!confirm("¿Eliminar " + isin + " del datapack?")) return;
+    fetch(SB_URL+"/rest/v1/funds?isin=eq."+encodeURIComponent(isin),{method:"DELETE",headers:SB_HDR()}).catch(function(e){console.warn(e);});
     delete store[isin];
-    // Borrar de Supabase
-    fetch(SB_URL+"/rest/v1/funds?isin=eq."+encodeURIComponent(isin),{method:"DELETE",headers:SB_HDR()}).catch(function(e){console.warn("SB del err",e);});
-    dpSyncToDatapack();dpUpdateStats();dpRenderFundsList();
+    dpUpdateStats(); dpRenderFundsList(); dpSyncToDatapack();
+    dpSetStatus("ok", isin + " eliminado.");
   };
 
   const DP_META_OPTS = {
@@ -11815,7 +11814,7 @@ async function mstDoSearch(){
       const isin = isins[i];
       if($("dpQueueList")) $("dpQueueList").textContent = isin + " (" + (i+1) + "/" + isins.length + ")";
       if(store[isin]?.rows?.length){
-        dpSetStatus("ok","Ya existe: "+isin+" ("+store[isin].rows.length+" pts). Omitido. Usa Recargar para actualizar.");
+        dpSetStatus("ok","Ya existe: "+isin+" ("+store[isin].rows.length+" pts). Omitido - usa Recargar para actualizar.");
         continue;
       }
       dpSetStatus("info", `Procesando ${isin} (${i+1}/${isins.length})…`);
@@ -12354,21 +12353,15 @@ async function mstDoSearch(){
   window.dpSyncToDatapack = dpSyncToDatapack;
   window.dpEditFund = dpEditFund;
   window.dpRenderFundsList = dpRenderFundsList;
-
-  // Update pending badge
   function dpUpdatePending(){
     var b=document.getElementById("dpPendingCount");
-    if(!b) return;
+    if(!b)return;
     var n=Object.keys(store).filter(function(k){return !store[k]?.meta?.clasificacion;}).length;
-    b.textContent=n;
-    b.style.background=n>0?"#f59e0b":"#10b981";
+    b.textContent=n; b.style.background=n>0?"#f59e0b":"#10b981";
   }
-
-  // Show pending modal
   window.dpShowPending=function(){
     var isins=Object.keys(store).filter(function(k){return !store[k]?.meta?.clasificacion;}).sort();
-    var old=document.getElementById("dpPendingModal");
-    if(old) old.remove();
+    var old=document.getElementById("dpPendingModal"); if(old)old.remove();
     if(!isins.length){dpSetStatus("ok","Todos los fondos tienen clasificacion.");return;}
     function mk(t,s,x){var e=document.createElement(t);if(s)e.style.cssText=s;if(x)e.textContent=x;return e;}
     var ov=mk("div","position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:999999;display:flex;align-items:center;justify-content:center;padding:20px");
@@ -12378,36 +12371,32 @@ async function mstDoSearch(){
     var hd=mk("div","padding:14px 16px;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;flex-shrink:0");
     hd.appendChild(mk("div","font-weight:800;font-size:15px","Sin clasificar ("+isins.length+")"));
     var cb=mk("button","background:none;border:none;cursor:pointer;font-size:22px;color:#64748b;line-height:1","x");
-    cb.addEventListener("click",function(){ov.remove();});
-    hd.appendChild(cb);
+    cb.addEventListener("click",function(){ov.remove();}); hd.appendChild(cb);
     var bd=mk("div","padding:12px 16px;overflow:auto;flex:1");
     isins.forEach(function(isin){
-      var m=store[isin]?.meta||{};
-      var pts=store[isin]?.rows?.length||0;
+      var m=store[isin]?.meta||{}; var pts=store[isin]?.rows?.length||0;
       var row=mk("div","border:1px solid #e5e7eb;border-radius:8px;padding:8px 10px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center");
       var info=mk("div","flex:1;overflow:hidden;margin-right:8px");
       info.appendChild(mk("div","font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis",m.name||isin));
       info.appendChild(mk("div","font-size:11px;color:#64748b",isin+" - "+pts+" pts"));
       var btn=mk("button","background:#2563eb;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer","Clasificar");
       (function(i){btn.addEventListener("click",function(){ov.remove();setTimeout(function(){dpEditFund(i);},150);});})(isin);
-      row.appendChild(info);row.appendChild(btn);bd.appendChild(row);
+      row.appendChild(info); row.appendChild(btn); bd.appendChild(row);
     });
-    box.appendChild(hd);box.appendChild(bd);ov.appendChild(box);document.body.appendChild(ov);
+    box.appendChild(hd); box.appendChild(bd); ov.appendChild(box); document.body.appendChild(ov);
   };
-
-  // Recargar datos - solo puntos nuevos
   window.dpRecargar=async function(){
     var isins=Object.keys(store);
     if(!isins.length){dpSetStatus("warn","No hay fondos en memoria.");return;}
-    if(!confirm("Recargar "+isins.length+" fondos descargando solo puntos nuevos?")) return;
+    if(!confirm("Recargar "+isins.length+" fondos - solo puntos nuevos?")) return;
     var added=0,errors=0;
     for(var i=0;i<isins.length;i++){
       var isin=isins[i];
       dpSetStatus("info","("+(i+1)+"/"+isins.length+") "+isin+"...");
       try{
         var res=await dpProcessOneIsin(isin);
-        var prev=store[isin]||{};var pm=prev.meta||{};
-        var ed={};(prev.rows||[]).forEach(function(r){ed[r.date]=1;});
+        var prev=store[isin]||{}; var pm=prev.meta||{};
+        var ed={}; (prev.rows||[]).forEach(function(r){ed[r.date]=1;});
         var newOnly=res.rows.filter(function(r){return !ed[r.date];});
         added+=newOnly.length;
         var merged=(prev.rows||[]).concat(newOnly).sort(function(a,b){return a.date<b.date?-1:1;});
@@ -12416,7 +12405,7 @@ async function mstDoSearch(){
       }catch(e){errors++;console.warn("Error "+isin,e);}
       await new Promise(function(r){setTimeout(r,200);});
     }
-    dpUpdateStats();dpRenderFundsList();
+    dpUpdateStats(); dpRenderFundsList();
     dpSetStatus(errors?"warn":"ok","Recarga: "+added+" pts nuevos"+(errors?" ("+errors+" err)":"")+".");
   };
 
@@ -12541,13 +12530,10 @@ async function mstDoSearch(){
     
     wire("dpExportCsvBtn",    dpExportCsv);
     wire("dpExportJsonBtn",   dpExportJson);
-    wire("dpClearAllBtn", async function(){
-    if(!confirm("Borrar TODOS los fondos de memoria y nube?")) return;
-    try{ await fetch(SB_URL+"/rest/v1/funds?isin=not.is.null",{method:"DELETE",headers:SB_HDR()}); }catch(e){console.warn("SB clear err",e);}
-    Object.keys(store).forEach(function(k){delete store[k];});
-    dpSyncToDatapack();dpUpdateStats();dpRenderFundsList();
-    dpSetStatus("ok","Memoria y nube borradas.");
-  });
+    wire("dpClearAllBtn", ()=>{
+      if(!confirm("¿Borrar TODOS los fondos del datapack?")) return;
+      fetch(SB_URL+"/rest/v1/funds?isin=not.is.null",{method:"DELETE",headers:SB_HDR()}).catch(function(e){console.warn(e);});
+      Object.keys(store).forEach(k=>delete store[k]);
       if($("dpErrorBox")){ $("dpErrorBox").style.display="none"; $("dpErrorBox").innerHTML=""; }
       dpSetStat("dpStatErrors",0);
       dpSyncToDatapack();
