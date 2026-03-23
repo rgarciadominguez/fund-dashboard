@@ -6939,12 +6939,6 @@ function repoEnsurePickerDOM(){
       <div class="repoBd">
         <div class="repoControls">
           <input id="repoPickerSearch" type="text" placeholder="Buscar (en todos los campos)…"/>
-          <select id="repoPickerClass">
-            <option value="all">Todas las clases</option>
-            <option value="limpia">Limpia</option>
-            <option value="retail">Retail</option>
-            <option value="other">Otras</option>
-          </select>
           <select id="repoPickerClasif" style="padding:6px 8px;border:1px solid var(--border);border-radius:12px;font-size:12px;background:#fff">
             <option value="all">Clasificacion: todas</option>
             <option value="Top">Top</option>
@@ -6955,6 +6949,13 @@ function repoEnsurePickerDOM(){
             <option value="Clase sucia">Clase sucia</option>
             <option value="none">Sin clasificar</option>
           </select>
+          <select id="repoPickerClass">
+            <option value="all">Todas las clases</option>
+            <option value="limpia">Limpia</option>
+            <option value="retail">Retail</option>
+            <option value="other">Otras</option>
+          </select>
+          
 
           <!-- Quick dropdown filters: auto-generated for meta fields with <= 5 unique values -->
           <div class="repoQuickFilters" id="repoQuickFilters"></div>
