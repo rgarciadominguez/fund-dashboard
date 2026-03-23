@@ -200,15 +200,10 @@
 
 </style>
 <style>
-  /* Hide advanced CSV options - not needed with Repo+Morningstar workflow */
-  details:has(#s1AdvBody),
-  details:has(#cmpAdvBody),
-  details:has(#btAdvBody),
-  details:has(#btBenchAdvBody) { display:none !important; }
-</style>
-<style>
-  /* Hide Investing picker buttons */
-  .invPickBtn, #s1InvBtnDirect { display:none !important; }
+/* Hide Investing picker buttons */
+.invPickBtn, #s1InvBtnDirect { display:none !important; }
+/* Hide only the advanced-options toggle labels (summary), keep content visible */
+#s1AdvToggle, #cmpAdvToggle, #btAdvToggle, #btBenchAdvToggle { display:none !important; }
 </style>
 </head>
 <body>
@@ -391,7 +386,7 @@ ES0156572002"></textarea>
 <!-- Opciones avanzadas colapsables: CSV manual + Modo + Outliers -->
 <div style="margin-bottom:10px;">
   <span id="s1AdvToggle" style="font-size:11px;color:var(--muted);cursor:pointer;user-select:none;">► Opciones avanzadas (CSV manual · Modo · Outliers)</span>
-  <div id="s1AdvBody" style="display:none;margin-top:8px;padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:#fafafa;">
+  <div id="s1AdvBody" style="display:block;margin-top:8px;padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:#fafafa;">
     <label>CSV (Investing)</label>
     <input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="file" type="file">
     <div style="display:flex;gap:10px;margin-top:8px;flex-wrap:wrap;">
@@ -595,7 +590,7 @@ ES0156572002"></textarea>
 <div class="hd"><span class="pill">Entrada</span><span class="pill" id="cmpStatus">Sin datos</span></div>
 <div class="bd">
 <span id="cmpAdvToggle" style="font-size:11px;color:var(--muted);cursor:pointer;user-select:none;">► Opciones avanzadas (CSV manual)</span>
-<div id="cmpAdvBody" style="display:none;margin-top:8px;padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:#fafafa;">
+<div id="cmpAdvBody" style="display:block;margin-top:8px;padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:#fafafa;">
 <label>CSVs (hasta 10 fondos, formato Investing)</label>
 <div style="display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px;">
 <div><div class="subhd">Fondo 1</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="cmpFile1" type="file"></div>
@@ -632,30 +627,8 @@ ES0156572002"></textarea>
 <option value="weekly">Semanal (último cierre de semana)</option>
 <option value="monthly">Mensual (fin de mes)</option>
 </select></div>
-<div class="two" style="margin-top:10px;">
-<div>
-<label>Optimizar solo con top N fondos (por peso actual)</label>
-<select id="optTopN">
-<option selected="" value="0">Todos</option>
-<option value="2">Top 2</option>
-<option value="3">Top 3</option>
-<option value="4">Top 4</option>
-<option value="5">Top 5</option>
-<option value="6">Top 6</option>
-<option value="7">Top 7</option>
-<option value="8">Top 8</option>
-<option value="9">Top 9</option>
-<option value="10">Top 10</option>
-</select>
-</div>
-<div>
-<label>Fondos seleccionados para optimizar</label>
-<div class="note" id="optSelFunds" style="margin:0; min-height:42px;">—</div>
-</div>
-</div>
-<div class="note" style="margin-top:10px;">
-            *Correlación y beta se calculan con retornos diarios en fechas comunes por pareja (cada celda puede tener distinto nº de observaciones).
-          </div>
+<!-- optimizar section removed -->
+<div style="display:none"><select id="optTopN"><option value="0">Todos</option></select><div id="optSelFunds"></div></div>
 </div>
 </div>
 <div class="card">
@@ -699,13 +672,8 @@ ES0156572002"></textarea>
 <div class="hd"><span class="pill">Matrices</span></div>
 <div class="bd">
 <div class="row" style="justify-content:space-between; align-items:flex-end; gap:10px; flex-wrap:wrap; margin-bottom:10px;">
-<div style="min-width:320px;">
-<label style="margin:0 0 4px 0; display:block;">Modo de cálculo</label>
-<select id="cmpMatMode">
-<option selected="" value="morningstar">Morningstar (X años correlación)</option>
-<option value="custom">Rango personalizado (inicio/fin)</option>
-</select>
-</div>
+<!-- cmpMatMode simplified: only trailing/rolling via years+agg -->
+<div style="display:none"><select id="cmpMatMode"><option selected value="morningstar">morningstar</option></select></div>
 <div id="cmpMatYearsWrap" style="min-width:220px;">
 <label style="margin:0 0 4px 0; display:block;">Años</label>
 <select id="cmpMatYears">
@@ -723,7 +691,7 @@ ES0156572002"></textarea>
 </select>
 </div>
 </div>
-<div id="cmpMatRangeWrap" style="display:none; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+<div id="cmpMatRangeWrap" style="display:none !important; gap:10px; flex-wrap:wrap; align-items:flex-end;">
 <div style="min-width:170px;">
 <label style="margin:0 0 4px 0; display:block;">Inicio</label>
 <input id="cmpMatStart" type="date">
@@ -805,7 +773,7 @@ ES0156572002"></textarea>
 <div style="flex:1 1 520px; min-width:330px;">
 <div class="subhd">1) Fondos</div>
 <span id="btAdvToggle" style="font-size:11px;color:var(--muted);cursor:pointer;user-select:none;">► CSV manual (Investing)</span>
-<div id="btAdvBody" style="display:none;margin-top:6px;padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:#fafafa;">
+<div id="btAdvBody" style="display:block;margin-top:6px;padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:#fafafa;">
 <div id="btFiles" style="display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:8px;">
 <div><div class="muted" style="font-size:12px; margin-bottom:4px;">F1</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="btFile1" type="file"></div>
 <div><div class="muted" style="font-size:12px; margin-bottom:4px;">F2</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="btFile2" type="file"></div>
@@ -3373,6 +3341,7 @@ function renderCmpMatrices(){
     if (note) note.textContent = "Sube al menos 2 fondos para matrices.";
     return;
   }
+  // Will collect warnings to show after calculation
 
   const mode = (document.getElementById("cmpMatMode") && document.getElementById("cmpMatMode").value) ? document.getElementById("cmpMatMode").value : "morningstar";
   const years = (document.getElementById("cmpMatYears") && document.getElementById("cmpMatYears").value) ? Number(document.getElementById("cmpMatYears").value) : 3;
@@ -3633,7 +3602,12 @@ function renderCmpMatrices(){
 
       
       const cov = union.length ? (inter.length/union.length) : 0;
-      covLbl[i][j] = `${inter.length}/${union.length} (${Math.round(100*cov)}%)` + (agg==="trailing" ? "" : ` · windows:${winCount==null?"0":winCount}`);
+      if (agg !== "trailing" && (winCount === 0 || winCount == null)) {
+        corrMat[i][j] = null; betaMat[i][j] = null;
+        covLbl[i][j] = "0 ventanas";
+      } else {
+        covLbl[i][j] = `${inter.length}/${union.length} (${Math.round(100*cov)}%)` + (agg==="trailing" ? "" : ` · windows:${winCount==null?"0":winCount}`);
+      }
 
       if (Number.isFinite(used)) minUsed = Math.min(minUsed, used);
       if (Number.isFinite(cov)) minCov = Math.min(minCov, cov);
@@ -3671,6 +3645,20 @@ function renderCmpMatrices(){
     },{displayModeBar:false, responsive:true});
   };
 
+  // Check for null cells and warn user
+  const nullCells = [];
+  for (let i=0;i<n;i++) for (let j=0;j<n;j++) {
+    if (i!==j && (corrMat[i][j]==null || !Number.isFinite(corrMat[i][j]))) {
+      nullCells.push(names[i]+" / "+names[j]);
+    }
+  }
+  if (nullCells.length > 0) {
+    const msg = "⚠️ Sin datos suficientes para calcular algunas celdas:\n\n" + nullCells.slice(0,8).join("\n") + (nullCells.length>8?"\n…":"") + "\n\nVerifica que los fondos tengan histórico común en la ventana seleccionada.";
+    if (note) note.innerHTML = "<b style='color:#c00'>⚠️ Datos insuficientes en algunas celdas — revisa la selección de años.</b>";
+    setTimeout(()=>alert(msg), 100);
+  } else {
+    if (note) note.textContent = winLabel + " · Hover para ver cobertura.";
+  }
   heat(corrMat, "cmpCorr", "Correlación", "%{z:.2f}", "corr");
   heat(betaMat, "cmpBeta", "Beta (A|B)", "%{z:.2f}", "beta");
 }
@@ -3982,7 +3970,9 @@ function cmpRenderRollingCharts(){
     ysB.push(p.beta);
   }
   if (xs.length < 2){
-    noteEl.textContent = "No hay puntos suficientes en el rango seleccionado.";
+    noteEl.textContent = "⚠️ No hay puntos suficientes en el rango seleccionado.";
+    noteEl.style.color = "#c00";
+    alert("⚠️ No hay datos suficientes en el rango seleccionado para calcular rolling correlación/beta.\nAmplia el rango de fechas o aumenta el historial.");
     try{ Plotly.purge(corrDiv); Plotly.purge(betaDiv); }catch(_){}
     return;
   }
@@ -5686,7 +5676,10 @@ function btRenderRollingCorrBeta(){
   const keys = rollCommonKeys(mapA, mapB);
 
   if (keys.length < winMonths + 2){
-    noteEl.textContent = `Histórico común insuficiente para rolling ${years}a (necesitas ~${winMonths+1} meses).`;
+    const msg = `⚠️ Histórico común insuficiente para rolling ${years} año(s).\nNecesitas al menos ${winMonths+1} meses de datos comunes entre cartera y benchmark.\nActualmente hay ${keys.length} meses comunes.`;
+    noteEl.textContent = "⚠️ " + `Histórico insuficiente (solo ${keys.length} meses comunes, necesitas ~${winMonths+1})`;
+    noteEl.style.color = "#c00";
+    alert(msg);
     try{ Plotly.purge(corrDiv); Plotly.purge(betaDiv); }catch(_){}
     return;
   }
@@ -7286,13 +7279,41 @@ function repoPickerRender(){
   show.forEach(f=>{
     const div = document.createElement("div");
     div.className = "repoItem";
+    div.style.position = "relative";
+    // Show category tags if available in store
+    const _storeEntry = (typeof store !== "undefined") && f.isin && store[f.isin];
+    const _meta = _storeEntry ? (_storeEntry.meta || {}) : {};
+    const _catTags = [_meta.clase, _meta.categoria, _meta.tipoActivo, _meta.geografia]
+      .filter(Boolean)
+      .map(v=>`<span style="background:#f1f5f9;border-radius:3px;padding:1px 4px;font-size:10px;color:#475569;margin-right:3px">${escapeHTML(v)}</span>`)
+      .join("");
     div.innerHTML = `<div class="n">${escapeHTML(f.name)}</div>
-                     <div class="m">${escapeHTML(f.classText)} · ${escapeHTML(f.isin)}</div>`;
+                     <div class="m">${escapeHTML(f.classText)} · ${escapeHTML(f.isin)}</div>
+                     ${_catTags ? `<div style="margin-top:3px">${_catTags}</div>` : ""}
+                     ${f.isin ? `<button onclick="event.stopPropagation();repoCatEdit('${f.isin}')" title="Editar categorías" style="position:absolute;top:8px;right:8px;background:none;border:1px solid #cbd5e1;border-radius:6px;padding:2px 6px;font-size:10px;cursor:pointer;color:#64748b">✏️ Cat.</button>` : ""}`;
     div.addEventListener("click", ()=>repoPickerSelect(f));
     frag.appendChild(div);
   });
   list.appendChild(frag);
 }
+
+// Open the datapack edit modal for a fund by ISIN
+window.repoCatEdit = function(isin){
+  if (!isin) return;
+  // If fund not in store yet, add a skeleton entry so the modal can open
+  if (typeof store !== "undefined" && !store[isin]) {
+    const dp = DATAPACK.funds.find(f=>f.isin===isin);
+    store[isin] = { meta:{ name: dp?.name||isin, isin }, rows:[], updatedAt:Date.now() };
+  }
+  // Close repo picker first
+  repoPickerClose();
+  // Open dpEditFund modal
+  setTimeout(()=>{
+    if (typeof dpEditFund === "function") dpEditFund(isin);
+    else if (typeof window.dpEditFund === "function") window.dpEditFund(isin);
+    else alert("Abre el panel 📦 Datapack y edita desde allí por ahora.");
+  }, 200);
+};
 
 async function repoPickerSelect(fund){
   try{
@@ -7431,7 +7452,7 @@ async function repoAnalyzeDatapackToExcel(){
   if (!DATAPACK.loaded) { repoSetMsg("warn","Primero carga el datapack."); return; }
   if (!window.XLSX || !XLSX.utils) { repoSetMsg("warn","No se cargó la librería XLSX (SheetJS)."); return; }
 
-  const cols = ["ISIN","FONDO","Rent. Hist","Vol. Hist","Rentabilidad media 10 años","Rentabilidad media 5 años","Rentabilidad media 3 años","Volatilidad media 10 años","Volatilidad media 5 años","Volatilidad media 1 año","Max Drawdown","Under water (dias)","Broker_MyInvestor","Broker_Renta4","Broker_Ironia","Broker_Mapfre","Broker_EBN"];
+  const cols = ["ISIN","FONDO","Clase","Categoría","Tipo Activo","Geografía","Divisa","Issuer","Rent. Hist","Vol. Hist","Rentabilidad media 10 años","Rentabilidad media 5 años","Rentabilidad media 3 años","Volatilidad media 10 años","Volatilidad media 5 años","Volatilidad media 1 año","Max Drawdown","Under water (dias)","Broker_MyInvestor","Broker_Renta4","Broker_Ironia","Broker_Mapfre","Broker_EBN"];
   const rows = [];
   const N = DATAPACK.funds.length;
 
@@ -7513,7 +7534,15 @@ async function repoAnalyzeDatapackToExcel(){
       // keep NaNs; continue
     }
 
-    rows.push([isin, name,
+    // Get category meta from store (edited via ✏️ Cat. button)
+    const _sm = (typeof store !== "undefined" && store[isin]) ? (store[isin].meta||{}) : {};
+    const _clase     = _sm.clase      || (f.attrs && f.attrs.clase)      || "";
+    const _categoria = _sm.categoria  || (f.attrs && f.attrs.categoria)  || "";
+    const _tipoAct   = _sm.tipoActivo || (f.attrs && f.attrs.tipoActivo) || "";
+    const _geo       = _sm.geografia  || (f.attrs && f.attrs.geografia)  || "";
+    const _divisa    = _sm.divisa     || (f.attrs && f.attrs.divisa)     || "";
+    const _issuer    = _sm.issuer     || (f.attrs && f.attrs.issuer)     || "";
+    rows.push([isin, name, _clase, _categoria, _tipoAct, _geo, _divisa, _issuer,
       cleanNum(rentHist), cleanNum(volHist),
       cleanNum(r10), cleanNum(r5), cleanNum(r3),
       cleanNum(v10), cleanNum(v5), cleanNum(v1),
