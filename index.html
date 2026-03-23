@@ -205,6 +205,11 @@
 /* Hide only the advanced-options toggle labels (summary), keep content visible */
 #s1AdvToggle, #cmpAdvToggle, #btAdvToggle, #btBenchAdvToggle { display:none !important; }
 </style>
+<style>
+#cmpAdvBody input[type="file"], #cmpAdvBody label, #cmpAdvBody button#cmpRun,
+#btAdvBody input[type="file"], #btAdvBody .muted,
+#btBenchAdvBody input[type="file"] { display:none !important; }
+</style>
 </head>
 <body>
 <header style="position:relative">
@@ -282,6 +287,7 @@
       <div style="flex:1;height:1px;background:var(--border)"></div>
     </div>
 
+    <button id="dpPendingCatBtn" onclick="dpShowPendingCat()" style="width:100%;text-align:left;background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:7px 12px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:8px;margin-bottom:10px">🏷️ Fondos sin categorizar <span id="dpPendingCatCount" style="background:#f59e0b;color:#fff;border-radius:9999px;padding:1px 7px;font-size:11px;font-weight:700;margin-left:auto">—</span></button>
     <!-- Modo 2: ISINs manuales -->
     <div style="margin-bottom:10px">
       <label style="font-size:12px;font-weight:600;color:var(--muted);display:block;margin-bottom:6px">✏️ AÑADIR ISINs (descarga series de Morningstar)</label>
@@ -11550,6 +11556,7 @@ async function mstDoSearch(){
       el.innerHTML = '<div style="font-size:12px;color:var(--muted);text-align:center;padding:12px">Sin fondos. Añade ISINs arriba.</div>';
       return;
     }
+    dpUpdatePendingCat();
     el.innerHTML = isins.map(isin => {
       const f = store[isin];
       const m = f?.meta || {};
@@ -12339,6 +12346,22 @@ async function mstDoSearch(){
     try { if (typeof repoPickerRender === "function") repoPickerRender(); } catch(_) {}
   }
   window.dpSyncToDatapack = dpSyncToDatapack;
+  window.dpEditFund = dpEditFund;
+  window.dpRenderFundsList = dpRenderFundsList;
+  function dpUpdatePendingCat(){
+    const b=$("dpPendingCatCount"); if(!b) return;
+    const n=Object.keys(store).filter(k=>{const m=store[k]?.meta||{};return !m.clase&&!m.categoria&&!m.tipoActivo&&!m.geografia;}).length;
+    b.textContent=n; b.style.background=n>0?"#f59e0b":"#10b981";
+  }
+  window.dpShowPendingCat=function(){
+    const el=$("dpFundsList"); if(!el) return;
+    const isins=Object.keys(store).filter(k=>{const m=store[k]?.meta||{};return !m.clase&&!m.categoria&&!m.tipoActivo&&!m.geografia;}).sort();
+    if(!isins.length){dpSetStatus("ok","✅ Todos los fondos están categorizados.");return;}
+    el.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:#fef3c7;border-radius:8px;font-size:11px;margin-bottom:8px"><b>'+isins.length+' sin categorizar</b><button onclick="dpRenderFundsList()" style="background:none;border:none;cursor:pointer;color:#92400e;font-size:11px;text-decoration:underline">Ver todos</button></div>'+
+    isins.map(isin=>{const m=store[isin]?.meta||{};const pts=store[isin]?.rows?.length||0;
+      return '<div style="border:1px solid #fcd34d;border-radius:8px;padding:8px 10px;font-size:12px;background:#fffbeb;margin-bottom:6px"><div style="display:flex;justify-content:space-between;align-items:center"><b style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">'+dpEsc(m.name||isin)+'</b><button onclick="dpEditFund(''+dpEsc(isin)+'')" style="background:#2563eb;color:#fff;border:none;border-radius:6px;padding:3px 9px;font-size:11px;cursor:pointer;margin-left:6px">✏️ Categorizar</button></div><div style="color:var(--muted);font-size:11px;margin-top:2px">'+dpEsc(isin)+' · '+pts+' pts</div></div>';
+    }).join("");
+  };
   window.dpRenderFundsList = dpRenderFundsList;
 
   // ── Supabase Cloud Sync (auto-save / auto-load) ──
