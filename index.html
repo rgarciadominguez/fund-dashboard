@@ -205,12 +205,6 @@
 /* Hide only the advanced-options toggle labels (summary), keep content visible */
 #s1AdvToggle, #cmpAdvToggle, #btAdvToggle, #btBenchAdvToggle { display:none !important; }
 </style>
-<style>
-#s1AdvBody,span#s1AdvToggle,span#cmpAdvToggle,span#btAdvToggle,span#btBenchAdvToggle,
-#cmpAdvBody input[type="file"],#cmpAdvBody>label,button#cmpRun,
-#btAdvBody input[type="file"],#btBenchAdvBody input[type="file"]{display:none!important}
-#cmpAdvBody,#btAdvBody{display:block!important;padding:4px 0!important;background:none!important;border:none!important}
-</style>
 </head>
 <body>
 <header style="position:relative">
@@ -288,10 +282,6 @@
       <div style="flex:1;height:1px;background:var(--border)"></div>
     </div>
 
-    <div style="display:flex;gap:6px;margin-bottom:10px">
-      <button onclick="dpShowPending()" style="flex:1;background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:7px 10px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:6px">🏷️ Sin clasificar <span id="dpPendingCount" style="background:#f59e0b;color:#fff;border-radius:9999px;padding:1px 7px;font-size:11px;font-weight:700;margin-left:auto">—</span></button>
-      <button onclick="dpRecargar()" style="flex:1;background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:7px 10px;cursor:pointer;font-size:12px;color:#166534">🔄 Recargar datos</button>
-    </div>
     <!-- Modo 2: ISINs manuales -->
     <div style="margin-bottom:10px">
       <label style="font-size:12px;font-weight:600;color:var(--muted);display:block;margin-bottom:6px">✏️ AÑADIR ISINs (descarga series de Morningstar)</label>
@@ -302,11 +292,26 @@ ES0156572002"></textarea>
 
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
       <button class="btn" id="dpRunBtn" style="font-size:12px;padding:7px 14px">▶ Descargar y guardar</button>
-      
-      
+      <button class="btnGhost" id="dpSaveSnapshotBtn" style="font-size:12px;padding:7px 14px" title="Incrusta los fondos en el HTML y descarga el archivo con memoria incluida">💾 Snapshot HTML</button>
+      <button class="btnGhost" id="dpGistSyncBtn" style="font-size:12px;padding:7px 14px;border-color:#7c3aed;color:#7c3aed" title="Guardar/cargar fondos en la nube (GitHub Gist)">☁️ Nube</button>
     </div>
 
-    
+    <!-- Gist sync panel (hidden by default) -->
+    <div id="dpGistPanel" style="display:none;margin-bottom:12px;padding:10px 12px;border:1px solid #7c3aed33;border-radius:12px;background:#faf5ff;font-size:12px;">
+      <div style="font-weight:700;color:#7c3aed;margin-bottom:8px">☁️ Sincronización automática (Supabase) (GitHub Gist)</div>
+      <div style="color:#555;margin-bottom:8px;line-height:1.4">Guarda tus fondos en un Gist privado de GitHub. Se cargarán automáticamente al abrir el dashboard desde cualquier dispositivo.</div>
+      <label style="display:block;margin-bottom:4px;color:#64748b">Token GitHub (scope: gist)</label>
+      <div style="display:flex;gap:6px;margin-bottom:8px">
+        <input id="dpGistToken" type="password" placeholder="ghp_..." style="flex:1;padding:7px 10px;border:1px solid #cbd5e1;border-radius:10px;font-size:12px;background:#fff">
+        <button id="dpGistSaveTokenBtn" class="btnGhost" style="font-size:11px;padding:6px 10px;white-space:nowrap">Guardar token</button>
+      </div>
+      <div id="dpGistInfo" style="font-size:11px;color:#64748b;margin-bottom:8px"></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button id="dpGistUploadBtn" class="btn" style="font-size:12px;padding:7px 14px;background:#7c3aed;border-color:#6d28d9">⬆️ Subir a nube</button>
+        <button id="dpGistDownloadBtn" class="btnGhost" style="font-size:12px;padding:7px 14px;border-color:#7c3aed;color:#7c3aed">⬇️ Descargar de nube</button>
+        <button id="dpGistForgetBtn" class="btnGhost" style="font-size:11px;padding:6px 10px;color:#c00;border-color:#c00">Olvidar token</button>
+      </div>
+    </div>
 
     <div id="dpStatus" style="font-size:12px;padding:8px 10px;border-radius:8px;margin-bottom:12px;display:none"></div>
 
@@ -11545,7 +11550,6 @@ async function mstDoSearch(){
       el.innerHTML = '<div style="font-size:12px;color:var(--muted);text-align:center;padding:12px">Sin fondos. Añade ISINs arriba.</div>';
       return;
     }
-    dpUpdatePending();
     el.innerHTML = isins.map(isin => {
       const f = store[isin];
       const m = f?.meta || {};
@@ -11573,7 +11577,6 @@ async function mstDoSearch(){
 
   window.dpDeleteFund = function(isin){
     if (!confirm("¿Eliminar " + isin + " del datapack?")) return;
-    fetch(SB_URL+"/rest/v1/funds?isin=eq."+encodeURIComponent(isin),{method:"DELETE",headers:SB_HDR()}).catch(function(e){console.warn(e);});
     delete store[isin];
     dpUpdateStats(); dpRenderFundsList(); dpSyncToDatapack();
     dpSetStatus("ok", isin + " eliminado.");
@@ -11585,8 +11588,7 @@ async function mstDoSearch(){
     tipoActivo:["RV","RF MP","RF LP","Mixto","Alternativo","Monetario"],
     geografia:["Global","Europa","USA","España","Asia","Emergentes","Latam"],
     divisa:["Euro","EuroHedge","USD","GBP","JPY","Otra"],
-    issuer:["Gubernamental","Corporativa","Mixto","High Yield","Inflación"],
-    clasificacion:["Top","Bueno","Medio","Malo","Clase similar","Clase sucia"]
+    issuer:["Gubernamental","Corporativa","Mixto","High Yield","Inflación"]
   };
 
   function dpMakeSelect(id,opts,current){
@@ -11644,9 +11646,7 @@ async function mstDoSearch(){
       {id:'ef_tipo',   label:'Tipo activo',         type:'select', key:'tipoActivo', val:m.tipoActivo||''},
       {id:'ef_geo',    label:'Geografía',           type:'select', key:'geografia',  val:m.geografia||''},
       {id:'ef_div',    label:'Divisa',              type:'select', key:'divisa',     val:m.divisa||''},
-      {id:'ef_issuer',  label:'Subcategoría/Issuer', type:'select', key:'issuer',        val:m.issuer||''},
-      {id:'ef_clasif',  label:'Clasificación',        type:'select', key:'clasificacion', val:m.clasificacion||''},
-      {id:'ef_opinion', label:'Opinión',              type:'text',   key:null,            val:m.opinion||''},
+      {id:'ef_issuer', label:'Subcategoría/Issuer', type:'select', key:'issuer',     val:m.issuer||''},
     ];
     body.innerHTML=`<div style="font-size:11px;color:#64748b;font-family:monospace;margin-bottom:4px">${dpEsc(isin)}</div>
     ${FIELDS.map(fi=>`<div>
@@ -11661,9 +11661,7 @@ async function mstDoSearch(){
       store[isin].meta={...m, name:nm,
         clase:dpGetFieldVal('ef_clase'), categoria:dpGetFieldVal('ef_cat'),
         tipoActivo:dpGetFieldVal('ef_tipo'), geografia:dpGetFieldVal('ef_geo'),
-        divisa:dpGetFieldVal('ef_div'), issuer:dpGetFieldVal('ef_issuer'),
-        clasificacion:dpGetFieldVal('ef_clasif'),
-        opinion:($('ef_opinion')?.value||'').trim()};
+        divisa:dpGetFieldVal('ef_div'), issuer:dpGetFieldVal('ef_issuer')};
       ['ef_clase','ef_cat','ef_tipo','ef_geo','ef_div','ef_issuer'].forEach((fid,i)=>{
         const keys=['clase','categoria','tipoActivo','geografia','divisa','issuer'];
         const val=dpGetFieldVal(fid);
@@ -11813,10 +11811,6 @@ async function mstDoSearch(){
       if(dpToken !== myToken) break;
       const isin = isins[i];
       if($("dpQueueList")) $("dpQueueList").textContent = isin + " (" + (i+1) + "/" + isins.length + ")";
-      if(store[isin]?.rows?.length){
-        dpSetStatus("ok","Ya existe: "+isin+" ("+store[isin].rows.length+" pts). Omitido - usa Recargar para actualizar.");
-        continue;
-      }
       dpSetStatus("info", `Procesando ${isin} (${i+1}/${isins.length})…`);
       try{
         const {meta, rows} = await dpProcessOneIsin(isin);
@@ -12022,9 +12016,7 @@ async function mstDoSearch(){
     assetType: ['tipoactivo','tipo activo','tipo de activo','assettype','asset type','tipo'],
     geography: ['geografia','geografía','geography','region','región'],
     currency:  ['divisa','currency','moneda'],
-    issuer:        ['issuer','gestora','manager','brandname','companyname'],
-    clasificacion: ['clasificacion','clasificación'],
-    opinion:       ['opinion','opinión','comentario']
+    issuer:    ['issuer','gestora','manager','brandname','companyname']
   };
 
   function dpNormHeader(s){
@@ -12108,9 +12100,7 @@ async function mstDoSearch(){
         assetType: colMap.assetType !== undefined ? String(row[colMap.assetType]||"").trim()  : "",
         geography: colMap.geography !== undefined ? String(row[colMap.geography]||"").trim()  : "",
         currency:  colMap.currency  !== undefined ? String(row[colMap.currency]||"").trim()   : "",
-        issuer:        colMap.issuer        !== undefined ? String(row[colMap.issuer]||'').trim() : '',
-        clasificacion: colMap.clasificacion !== undefined ? (function(v){v=String(v||'').trim();return(v==='0'||v==='-')?'':v;})(row[colMap.clasificacion]) : '',
-        opinion:       colMap.opinion       !== undefined ? (function(v){v=String(v||'').trim();return(v==='0'||v==='-')?'':v;})(row[colMap.opinion]) : ''
+        issuer:    colMap.issuer    !== undefined ? String(row[colMap.issuer]||"").trim()     : ""
       });
     }
     if (!funds.length) throw new Error("No encontré ISINs válidos en el archivo");
@@ -12132,14 +12122,7 @@ async function mstDoSearch(){
           assetType: f.assetType || existing.meta?.assetType || "",
           geography: f.geography || existing.meta?.geography || "",
           currency:  f.currency  || existing.meta?.currency  || "",
-          issuer:        f.issuer        || existing.meta?.issuer        || '',
-          clase:         f.className     || existing.meta?.clase          || '',
-          categoria:     f.category      || existing.meta?.categoria      || '',
-          tipoActivo:    f.assetType     || existing.meta?.tipoActivo     || '',
-          geografia:     f.geography     || existing.meta?.geografia      || '',
-          divisa:        f.currency      || existing.meta?.divisa         || '',
-          clasificacion: f.clasificacion || existing.meta?.clasificacion  || '',
-          opinion:       f.opinion       || existing.meta?.opinion        || ''
+          issuer:    f.issuer    || existing.meta?.issuer     || ""
         },
         rows: existing.rows || [],
         updatedAt: Date.now()
@@ -12351,63 +12334,6 @@ async function mstDoSearch(){
     try { if (typeof repoPickerRender === "function") repoPickerRender(); } catch(_) {}
   }
   window.dpSyncToDatapack = dpSyncToDatapack;
-  window.dpEditFund = dpEditFund;
-  window.dpRenderFundsList = dpRenderFundsList;
-  function dpUpdatePending(){
-    var b=document.getElementById("dpPendingCount");
-    if(!b)return;
-    var n=Object.keys(store).filter(function(k){return !store[k]?.meta?.clasificacion;}).length;
-    b.textContent=n; b.style.background=n>0?"#f59e0b":"#10b981";
-  }
-  window.dpShowPending=function(){
-    var isins=Object.keys(store).filter(function(k){return !store[k]?.meta?.clasificacion;}).sort();
-    var old=document.getElementById("dpPendingModal"); if(old)old.remove();
-    if(!isins.length){dpSetStatus("ok","Todos los fondos tienen clasificacion.");return;}
-    function mk(t,s,x){var e=document.createElement(t);if(s)e.style.cssText=s;if(x)e.textContent=x;return e;}
-    var ov=mk("div","position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:999999;display:flex;align-items:center;justify-content:center;padding:20px");
-    ov.id="dpPendingModal";
-    ov.addEventListener("click",function(e){if(e.target===ov)ov.remove();});
-    var box=mk("div","background:#fff;border-radius:16px;width:min(500px,100%);max-height:80vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.3)");
-    var hd=mk("div","padding:14px 16px;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;flex-shrink:0");
-    hd.appendChild(mk("div","font-weight:800;font-size:15px","Sin clasificar ("+isins.length+")"));
-    var cb=mk("button","background:none;border:none;cursor:pointer;font-size:22px;color:#64748b;line-height:1","x");
-    cb.addEventListener("click",function(){ov.remove();}); hd.appendChild(cb);
-    var bd=mk("div","padding:12px 16px;overflow:auto;flex:1");
-    isins.forEach(function(isin){
-      var m=store[isin]?.meta||{}; var pts=store[isin]?.rows?.length||0;
-      var row=mk("div","border:1px solid #e5e7eb;border-radius:8px;padding:8px 10px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center");
-      var info=mk("div","flex:1;overflow:hidden;margin-right:8px");
-      info.appendChild(mk("div","font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis",m.name||isin));
-      info.appendChild(mk("div","font-size:11px;color:#64748b",isin+" - "+pts+" pts"));
-      var btn=mk("button","background:#2563eb;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer","Clasificar");
-      (function(i){btn.addEventListener("click",function(){ov.remove();setTimeout(function(){dpEditFund(i);},150);});})(isin);
-      row.appendChild(info); row.appendChild(btn); bd.appendChild(row);
-    });
-    box.appendChild(hd); box.appendChild(bd); ov.appendChild(box); document.body.appendChild(ov);
-  };
-  window.dpRecargar=async function(){
-    var isins=Object.keys(store);
-    if(!isins.length){dpSetStatus("warn","No hay fondos en memoria.");return;}
-    if(!confirm("Recargar "+isins.length+" fondos - solo puntos nuevos?")) return;
-    var added=0,errors=0;
-    for(var i=0;i<isins.length;i++){
-      var isin=isins[i];
-      dpSetStatus("info","("+(i+1)+"/"+isins.length+") "+isin+"...");
-      try{
-        var res=await dpProcessOneIsin(isin);
-        var prev=store[isin]||{}; var pm=prev.meta||{};
-        var ed={}; (prev.rows||[]).forEach(function(r){ed[r.date]=1;});
-        var newOnly=res.rows.filter(function(r){return !ed[r.date];});
-        added+=newOnly.length;
-        var merged=(prev.rows||[]).concat(newOnly).sort(function(a,b){return a.date<b.date?-1:1;});
-        store[isin]={meta:Object.assign({},res.meta,{clasificacion:pm.clasificacion||"",opinion:pm.opinion||""}),rows:merged,updatedAt:Date.now()};
-        dpSyncToDatapack();
-      }catch(e){errors++;console.warn("Error "+isin,e);}
-      await new Promise(function(r){setTimeout(r,200);});
-    }
-    dpUpdateStats(); dpRenderFundsList();
-    dpSetStatus(errors?"warn":"ok","Recarga: "+added+" pts nuevos"+(errors?" ("+errors+" err)":"")+".");
-  };
 
   // ── Supabase Cloud Sync (auto-save / auto-load) ──
   const SB_URL  = "https://dcnvdaaexyuhqvyrrkob.supabase.co";
@@ -12527,12 +12453,30 @@ async function mstDoSearch(){
     const wire=(id,fn)=>{ const e=$(id); if(e) e.addEventListener("click",fn); };
     wire("dpRunBtn",          dpRun);
     dpWireAttrFile();
-    
+    wire("dpSaveSnapshotBtn", dpSaveSnapshot);
+    // Gist cloud sync
+    wire("dpGistSyncBtn", ()=>{
+      const p=$("dpGistPanel"); if(!p) return;
+      const open = p.style.display==="none";
+      p.style.display = open?"block":"none";
+      if(open){ const t=gistGetToken(); const el=$("dpGistToken"); if(el&&t) el.value=t; gistUpdateInfo(); }
+    });
+    wire("dpGistSaveTokenBtn", ()=>{
+      const el=$("dpGistToken"); if(!el) return;
+      gistSetToken(el.value.trim()); gistUpdateInfo();
+      dpSetStatus("ok","Token guardado en este dispositivo.");
+    });
+    wire("dpGistUploadBtn",   gistUpload);
+    wire("dpGistDownloadBtn", gistDownload);
+    wire("dpGistForgetBtn", ()=>{
+      if(!confirm("¿Olvidar token y Gist ID de este dispositivo?")) return;
+      gistForget(); gistUpdateInfo(); dpSetStatus("ok","Token olvidado.");
+      const el=$("dpGistToken"); if(el) el.value="";
+    });
     wire("dpExportCsvBtn",    dpExportCsv);
     wire("dpExportJsonBtn",   dpExportJson);
     wire("dpClearAllBtn", ()=>{
       if(!confirm("¿Borrar TODOS los fondos del datapack?")) return;
-      fetch(SB_URL+"/rest/v1/funds?isin=not.is.null",{method:"DELETE",headers:SB_HDR()}).catch(function(e){console.warn(e);});
       Object.keys(store).forEach(k=>delete store[k]);
       if($("dpErrorBox")){ $("dpErrorBox").style.display="none"; $("dpErrorBox").innerHTML=""; }
       dpSetStat("dpStatErrors",0);
