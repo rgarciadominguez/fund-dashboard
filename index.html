@@ -12030,7 +12030,9 @@ async function mstDoSearch(){
     assetType: ['tipoactivo','tipo activo','tipo de activo','assettype','asset type','tipo'],
     geography: ['geografia','geografía','geography','region','región'],
     currency:  ['divisa','currency','moneda'],
-    issuer:    ['issuer','gestora','manager','brandname','companyname']
+    issuer:    ['issuer','gestora','manager','brandname','companyname'],
+    clasificacion: ['clasificacion'],
+    opinion:       ['opinion']
   };
 
   function dpNormHeader(s){
@@ -12114,7 +12116,9 @@ async function mstDoSearch(){
         assetType: colMap.assetType !== undefined ? String(row[colMap.assetType]||"").trim()  : "",
         geography: colMap.geography !== undefined ? String(row[colMap.geography]||"").trim()  : "",
         currency:  colMap.currency  !== undefined ? String(row[colMap.currency]||"").trim()   : "",
-        issuer:    colMap.issuer    !== undefined ? String(row[colMap.issuer]||"").trim()     : ""
+        issuer:    colMap.issuer    !== undefined ? String(row[colMap.issuer]||"").trim()     : "",
+        clasificacion: colMap.clasificacion !== undefined ? (function(v){v=String(v||'').trim();return(v==='0'||v==='-')?'':v;})(row[colMap.clasificacion]) : '',
+        opinion:       colMap.opinion       !== undefined ? (function(v){v=String(v||'').trim();return(v==='0'||v==='-')?'':v;})(row[colMap.opinion]) : ''
       });
     }
     if (!funds.length) throw new Error("No encontré ISINs válidos en el archivo");
@@ -12137,6 +12141,13 @@ async function mstDoSearch(){
           geography: f.geography || existing.meta?.geography || "",
           currency:  f.currency  || existing.meta?.currency  || "",
           issuer:    f.issuer    || existing.meta?.issuer     || ""
+          clase:         f.className     || existing.meta?.clase         || '',
+          categoria:     f.category      || existing.meta?.categoria      || '',
+          tipoActivo:    f.assetType     || existing.meta?.tipoActivo     || '',
+          geografia:     f.geography     || existing.meta?.geografia      || '',
+          divisa:        f.currency      || existing.meta?.divisa         || '',
+          clasificacion: f.clasificacion || existing.meta?.clasificacion  || '',
+          opinion:       f.opinion       || existing.meta?.opinion        || ''
         },
         rows: existing.rows || [],
         updatedAt: Date.now()
