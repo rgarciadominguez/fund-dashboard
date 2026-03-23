@@ -12594,7 +12594,7 @@ Solo puntos nuevos."))return;
         var items=list.querySelectorAll(".repoItem");
         for(var j=0;j<items.length;j++){
           var mEl=items[j].querySelector(".m");
-          var parts=(mEl?mEl.textContent:"").split("·");
+          var parts=(mEl?mEl.textContent:"").split("\u00B7");
           var isin=parts.length>1?parts[1].trim():"";
           var sc=(store[isin]&&store[isin].meta&&store[isin].meta.clasificacion)||"";
           items[j].style.display=(clasif==="none"?!sc:sc===clasif)?"":" none";
