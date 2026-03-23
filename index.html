@@ -591,8 +591,8 @@ ES0156572002"></textarea>
 <div class="bd">
 <span id="cmpAdvToggle" style="font-size:11px;color:var(--muted);cursor:pointer;user-select:none;">► Opciones avanzadas (CSV manual)</span>
 <div id="cmpAdvBody" style="display:block;margin-top:8px;padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:#fafafa;">
-<label>CSVs (hasta 10 fondos, formato Investing)</label>
-<div style="display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px;">
+<label style="display:none">CSVs (hasta 10 fondos, formato Investing)</label>
+<div style="display:none">
 <div><div class="subhd">Fondo 1</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="cmpFile1" type="file"></div>
 <div><div class="subhd">Fondo 2</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="cmpFile2" type="file"></div>
 <div><div class="subhd">Fondo 3</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="cmpFile3" type="file"></div>
@@ -605,7 +605,7 @@ ES0156572002"></textarea>
 <div><div class="subhd">Fondo 10</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="cmpFile10" type="file"></div>
 </div>
 <div style="height:10px"></div>
-<button class="btn" disabled="" id="cmpRun">Calcular comparación</button>
+<button class="btn" disabled="" id="cmpRun" style="display:none">Calcular comparación</button>
 </div><!-- /cmpAdvBody -->
 <div style="height:10px"></div>
 <div class="note" id="cmpMsg"></div>
@@ -774,7 +774,7 @@ ES0156572002"></textarea>
 <div class="subhd">1) Fondos</div>
 <span id="btAdvToggle" style="font-size:11px;color:var(--muted);cursor:pointer;user-select:none;">► CSV manual (Investing)</span>
 <div id="btAdvBody" style="display:block;margin-top:6px;padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:#fafafa;">
-<div id="btFiles" style="display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:8px;">
+<div id="btFiles" style="display:none">
 <div><div class="muted" style="font-size:12px; margin-bottom:4px;">F1</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="btFile1" type="file"></div>
 <div><div class="muted" style="font-size:12px; margin-bottom:4px;">F2</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="btFile2" type="file"></div>
 <div><div class="muted" style="font-size:12px; margin-bottom:4px;">F3</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="btFile3" type="file"></div>
@@ -819,7 +819,7 @@ ES0156572002"></textarea>
 <div class="muted" id="btBenchStatus" style="margin-top:2px;">Sube CSVs y define pesos (100%) para añadir una línea de benchmark.</div>
 <div class="row" style="gap:14px; align-items:flex-start; flex-wrap:wrap; margin-top:10px;">
 <div style="flex:1 1 520px; min-width:330px;">
-<span id="btBenchAdvToggle" style="font-size:11px;color:var(--muted);cursor:pointer;user-select:none;">► CSV benchmark manual (Investing)</span>
+<span id="btBenchAdvToggle" style="display:none" style="font-size:11px;color:var(--muted);cursor:pointer;user-select:none;">► CSV benchmark manual (Investing)</span>
 <div id="btBenchAdvBody" style="display:none;margin-top:6px;padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:#fafafa;">
 <div id="btBenchFiles" style="display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:8px;">
 <div><div class="muted" style="font-size:12px; margin-bottom:4px;">B1</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="btBFile1" type="file"></div>
@@ -11575,6 +11575,9 @@ async function mstDoSearch(){
     }).join("");
   }
 
+  // Expose dpEditFund globally for repoCatEdit
+  window.dpEditFund = dpEditFund;
+
   window.dpDeleteFund = function(isin){
     if (!confirm("¿Eliminar " + isin + " del datapack?")) return;
     delete store[isin];
@@ -11670,6 +11673,8 @@ async function mstDoSearch(){
       dpSyncToDatapack(); dpUpdateStats(); dpRenderFundsList();
       document.getElementById('dpEditModal').style.display='none';
       dpSetStatus('ok','✅ '+nm+' actualizado.');
+      // Also refresh repo picker list if open
+      if (typeof repoPickerRender === "function") try{ repoPickerRender(); }catch(_){};
     };
     $('dpEditModal').style.display='flex';
   };
@@ -12334,6 +12339,7 @@ async function mstDoSearch(){
     try { if (typeof repoPickerRender === "function") repoPickerRender(); } catch(_) {}
   }
   window.dpSyncToDatapack = dpSyncToDatapack;
+  window.dpRenderFundsList = dpRenderFundsList;
 
   // ── Supabase Cloud Sync (auto-save / auto-load) ──
   const SB_URL  = "https://dcnvdaaexyuhqvyrrkob.supabase.co";
