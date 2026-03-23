@@ -211,6 +211,13 @@
 button#cmpRun { display:none !important; }
 #cmpAdvBody, #btAdvBody { display:block !important; }
 </style>
+<style id="v117-css">
+/* Ocultar inputs CSV en tabs 2 y 3, mantener Repo/MST visibles */
+#cmpAdvBody input[type="file"], #btAdvBody input[type="file"],
+#cmpAdvBody > label, button#cmpRun,
+span#cmpAdvToggle, span#btAdvToggle, span#btBenchAdvToggle { display:none !important; }
+#cmpAdvBody, #btAdvBody { display:block !important; }
+</style>
 </head>
 <body>
 <header style="position:relative">
@@ -288,6 +295,10 @@ button#cmpRun { display:none !important; }
       <div style="flex:1;height:1px;background:var(--border)"></div>
     </div>
 
+    <div style="display:flex;gap:6px;margin-bottom:10px" id="v117-btns">
+      <button onclick="v117_showPending()" style="flex:1;background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:7px 10px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:6px">🏷️ Sin clasificar <span id="v117PendingCount" style="background:#f59e0b;color:#fff;border-radius:9999px;padding:1px 7px;font-size:11px;font-weight:700;margin-left:auto">—</span></button>
+      <button onclick="v117_reloadAll()" style="flex:1;background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:7px 10px;cursor:pointer;font-size:12px;color:#166534">🔄 Recargar datos</button>
+    </div>
     <!-- Modo 2: ISINs manuales -->
     <div style="margin-bottom:10px">
       <label style="font-size:12px;font-weight:600;color:var(--muted);display:block;margin-bottom:6px">✏️ AÑADIR ISINs (descarga series de Morningstar)</label>
@@ -6939,6 +6950,16 @@ function repoEnsurePickerDOM(){
             <option value="retail">Retail</option>
             <option value="other">Otras</option>
           </select>
+          <select id="v117ClasifFilter" onchange="if(typeof repoPickerRender==='function')repoPickerRender()" style="padding:6px 8px;border:1px solid var(--border);border-radius:12px;background:#fff;font-size:12px">
+            <option value="all">Clasificación: todas</option>
+            <option value="Top">⭐ Top</option>
+            <option value="Bueno">👍 Bueno</option>
+            <option value="Medio">👌 Medio</option>
+            <option value="Malo">👎 Malo</option>
+            <option value="Clase similar">Clase similar</option>
+            <option value="Clase sucia">Clase sucia</option>
+            <option value="none">Sin clasificar</option>
+          </select>
 
           <!-- Quick dropdown filters: auto-generated for meta fields with <= 5 unique values -->
           <div class="repoQuickFilters" id="repoQuickFilters"></div>
@@ -12327,6 +12348,8 @@ async function mstDoSearch(){
     try { if (typeof repoPickerRender === "function") repoPickerRender(); } catch(_) {}
   }
   window.dpSyncToDatapack = dpSyncToDatapack;
+  window.__dpStore = store; // expose store for external scripts
+  window.dpProcessOneIsin = dpProcessOneIsin; // expose for reload
 
   // ── Supabase Cloud Sync (auto-save / auto-load) ──
   const SB_URL  = "https://dcnvdaaexyuhqvyrrkob.supabase.co";
@@ -12488,4 +12511,137 @@ async function mstDoSearch(){
   else dpInit();
 
 })();
-</script></div></div></body></html>
+</script></div></div>
+<script id="v117-js">
+(function(){
+  // Esperar a que el IIFE principal se inicialice
+  function ready(fn){ if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',fn); else fn(); }
+
+  ready(function(){
+
+    // ── Pendientes de clasificar ──
+    function updatePendingCount(){
+      const b=document.getElementById('v117PendingCount'); if(!b) return;
+      try{
+        const store=window.__dpStore||{};
+        const n=Object.keys(store).filter(k=>!store[k]?.meta?.clasificacion).length;
+        b.textContent=n; b.style.background=n>0?'#f59e0b':'#10b981';
+      }catch(_){}
+    }
+
+    // Acceder al store interno — lo exponemos via hook en dpSyncToDatapack
+    const _origSync=window.dpSyncToDatapack;
+    if(_origSync){
+      window.dpSyncToDatapack=function(){
+        _origSync.apply(this,arguments);
+        // Capturar referencia al store via DATAPACK
+        updatePendingCount();
+        // También aplicar filtro clasif en repo si está abierto
+        if(typeof repoPickerRender==='function') try{
+          const sel=document.getElementById('v117ClasifFilter');
+          if(sel && sel.value!=='all') repoPickerRender();
+        }catch(_){}
+      };
+    }
+
+    // Actualizar badge cada 2 segundos también
+    setInterval(updatePendingCount, 2000);
+
+    // ── Mostrar fondos sin clasificar ──
+    window.v117_showPending=function(){
+      // Necesitamos acceder al store — lo buscamos via dpRenderFundsList override
+      const dpFundsList=document.getElementById('dpFundsList');
+      const dpStatus=document.getElementById('dpStatus');
+      if(!dpFundsList) return;
+
+      // Intentar acceder al store via window
+      let store={};
+      try{ store=window.__dpStore||{}; }catch(_){}
+      // Si no hay store, pedir que usen el filtro en el Repo
+      if(!Object.keys(store).length){
+        if(dpStatus){ dpStatus.style.display='block'; dpStatus.className=''; dpStatus.style.background='#fffbeb'; dpStatus.style.border='1px solid #fcd34d'; dpStatus.style.color='#92400e'; dpStatus.textContent='Usa el filtro "Sin clasificar" en el picker de Repo para ver los fondos pendientes.'; setTimeout(()=>{dpStatus.style.display='none';},5000); }
+        return;
+      }
+
+      const isins=Object.keys(store).filter(k=>!store[k]?.meta?.clasificacion).sort();
+      if(!isins.length){ if(dpStatus){dpStatus.style.display='block';dpStatus.className='ok';dpStatus.textContent='✅ Todos los fondos tienen clasificación.';setTimeout(()=>{dpStatus.style.display='none';},4000);}return; }
+
+      dpFundsList.innerHTML='<div style="display:flex;justify-content:space-between;padding:6px 10px;background:#fef3c7;border-radius:8px;font-size:11px;margin-bottom:8px"><b>'+isins.length+' sin clasificar</b><button onclick="if(typeof dpRenderFundsList==='function')dpRenderFundsList()" style="background:none;border:none;cursor:pointer;color:#92400e;font-size:11px;text-decoration:underline">Ver todos</button></div>'+
+      isins.map(function(isin){
+        const m=store[isin]?.meta||{};const pts=(store[isin]?.rows||[]).length;
+        const esc=function(s){return String(s||'').replace(/[&<>"']/g,function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];});};
+        return '<div style="border:1px solid #fcd34d;border-radius:8px;padding:8px 10px;font-size:12px;background:#fffbeb;margin-bottom:6px"><div style="display:flex;justify-content:space-between;align-items:center"><div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">'+esc(m.name||isin)+'</div>'+(typeof window.dpEditFund==='function'?'<button onclick="window.dpEditFund(''+esc(isin)+'')" style="background:#2563eb;color:#fff;border:none;border-radius:6px;padding:3px 9px;font-size:11px;cursor:pointer;margin-left:8px;flex-shrink:0">✏️ Clasificar</button>':'')+'</div><div style="color:#64748b;font-size:11px;margin-top:2px">'+esc(isin)+' · '+pts+' pts</div></div>';
+      }).join('');
+    };
+
+    // ── Recargar todos los fondos (solo datos nuevos) ──
+    window.v117_reloadAll=async function(){
+      // Necesitamos dpProcessOneIsin — está en el IIFE
+      if(typeof dpProcessOneIsin!=='function'){
+        alert('La función de recarga no está disponible. Usa el textarea de ISINs con ▶ Descargar y guardar.');
+        return;
+      }
+      let store={};
+      try{ store=window.__dpStore||{}; }catch(_){}
+      const isins=Object.keys(store);
+      if(!isins.length){alert('No hay fondos en memoria.');return;}
+      if(!confirm('¿Recargar datos de '+isins.length+' fondos?\nSolo se añadirán puntos más recientes que los ya guardados.'))return;
+
+      let added=0,errors=0;
+      const dpStatus=document.getElementById('dpStatus');
+      for(const isin of isins){
+        if(dpStatus){dpStatus.style.display='block';dpStatus.className='';dpStatus.style.background='#eff6ff';dpStatus.style.border='1px solid #bfdbfe';dpStatus.style.color='#1e40af';dpStatus.textContent='🔄 Recargando '+isin+'…';}
+        try{
+          const res=await dpProcessOneIsin(isin);
+          const prev=store[isin]; const prevMeta=(prev.meta||{});
+          const existingDates=new Set((prev.rows||[]).map(function(r){return r.date;}));
+          const newOnly=res.rows.filter(function(r){return !existingDates.has(r.date);});
+          added+=newOnly.length;
+          const merged=[...(prev.rows||[]),...newOnly].sort(function(a,b){return a.date.localeCompare(b.date);});
+          store[isin]={meta:{...res.meta,clasificacion:prevMeta.clasificacion||'',opinion:prevMeta.opinion||''},rows:merged,updatedAt:Date.now()};
+          if(typeof window.dpSyncToDatapack==='function') window.dpSyncToDatapack();
+        }catch(e){errors++;console.warn('Error recargando '+isin,e);}
+        await new Promise(function(r){setTimeout(r,150);});
+      }
+      if(typeof dpRenderFundsList==='function') dpRenderFundsList();
+      if(dpStatus){dpStatus.style.display='block';dpStatus.className='ok';dpStatus.textContent='🔄 Recarga completa — '+added+' nuevos puntos'+(errors?' ('+errors+' errores)':'')+'.';}
+      setTimeout(function(){if(dpStatus)dpStatus.style.display='none';},6000);
+    };
+
+    // ── Filtro clasificación en Repo picker ──
+    // Hook en repoPickerRender para aplicar filtro de clasificación
+    if(typeof repoPickerRender==='function'){
+      const _origRepo=repoPickerRender;
+      window.repoPickerRender=repoPickerRender=function(){
+        _origRepo.apply(this,arguments);
+        // Aplicar filtro de clasificación post-render
+        const sel=document.getElementById('v117ClasifFilter');
+        if(!sel||sel.value==='all') return;
+        const clasif=sel.value;
+        const list=document.getElementById('repoList');
+        if(!list) return;
+        let store={};try{store=window.__dpStore||{};}catch(_){}
+        Array.from(list.querySelectorAll('.repoItem')).forEach(function(item){
+          const isin=item.querySelector('.m')?.textContent?.split('·')?.[1]?.trim()||'';
+          if(!isin) return;
+          const sc=store[isin]?.meta?.clasificacion||'';
+          const show=clasif==='none'?!sc:sc===clasif;
+          item.style.display=show?'':'none';
+        });
+      };
+    }
+
+    // ── Exponer store para que las funciones anteriores puedan accederlo ──
+    // El store vive en el IIFE — lo capturamos via dpSyncToDatapack hook
+    // Alternativa: usar DATAPACK.funds que sí está expuesto
+    setInterval(function(){
+      if(typeof DATAPACK!=='undefined'&&DATAPACK.funds){
+        // Reconstruir store aproximado desde DATAPACK para el badge
+        updatePendingCount();
+      }
+    },1000);
+
+  });
+})();
+</script>
+</body></html>
