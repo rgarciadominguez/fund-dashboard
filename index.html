@@ -288,6 +288,7 @@ button#cmpRun { display:none !important; }
       <div style="flex:1;height:1px;background:var(--border)"></div>
     </div>
 
+    <button id="dpPendingCatBtn" onclick="dpShowPendingCat()" style="width:100%;text-align:left;background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:7px 12px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:8px;margin-bottom:10px">🏷️ Fondos sin clasificar <span id="dpPendingCatCount" style="background:#f59e0b;color:#fff;border-radius:9999px;padding:1px 8px;font-size:11px;font-weight:700;margin-left:auto">—</span></button>
     <!-- Modo 2: ISINs manuales -->
     <div style="margin-bottom:10px">
       <label style="font-size:12px;font-weight:600;color:var(--muted);display:block;margin-bottom:6px">✏️ AÑADIR ISINs (descarga series de Morningstar)</label>
@@ -11556,12 +11557,15 @@ async function mstDoSearch(){
       el.innerHTML = '<div style="font-size:12px;color:var(--muted);text-align:center;padding:12px">Sin fondos. Añade ISINs arriba.</div>';
       return;
     }
+    dpUpdatePendingCat();
     el.innerHTML = isins.map(isin => {
       const f = store[isin];
       const m = f?.meta || {};
       const pts = f?.rows?.length || 0;
       const from = f?.rows?.[0]?.date || "—";
       const to   = f?.rows?.[pts-1]?.date || "—";
+      const clasifColor = m.clasificacion==='Top'?'#059669':m.clasificacion==='Bueno'?'#2563eb':m.clasificacion==='Medio'?'#d97706':m.clasificacion?'#6b7280':'#ef4444';
+      const clasifTag = m.clasificacion ? `<span style="background:${clasifColor};color:#fff;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700">${dpEsc(m.clasificacion)}</span>` : `<span style="background:#fef3c7;color:#92400e;border-radius:4px;padding:1px 6px;font-size:10px">sin clasificar</span>`;
       const tags = [m.clase, m.categoria, m.tipoActivo, m.geografia, m.divisa, m.issuer]
         .filter(Boolean)
         .map(v=>`<span style="background:#f1f5f9;border-radius:4px;padding:1px 5px;font-size:10px;color:#475569">${dpEsc(v)}</span>`)
@@ -11570,16 +11574,37 @@ async function mstDoSearch(){
         <div style="display:flex;justify-content:space-between;align-items:flex-start">
           <div style="font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${dpEsc(m.name||isin)}">${dpEsc(m.name||isin)}</div>
           <div style="display:flex;gap:4px;flex-shrink:0">
+            <button onclick="dpReloadFund('${dpEsc(isin)}')" style="background:none;border:none;cursor:pointer;color:#059669;font-size:13px;padding:0 2px" title="Recargar datos hasta hoy (añade solo datos nuevos)">🔄</button>
             <button onclick="dpEditFund('${dpEsc(isin)}')" style="background:none;border:none;cursor:pointer;color:#2563eb;font-size:13px;padding:0 2px" title="Editar metadatos">✏️</button>
             <button onclick="dpDeleteFund('${dpEsc(isin)}')" style="background:none;border:none;cursor:pointer;color:#c00;font-size:13px;padding:0 0 0 2px" title="Eliminar">✕</button>
           </div>
         </div>
         <div style="color:var(--muted);margin-top:2px;font-family:monospace;font-size:11px">${dpEsc(isin)}</div>
-        ${tags ? `<div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:3px">${tags}</div>` : ''}
+        <div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:3px;align-items:center">${clasifTag}${tags ? tags : ''}</div>
         <div style="color:var(--muted);margin-top:3px;font-size:11px">${pts} pts · ${dpEsc(from)} → ${dpEsc(to)}</div>
       </div>`;
     }).join("");
   }
+
+  window.dpReloadFund = async function(isin){
+    if(!store[isin]){ dpSetStatus("warn","Fondo no encontrado."); return; }
+    dpSetStatus("info","🔄 Recargando "+isin+"…");
+    try{
+      const {meta, rows} = await dpProcessOneIsin(isin);
+      const existing = store[isin];
+      // Merge: only add rows newer than existing
+      const existingDates = new Set((existing.rows||[]).map(r=>r.date));
+      const newRows = rows.filter(r=>!existingDates.has(r.date));
+      const merged = [...(existing.rows||[]), ...newRows].sort((a,b)=>a.date.localeCompare(b.date));
+      // Keep existing meta (clasificacion, opinion, etc.) and update technical fields
+      store[isin] = {
+        meta:{...meta, clasificacion:existing.meta?.clasificacion||'', opinion:existing.meta?.opinion||''},
+        rows:merged, updatedAt:Date.now()
+      };
+      dpSyncToDatapack(); dpUpdateStats(); dpRenderFundsList();
+      dpSetStatus("ok","🔄 "+dpEsc(meta.name||isin)+" actualizado — "+newRows.length+" nuevos puntos añadidos (total: "+merged.length+").");
+    }catch(e){ dpSetStatus("warn","Error recargando "+isin+": "+(e?.message||"desconocido")); }
+  };
 
   window.dpDeleteFund = function(isin){
     if (!confirm("¿Eliminar " + isin + " del datapack?")) return;
@@ -11589,12 +11614,13 @@ async function mstDoSearch(){
   };
 
   const DP_META_OPTS = {
-    clase:["Limpia","Retail","Institucional","Otro"],
-    categoria:["Indexado","Activo","Smart Beta","Mixto"],
-    tipoActivo:["RV","RF MP","RF LP","Mixto","Alternativo","Monetario"],
-    geografia:["Global","Europa","USA","España","Asia","Emergentes","Latam"],
-    divisa:["Euro","EuroHedge","USD","GBP","JPY","Otra"],
-    issuer:["Gubernamental","Corporativa","Mixto","High Yield","Inflación"]
+    clase:       ["Limpia","Retail","Institucional","Otro"],
+    categoria:   ["Indexado","Gestionado","Monetario","Ultra Short","Sectoriales"],
+    tipoActivo:  ["RV","RF MP","RF LP","RF CP","RF HY","RF Retorno absoluto","RF Catastrofe","Mixtos","Materias primas","Monetario"],
+    geografia:   ["Global","Europa","USA","España","Developed","Emerging","Nordics","Pacifico","Asia","Latam"],
+    divisa:      ["Euro","EuroHedge","Dolares","USD","GBP","JPY","Otra"],
+    issuer:      ["Gubernamental","Corporativa","Mixto","High Yield","Bonos catastrofe","Inflación"],
+    clasificacion:["Top","Bueno","Medio","Clase similar","Clase sucia"]
   };
 
   function dpMakeSelect(id,opts,current){
@@ -11646,13 +11672,15 @@ async function mstDoSearch(){
     const m=f.meta||{};
     const body=$('dpEditModalBody'); if(!body) return;
     const FIELDS=[
-      {id:'ef_name',   label:'Nombre',              type:'text',   key:null,         val:m.name||isin},
-      {id:'ef_clase',  label:'Clase',               type:'select', key:'clase',      val:m.clase||''},
-      {id:'ef_cat',    label:'Categoría',           type:'select', key:'categoria',  val:m.categoria||''},
-      {id:'ef_tipo',   label:'Tipo activo',         type:'select', key:'tipoActivo', val:m.tipoActivo||''},
-      {id:'ef_geo',    label:'Geografía',           type:'select', key:'geografia',  val:m.geografia||''},
-      {id:'ef_div',    label:'Divisa',              type:'select', key:'divisa',     val:m.divisa||''},
-      {id:'ef_issuer', label:'Subcategoría/Issuer', type:'select', key:'issuer',     val:m.issuer||''},
+      {id:'ef_name',   label:'Nombre',              type:'text',   key:null,              val:m.name||isin},
+      {id:'ef_clase',  label:'Clase',               type:'select', key:'clase',           val:m.clase||''},
+      {id:'ef_cat',    label:'Categoría',           type:'select', key:'categoria',       val:m.categoria||''},
+      {id:'ef_tipo',   label:'Tipo activo',         type:'select', key:'tipoActivo',      val:m.tipoActivo||''},
+      {id:'ef_geo',    label:'Geografía',           type:'select', key:'geografia',       val:m.geografia||''},
+      {id:'ef_div',    label:'Divisa',              type:'select', key:'divisa',          val:m.divisa||''},
+      {id:'ef_issuer', label:'Subcategoría/Issuer', type:'select', key:'issuer',          val:m.issuer||''},
+      {id:'ef_clasif', label:'Clasificación ⭐',    type:'select', key:'clasificacion',   val:m.clasificacion||''},
+      {id:'ef_opinion',label:'Opinión (texto libre)',type:'text',  key:null,              val:m.opinion||''},
     ];
     body.innerHTML=`<div style="font-size:11px;color:#64748b;font-family:monospace;margin-bottom:4px">${dpEsc(isin)}</div>
     ${FIELDS.map(fi=>`<div>
@@ -11667,9 +11695,11 @@ async function mstDoSearch(){
       store[isin].meta={...m, name:nm,
         clase:dpGetFieldVal('ef_clase'), categoria:dpGetFieldVal('ef_cat'),
         tipoActivo:dpGetFieldVal('ef_tipo'), geografia:dpGetFieldVal('ef_geo'),
-        divisa:dpGetFieldVal('ef_div'), issuer:dpGetFieldVal('ef_issuer')};
-      ['ef_clase','ef_cat','ef_tipo','ef_geo','ef_div','ef_issuer'].forEach((fid,i)=>{
-        const keys=['clase','categoria','tipoActivo','geografia','divisa','issuer'];
+        divisa:dpGetFieldVal('ef_div'), issuer:dpGetFieldVal('ef_issuer'),
+        clasificacion:dpGetFieldVal('ef_clasif'),
+        opinion:($('ef_opinion')?.value||'').trim()};
+      ['ef_clase','ef_cat','ef_tipo','ef_geo','ef_div','ef_issuer','ef_clasif'].forEach((fid,i)=>{
+        const keys=['clase','categoria','tipoActivo','geografia','divisa','issuer','clasificacion'];
         const val=dpGetFieldVal(fid);
         if(val && !DP_META_OPTS[keys[i]].includes(val)){ DP_META_OPTS[keys[i]].push(val); DP_META_OPTS[keys[i]].sort(); }
       });
@@ -11820,6 +11850,18 @@ async function mstDoSearch(){
       dpSetStatus("info", `Procesando ${isin} (${i+1}/${isins.length})…`);
       try{
         const {meta, rows} = await dpProcessOneIsin(isin);
+        // Merge: if ISIN already exists keep old rows and append new ones
+        if(store[isin] && store[isin].rows && store[isin].rows.length) {
+          const existingDates = new Set(store[isin].rows.map(r=>r.date));
+          const newRows = rows.filter(r=>!existingDates.has(r.date));
+          rows = [...store[isin].rows, ...newRows].sort((a,b)=>a.date.localeCompare(b.date));
+          // Keep existing meta fields, only update if new value is non-empty
+          const existingMeta = store[isin].meta || {};
+          Object.keys(meta).forEach(k=>{ if(!meta[k]) meta[k]=existingMeta[k]||''; });
+          // Preserve clasificacion and opinion
+          meta.clasificacion = existingMeta.clasificacion || meta.clasificacion || '';
+          meta.opinion       = existingMeta.opinion       || meta.opinion       || '';
+        }
         store[isin] = {meta, rows, updatedAt: Date.now()};
         dpSyncToDatapack(); // keep DATAPACK.funds in sync for repo picker
         dpUpdateStats();
@@ -12231,7 +12273,23 @@ async function mstDoSearch(){
       if(!dpAttrFunds?.length){ dpSetStatus("warn","Primero selecciona un archivo."); return; }
       dpSetStatus("info","Guardando atributos…");
       const n = await dpLoadAttrOnly(dpAttrFunds);
-      dpSetStatus("ok","✅ "+n+" fondo(s) guardados (sin series). Pulsa 💾 Snapshot o usa 'Descargar series' para completar.");
+      // After loading attrs, check which ISINs are new (not in store) and offer to download
+      const newIsins = dpAttrFunds.filter(f=>f.isin && !store[f.isin]).map(f=>f.isin);
+      const updatedIsins = dpAttrFunds.filter(f=>f.isin && store[f.isin]).map(f=>f.isin);
+      // Update attrs for existing ISINs (preserve clasificacion/opinion)
+      updatedIsins.forEach(isin=>{
+        const f = dpAttrFunds.find(x=>x.isin===isin);
+        if(f && store[isin]){
+          const prev = store[isin].meta || {};
+          store[isin].meta = {...prev, ...f, clasificacion:prev.clasificacion||'', opinion:prev.opinion||''};
+        }
+      });
+      const msg = newIsins.length
+        ? `✅ ${n} fondos actualizados. ${newIsins.length} nuevos sin series → pulsa ▶ Descargar para cargarlas.`
+        : `✅ ${n} fondos actualizados (atributos sincronizados).`;
+      if(newIsins.length){ $("dpIsinInput").value = newIsins.join("\n"); }
+      dpSyncToDatapack(); dpUpdateStats(); dpRenderFundsList();
+      dpSetStatus("ok", msg);
     });
 
     if(loadSerBtn) loadSerBtn.addEventListener("click", async () => {
@@ -12340,6 +12398,24 @@ async function mstDoSearch(){
     try { if (typeof repoPickerRender === "function") repoPickerRender(); } catch(_) {}
   }
   window.dpSyncToDatapack = dpSyncToDatapack;
+  window.dpEditFund = dpEditFund;
+  window.dpRenderFundsList = dpRenderFundsList;
+
+  function dpUpdatePendingCat(){
+    const b=$("dpPendingCatCount"); if(!b) return;
+    const n=Object.keys(store).filter(k=>!store[k]?.meta?.clasificacion).length;
+    b.textContent=n; b.style.background=n>0?"#f59e0b":"#10b981";
+  }
+
+  window.dpShowPendingCat=function(){
+    const el=$("dpFundsList"); if(!el) return;
+    const isins=Object.keys(store).filter(k=>!store[k]?.meta?.clasificacion).sort();
+    if(!isins.length){dpSetStatus("ok","✅ Todos los fondos tienen clasificación.");return;}
+    el.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:#fef3c7;border-radius:8px;font-size:11px;margin-bottom:8px"><b>'+isins.length+' sin clasificar</b><button onclick="dpRenderFundsList()" style="background:none;border:none;cursor:pointer;color:#92400e;font-size:11px;text-decoration:underline">Ver todos</button></div>'+
+    isins.map(isin=>{const m=store[isin]?.meta||{};const pts=store[isin]?.rows?.length||0;
+      return '<div style="border:1px solid #fcd34d;border-radius:8px;padding:8px 10px;font-size:12px;background:#fffbeb;margin-bottom:6px"><div style="display:flex;justify-content:space-between;align-items:center"><div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">'+dpEsc(m.name||isin)+'</div><button onclick="dpEditFund(''+dpEsc(isin)+'')" style="background:#2563eb;color:#fff;border:none;border-radius:6px;padding:3px 9px;font-size:11px;cursor:pointer;margin-left:8px;flex-shrink:0">✏️ Clasificar</button></div><div style="color:var(--muted);font-size:11px;margin-top:2px">'+dpEsc(isin)+' · '+pts+' pts</div></div>';
+    }).join("");
+  };
 
   // ── Supabase Cloud Sync (auto-save / auto-load) ──
   const SB_URL  = "https://dcnvdaaexyuhqvyrrkob.supabase.co";
