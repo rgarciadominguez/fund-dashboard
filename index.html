@@ -6945,6 +6945,16 @@ function repoEnsurePickerDOM(){
             <option value="retail">Retail</option>
             <option value="other">Otras</option>
           </select>
+          <select id="repoPickerClasif" style="padding:6px 8px;border:1px solid var(--border);border-radius:12px;font-size:12px;background:#fff">
+            <option value="all">Clasificacion: todas</option>
+            <option value="Top">Top</option>
+            <option value="Bueno">Bueno</option>
+            <option value="Medio">Medio</option>
+            <option value="Malo">Malo</option>
+            <option value="Clase similar">Clase similar</option>
+            <option value="Clase sucia">Clase sucia</option>
+            <option value="none">Sin clasificar</option>
+          </select>
 
           <!-- Quick dropdown filters: auto-generated for meta fields with <= 5 unique values -->
           <div class="repoQuickFilters" id="repoQuickFilters"></div>
@@ -6968,6 +6978,7 @@ function repoEnsurePickerDOM(){
 
   document.getElementById("repoPickerSearch").addEventListener("input", ()=>repoPickerRender());
   document.getElementById("repoPickerClass").addEventListener("change", ()=>repoPickerRender());
+  document.getElementById("repoPickerClasif")?.addEventListener("change", ()=>repoPickerRender());
   document.getElementById("repoPickerField").addEventListener("change", ()=>repoPickerOnFieldChange());
   document.getElementById("repoPickerFieldVal").addEventListener("input", ()=>repoPickerRender());
   document.getElementById("repoPickerClearFilters").addEventListener("click", ()=>repoPickerClearFilters());
@@ -7234,6 +7245,12 @@ function repoPickerRender(){
 
   let arr = DATAPACK.funds || [];
   if (cls !== "all") arr = arr.filter(f=>f.classNorm===cls);
+  // Apply clasificacion filter
+  const repoCl=document.getElementById("repoPickerClasif")?.value||"all";
+  if(repoCl!=="all") arr=arr.filter(function(f){
+    const sc=(typeof store!=="undefined"&&store[f.isin]?.meta?.clasificacion)||"";
+    return repoCl==="none"?!sc:sc===repoCl;
+  });
 
   // Apply quick filters
   if (quickFilters.length){
