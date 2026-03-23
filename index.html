@@ -298,26 +298,9 @@ ES0156572002"></textarea>
 
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
       <button class="btn" id="dpRunBtn" style="font-size:12px;padding:7px 14px">▶ Descargar y guardar</button>
-      <button class="btnGhost" id="dpSaveSnapshotBtn" style="font-size:12px;padding:7px 14px" title="Incrusta los fondos en el HTML y descarga el archivo con memoria incluida">💾 Snapshot HTML</button>
-      <button class="btnGhost" id="dpGistSyncBtn" style="font-size:12px;padding:7px 14px;border-color:#7c3aed;color:#7c3aed" title="Guardar/cargar fondos en la nube (GitHub Gist)">☁️ Nube</button>
     </div>
 
-    <!-- Gist sync panel (hidden by default) -->
-    <div id="dpGistPanel" style="display:none;margin-bottom:12px;padding:10px 12px;border:1px solid #7c3aed33;border-radius:12px;background:#faf5ff;font-size:12px;">
-      <div style="font-weight:700;color:#7c3aed;margin-bottom:8px">☁️ Sincronización automática (Supabase) (GitHub Gist)</div>
-      <div style="color:#555;margin-bottom:8px;line-height:1.4">Guarda tus fondos en un Gist privado de GitHub. Se cargarán automáticamente al abrir el dashboard desde cualquier dispositivo.</div>
-      <label style="display:block;margin-bottom:4px;color:#64748b">Token GitHub (scope: gist)</label>
-      <div style="display:flex;gap:6px;margin-bottom:8px">
-        <input id="dpGistToken" type="password" placeholder="ghp_..." style="flex:1;padding:7px 10px;border:1px solid #cbd5e1;border-radius:10px;font-size:12px;background:#fff">
-        <button id="dpGistSaveTokenBtn" class="btnGhost" style="font-size:11px;padding:6px 10px;white-space:nowrap">Guardar token</button>
-      </div>
-      <div id="dpGistInfo" style="font-size:11px;color:#64748b;margin-bottom:8px"></div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap">
-        <button id="dpGistUploadBtn" class="btn" style="font-size:12px;padding:7px 14px;background:#7c3aed;border-color:#6d28d9">⬆️ Subir a nube</button>
-        <button id="dpGistDownloadBtn" class="btnGhost" style="font-size:12px;padding:7px 14px;border-color:#7c3aed;color:#7c3aed">⬇️ Descargar de nube</button>
-        <button id="dpGistForgetBtn" class="btnGhost" style="font-size:11px;padding:6px 10px;color:#c00;border-color:#c00">Olvidar token</button>
-      </div>
-    </div>
+    
 
     <div id="dpStatus" style="font-size:12px;padding:8px 10px;border-radius:8px;margin-bottom:12px;display:none"></div>
 
@@ -11843,7 +11826,7 @@ async function mstDoSearch(){
     dpRunning = false;
     $("dpRunBtn") && ($("dpRunBtn").disabled=false);
     if($("dpQueueList")) $("dpQueueList").textContent="—";
-    dpSetStatus(errors?"warn":"ok", errors ? `Hecho con ${errors} error(es). Ver detalle arriba.` : `✅ ${isins.length - errors} fondo(s) guardados. Pulsa "💾 Snapshot HTML" para hacer la memoria permanente.`);
+    dpSetStatus(errors?"warn":"ok", errors ? `Hecho con ${errors} error(es). Ver detalle arriba.` : `✅ ${isins.length - errors} fondo(s) guardados. Guardado automáticamente en la nube.`);
   }
 
   function dpSetStat(id,v){ const e=$(id); if(e) e.textContent=String(v); }
@@ -12463,26 +12446,6 @@ async function mstDoSearch(){
     const wire=(id,fn)=>{ const e=$(id); if(e) e.addEventListener("click",fn); };
     wire("dpRunBtn",          dpRun);
     dpWireAttrFile();
-    wire("dpSaveSnapshotBtn", dpSaveSnapshot);
-    // Gist cloud sync
-    wire("dpGistSyncBtn", ()=>{
-      const p=$("dpGistPanel"); if(!p) return;
-      const open = p.style.display==="none";
-      p.style.display = open?"block":"none";
-      if(open){ const t=gistGetToken(); const el=$("dpGistToken"); if(el&&t) el.value=t; gistUpdateInfo(); }
-    });
-    wire("dpGistSaveTokenBtn", ()=>{
-      const el=$("dpGistToken"); if(!el) return;
-      gistSetToken(el.value.trim()); gistUpdateInfo();
-      dpSetStatus("ok","Token guardado en este dispositivo.");
-    });
-    wire("dpGistUploadBtn",   gistUpload);
-    wire("dpGistDownloadBtn", gistDownload);
-    wire("dpGistForgetBtn", ()=>{
-      if(!confirm("¿Olvidar token y Gist ID de este dispositivo?")) return;
-      gistForget(); gistUpdateInfo(); dpSetStatus("ok","Token olvidado.");
-      const el=$("dpGistToken"); if(el) el.value="";
-    });
     wire("dpExportCsvBtn",    dpExportCsv);
     wire("dpExportJsonBtn",   dpExportJson);
     wire("dpClearAllBtn", ()=>{
