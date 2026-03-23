@@ -12549,8 +12549,7 @@ async function mstDoSearch(){
     var memIsins=Object.keys(store);
     var ta=document.getElementById("dpIsinInput");
     var taText=ta?ta.value.trim():"";
-    var newIsins=taText?taText.split(/[
-,;]+/).map(function(s){return s.trim().toUpperCase();}).filter(function(s){return s.length>5&&!store[s];}):[];
+    var newIsins=taText?taText.replace(/[,;]/g,String.fromCharCode(10)).split(String.fromCharCode(10)).map(function(s){return s.trim().toUpperCase();}).filter(function(s){return s.length>5&&!store[s];}):[];
     var all=memIsins.concat(newIsins);
     if(!all.length){alert("No hay fondos.");return;}
     if(!confirm("Recargar "+memIsins.length+" fondos"+(newIsins.length?" + "+newIsins.length+" nuevos":"")+"?
