@@ -207,6 +207,7 @@
 </style>
 <style id="v200css">
 /* Ocultar inputs CSV en las 3 pestañas */
+#s1AdvBody, span#s1AdvToggle { display:none !important; }
 #s1FileWrap, .s1CsvRow,
 #cmpAdvBody input[type="file"], #cmpAdvBody > label, #cmpAdvBody button#cmpRun,
 span#cmpAdvToggle, span#btAdvToggle, span#btBenchAdvToggle,
@@ -291,7 +292,10 @@ span#cmpAdvToggle, span#btAdvToggle, span#btBenchAdvToggle,
       <div style="flex:1;height:1px;background:var(--border)"></div>
     </div>
 
-    <button onclick="dpShowPending()" style="width:100%;text-align:left;background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:7px 12px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:8px;margin-bottom:10px">🏷️ Sin clasificar <span id="dpPendingCount" style="background:#f59e0b;color:#fff;border-radius:9999px;padding:1px 8px;font-size:11px;font-weight:700;margin-left:auto">—</span></button>
+    <div style="display:flex;gap:6px;margin-bottom:10px">
+      <button onclick="dpShowPending()" style="flex:1;text-align:left;background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:7px 10px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:6px">🏷️ Sin clasificar<span id="dpPendingCount" style="background:#f59e0b;color:#fff;border-radius:9999px;padding:1px 7px;font-size:11px;font-weight:700;margin-left:auto">—</span></button>
+      <button onclick="dpRecargar()" style="flex:1;background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:7px 10px;cursor:pointer;font-size:12px;color:#166534">🔄 Recargar datos</button>
+    </div>
     <!-- Modo 2: ISINs manuales -->
     <div style="margin-bottom:10px">
       <label style="font-size:12px;font-weight:600;color:var(--muted);display:block;margin-bottom:6px">✏️ AÑADIR ISINs (descarga series de Morningstar)</label>
@@ -12353,6 +12357,29 @@ async function mstDoSearch(){
     const n=Object.keys(store).filter(k=>!store[k]?.meta?.clasificacion).length;
     b.textContent=n;b.style.background=n>0?"#f59e0b":"#10b981";
   }
+  window.dpRecargar=async function(){
+    const isins=Object.keys(store);
+    if(!isins.length){dpSetStatus("warn","No hay fondos en memoria.");return;}
+    if(!confirm("Recargar "+isins.length+" fondos descargando solo puntos nuevos?"))return;
+    let added=0,errors=0;
+    for(let i=0;i<isins.length;i++){
+      const isin=isins[i];
+      dpSetStatus("info","("+(i+1)+"/"+isins.length+") "+isin+"...");
+      try{
+        const res=await dpProcessOneIsin(isin);
+        const prev=store[isin]||{};const pm=prev.meta||{};
+        const ed={};(prev.rows||[]).forEach(r=>{ed[r.date]=1;});
+        const newOnly=res.rows.filter(r=>!ed[r.date]);
+        added+=newOnly.length;
+        const merged=[...(prev.rows||[]),...newOnly].sort((a,b)=>a.date<b.date?-1:1);
+        store[isin]={meta:{...res.meta,clasificacion:pm.clasificacion||"",opinion:pm.opinion||""},rows:merged,updatedAt:Date.now()};
+        dpSyncToDatapack();
+      }catch(e){errors++;console.warn("Error "+isin,e);}
+      await new Promise(r=>setTimeout(r,200));
+    }
+    dpUpdateStats();dpRenderFundsList();
+    dpSetStatus(errors?"warn":"ok","Recarga completa: "+added+" pts nuevos"+(errors?" ("+errors+" errores)":"")+".");
+  };
   window.dpShowPending=function(){
     const isins=Object.keys(store).filter(k=>!store[k]?.meta?.clasificacion).sort();
     const old=document.getElementById("dpPendingModal");if(old)old.remove();
