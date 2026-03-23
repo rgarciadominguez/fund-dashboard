@@ -12513,135 +12513,162 @@ async function mstDoSearch(){
 })();
 </script></div></div>
 <script id="v117-js">
-(function(){
-  // Esperar a que el IIFE principal se inicialice
-  function ready(fn){ if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',fn); else fn(); }
+// Wait until store is ready then wire up features
+function v117_init(){
+  if(!window.__dpStore || !window.dpEditFund) { setTimeout(v117_init,500); return; }
 
-  ready(function(){
+  // ── Update pending badge ──
+  function v117_updateBadge(){
+    var b=document.getElementById('v117PendingCount'); if(!b) return;
+    var n=Object.keys(window.__dpStore||{}).filter(function(k){return !window.__dpStore[k]?.meta?.clasificacion;}).length;
+    b.textContent=n; b.style.background=n>0?'#f59e0b':'#10b981';
+  }
+  // Update badge whenever dpSyncToDatapack is called
+  var _origSync=window.dpSyncToDatapack;
+  window.dpSyncToDatapack=function(){ _origSync&&_origSync(); v117_updateBadge(); };
+  v117_updateBadge();
 
-    // ── Pendientes de clasificar ──
-    function updatePendingCount(){
-      const b=document.getElementById('v117PendingCount'); if(!b) return;
-      try{
-        const store=window.__dpStore||{};
-        const n=Object.keys(store).filter(k=>!store[k]?.meta?.clasificacion).length;
-        b.textContent=n; b.style.background=n>0?'#f59e0b':'#10b981';
-      }catch(_){}
-    }
-
-    // Acceder al store interno — lo exponemos via hook en dpSyncToDatapack
-    const _origSync=window.dpSyncToDatapack;
-    if(_origSync){
-      window.dpSyncToDatapack=function(){
-        _origSync.apply(this,arguments);
-        // Capturar referencia al store via DATAPACK
-        updatePendingCount();
-        // También aplicar filtro clasif en repo si está abierto
-        if(typeof repoPickerRender==='function') try{
-          const sel=document.getElementById('v117ClasifFilter');
-          if(sel && sel.value!=='all') repoPickerRender();
-        }catch(_){}
-      };
-    }
-
-    // Actualizar badge cada 2 segundos también
-    setInterval(updatePendingCount, 2000);
-
-    // ── Mostrar fondos sin clasificar ──
-    window.v117_showPending=function(){
-      // Necesitamos acceder al store — lo buscamos via dpRenderFundsList override
-      const dpFundsList=document.getElementById('dpFundsList');
-      const dpStatus=document.getElementById('dpStatus');
-      if(!dpFundsList) return;
-
-      // Intentar acceder al store via window
-      let store={};
-      try{ store=window.__dpStore||{}; }catch(_){}
-      // Si no hay store, pedir que usen el filtro en el Repo
-      if(!Object.keys(store).length){
-        if(dpStatus){ dpStatus.style.display='block'; dpStatus.className=''; dpStatus.style.background='#fffbeb'; dpStatus.style.border='1px solid #fcd34d'; dpStatus.style.color='#92400e'; dpStatus.textContent='Usa el filtro "Sin clasificar" en el picker de Repo para ver los fondos pendientes.'; setTimeout(()=>{dpStatus.style.display='none';},5000); }
-        return;
-      }
-
-      const isins=Object.keys(store).filter(k=>!store[k]?.meta?.clasificacion).sort();
-      if(!isins.length){ if(dpStatus){dpStatus.style.display='block';dpStatus.className='ok';dpStatus.textContent='✅ Todos los fondos tienen clasificación.';setTimeout(()=>{dpStatus.style.display='none';},4000);}return; }
-
-      dpFundsList.innerHTML='<div style="display:flex;justify-content:space-between;padding:6px 10px;background:#fef3c7;border-radius:8px;font-size:11px;margin-bottom:8px"><b>'+isins.length+' sin clasificar</b><button onclick="if(typeof dpRenderFundsList==='function')dpRenderFundsList()" style="background:none;border:none;cursor:pointer;color:#92400e;font-size:11px;text-decoration:underline">Ver todos</button></div>'+
-      isins.map(function(isin){
-        const m=store[isin]?.meta||{};const pts=(store[isin]?.rows||[]).length;
-        const esc=function(s){return String(s||'').replace(/[&<>"']/g,function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];});};
-        return '<div style="border:1px solid #fcd34d;border-radius:8px;padding:8px 10px;font-size:12px;background:#fffbeb;margin-bottom:6px"><div style="display:flex;justify-content:space-between;align-items:center"><div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">'+esc(m.name||isin)+'</div>'+(typeof window.dpEditFund==='function'?'<button onclick="window.dpEditFund(''+esc(isin)+'')" style="background:#2563eb;color:#fff;border:none;border-radius:6px;padding:3px 9px;font-size:11px;cursor:pointer;margin-left:8px;flex-shrink:0">✏️ Clasificar</button>':'')+'</div><div style="color:#64748b;font-size:11px;margin-top:2px">'+esc(isin)+' · '+pts+' pts</div></div>';
-      }).join('');
+  // ── Filtro clasificación en Repo picker ──
+  var _origRepo=window.repoPickerRender;
+  if(_origRepo){
+    window.repoPickerRender=function(){
+      _origRepo();
+      var sel=document.getElementById('v117ClasifFilter'); if(!sel||sel.value==='all') return;
+      var clasif=sel.value;
+      var store=window.__dpStore||{};
+      var list=document.getElementById('repoList'); if(!list) return;
+      list.querySelectorAll('.repoItem').forEach(function(item){
+        var mEl=item.querySelector('.m');
+        var isin=(mEl?mEl.textContent:'').split('·').map(function(s){return s.trim();})[1]||'';
+        var sc=(store[isin]?.meta?.clasificacion)||'';
+        item.style.display=(clasif==='none'?!sc:sc===clasif)?'':'none';
+      });
     };
+  }
+}
+setTimeout(v17_init,100);
 
-    // ── Recargar todos los fondos (solo datos nuevos) ──
-    window.v117_reloadAll=async function(){
-      // Necesitamos dpProcessOneIsin — está en el IIFE
-      if(typeof dpProcessOneIsin!=='function'){
-        alert('La función de recarga no está disponible. Usa el textarea de ISINs con ▶ Descargar y guardar.');
-        return;
-      }
-      let store={};
-      try{ store=window.__dpStore||{}; }catch(_){}
-      const isins=Object.keys(store);
-      if(!isins.length){alert('No hay fondos en memoria.');return;}
-      if(!confirm('¿Recargar datos de '+isins.length+' fondos?\nSolo se añadirán puntos más recientes que los ya guardados.'))return;
+// ── Sin clasificar — popup modal ──
+window.v117_showPending=function(){
+  var store=window.__dpStore||{};
+  var isins=Object.keys(store).filter(function(k){return !store[k]?.meta?.clasificacion;}).sort();
 
-      let added=0,errors=0;
-      const dpStatus=document.getElementById('dpStatus');
-      for(const isin of isins){
-        if(dpStatus){dpStatus.style.display='block';dpStatus.className='';dpStatus.style.background='#eff6ff';dpStatus.style.border='1px solid #bfdbfe';dpStatus.style.color='#1e40af';dpStatus.textContent='🔄 Recargando '+isin+'…';}
-        try{
-          const res=await dpProcessOneIsin(isin);
-          const prev=store[isin]; const prevMeta=(prev.meta||{});
-          const existingDates=new Set((prev.rows||[]).map(function(r){return r.date;}));
-          const newOnly=res.rows.filter(function(r){return !existingDates.has(r.date);});
-          added+=newOnly.length;
-          const merged=[...(prev.rows||[]),...newOnly].sort(function(a,b){return a.date.localeCompare(b.date);});
-          store[isin]={meta:{...res.meta,clasificacion:prevMeta.clasificacion||'',opinion:prevMeta.opinion||''},rows:merged,updatedAt:Date.now()};
-          if(typeof window.dpSyncToDatapack==='function') window.dpSyncToDatapack();
-        }catch(e){errors++;console.warn('Error recargando '+isin,e);}
-        await new Promise(function(r){setTimeout(r,150);});
-      }
-      if(typeof dpRenderFundsList==='function') dpRenderFundsList();
-      if(dpStatus){dpStatus.style.display='block';dpStatus.className='ok';dpStatus.textContent='🔄 Recarga completa — '+added+' nuevos puntos'+(errors?' ('+errors+' errores)':'')+'.';}
-      setTimeout(function(){if(dpStatus)dpStatus.style.display='none';},6000);
+  // Remove existing modal if any
+  var old=document.getElementById('v117Modal'); if(old) old.remove();
+
+  if(!isins.length){
+    alert('✅ Todos los fondos tienen clasificación.');
+    return;
+  }
+
+  function esc(s){return String(s||'').replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+
+  var modal=document.createElement('div');
+  modal.id='v117Modal';
+  modal.style.cssText='position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:999999;display:flex;align-items:center;justify-content:center;padding:20px';
+  modal.innerHTML=
+    '<div style="background:#fff;border-radius:16px;width:min(500px,100%);max-height:80vh;overflow:auto;box-shadow:0 18px 55px rgba(15,23,42,.25);display:flex;flex-direction:column">'+
+      '<div style="padding:14px 16px;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;flex-shrink:0">'+
+        '<div style="font-weight:800;font-size:15px">🏷️ Sin clasificar ('+isins.length+')</div>'+
+        '<button onclick="document.getElementById('v117Modal').remove()" style="background:none;border:none;cursor:pointer;font-size:20px;color:#64748b;line-height:1">✕</button>'+
+      '</div>'+
+      '<div style="padding:12px 16px;overflow:auto;flex:1">'+
+        isins.map(function(isin){
+          var m=store[isin]?.meta||{};
+          return '<div style="border:1px solid #e5e7eb;border-radius:8px;padding:8px 10px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center">'+
+            '<div style="flex:1;overflow:hidden">'+
+              '<div style="font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(m.name||isin)+'</div>'+
+              '<div style="font-size:11px;color:#64748b;font-family:monospace">'+esc(isin)+'</div>'+
+            '</div>'+
+            '<button onclick="document.getElementById('v117Modal').remove();setTimeout(function(){window.dpEditFund&&window.dpEditFund(''+esc(isin)+'');},100)" style="background:#2563eb;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;margin-left:10px;flex-shrink:0">✏️ Clasificar</button>'+
+          '</div>';
+        }).join('')+
+      '</div>'+
+    '</div>';
+
+  document.body.appendChild(modal);
+  modal.addEventListener('click',function(e){if(e.target===modal)modal.remove();});
+};
+
+// ── Recargar datos ──
+window.v117_reloadAll=async function(){
+  var store=window.__dpStore||{};
+  var isins=Object.keys(store);
+  if(!isins.length){alert('No hay fondos en memoria.');return;}
+  
+  // Get new ISINs from textarea too
+  var ta=document.getElementById('dpIsinInput');
+  var extraText=ta?ta.value.trim():'';
+  var extraIsins=extraText?extraText.split(/[
+,;]+/).map(function(s){return s.trim().toUpperCase();}).filter(function(s){return s.length>5&&!store[s];}):[]; 
+  var allIsins=isins.concat(extraIsins);
+  
+  if(!confirm('¿Recargar '+isins.length+' fondos en memoria'+(extraIsins.length?' + '+extraIsins.length+' nuevos':'')+' ?
+
+Solo se añadirán puntos más recientes que los ya guardados.'))return;
+  
+  if(!window.dpProcessOneIsin){alert('Función de descarga no disponible.');return;}
+
+  var dpStatus=document.getElementById('dpStatus');
+  function setStatus(msg,type){
+    if(!dpStatus)return;
+    dpStatus.style.display='block';
+    dpStatus.style.background=type==='ok'?'#ecfdf5':type==='warn'?'#fffbeb':'#eff6ff';
+    dpStatus.style.border='1px solid '+(type==='ok'?'#a7f3d0':type==='warn'?'#fcd34d':'#bfdbfe');
+    dpStatus.style.color=type==='ok'?'#065f46':type==='warn'?'#92400e':'#1e40af';
+    dpStatus.textContent=msg;
+  }
+
+  var added=0,errors=0;
+  for(var idx=0;idx<allIsins.length;idx++){
+    var isin=allIsins[idx];
+    setStatus('🔄 ('+( idx+1)+'/'+allIsins.length+') '+isin+'…','info');
+    try{
+      var res=await window.dpProcessOneIsin(isin);
+      var prev=store[isin]||{};
+      var prevMeta=prev.meta||{};
+      var existingDates=new Set((prev.rows||[]).map(function(r){return r.date;}));
+      var newOnly=res.rows.filter(function(r){return !existingDates.has(r.date);});
+      added+=newOnly.length;
+      var merged=(prev.rows||[]).concat(newOnly).sort(function(a,b){return a.date.localeCompare(b.date);});
+      window.__dpStore[isin]={meta:Object.assign({},res.meta,{clasificacion:prevMeta.clasificacion||'',opinion:prevMeta.opinion||''}),rows:merged,updatedAt:Date.now()};
+      if(window.dpSyncToDatapack) window.dpSyncToDatapack();
+    }catch(e){errors++;console.warn('Error '+isin,e);}
+    await new Promise(function(r){setTimeout(r,200);});
+  }
+  if(window.dpRenderFundsList) window.dpRenderFundsList();
+  setStatus('✅ Recarga completa — '+added+' pts nuevos en '+allIsins.length+' fondos'+(errors?' ('+errors+' errores)':'')+'.',errors?'warn':'ok');
+  setTimeout(function(){if(dpStatus)dpStatus.style.display='none';},8000);
+};
+
+// ── Init ──
+function v117_init(){
+  if(!window.__dpStore||!window.dpEditFund){setTimeout(v117_init,500);return;}
+  function v117_updateBadge(){
+    var b=document.getElementById('v117PendingCount');if(!b)return;
+    var n=Object.keys(window.__dpStore||{}).filter(function(k){return !(window.__dpStore[k]?.meta?.clasificacion);}).length;
+    b.textContent=n;b.style.background=n>0?'#f59e0b':'#10b981';
+  }
+  var _origSync=window.dpSyncToDatapack;
+  window.dpSyncToDatapack=function(){_origSync&&_origSync();v117_updateBadge();};
+  v117_updateBadge();
+  var _origRepo=window.repoPickerRender;
+  if(_origRepo){
+    window.repoPickerRender=function(){
+      _origRepo();
+      var sel=document.getElementById('v117ClasifFilter');if(!sel||sel.value==='all')return;
+      var clasif=sel.value;var store=window.__dpStore||{};
+      var list=document.getElementById('repoList');if(!list)return;
+      list.querySelectorAll('.repoItem').forEach(function(item){
+        var mEl=item.querySelector('.m');
+        var parts=(mEl?mEl.textContent:'').split('·');
+        var isin=parts.length>1?parts[1].trim():'';
+        var sc=(store[isin]&&store[isin].meta&&store[isin].meta.clasificacion)||'';
+        item.style.display=(clasif==='none'?!sc:sc===clasif)?'':'none';
+      });
     };
-
-    // ── Filtro clasificación en Repo picker ──
-    // Hook en repoPickerRender para aplicar filtro de clasificación
-    if(typeof repoPickerRender==='function'){
-      const _origRepo=repoPickerRender;
-      window.repoPickerRender=repoPickerRender=function(){
-        _origRepo.apply(this,arguments);
-        // Aplicar filtro de clasificación post-render
-        const sel=document.getElementById('v117ClasifFilter');
-        if(!sel||sel.value==='all') return;
-        const clasif=sel.value;
-        const list=document.getElementById('repoList');
-        if(!list) return;
-        let store={};try{store=window.__dpStore||{};}catch(_){}
-        Array.from(list.querySelectorAll('.repoItem')).forEach(function(item){
-          const isin=item.querySelector('.m')?.textContent?.split('·')?.[1]?.trim()||'';
-          if(!isin) return;
-          const sc=store[isin]?.meta?.clasificacion||'';
-          const show=clasif==='none'?!sc:sc===clasif;
-          item.style.display=show?'':'none';
-        });
-      };
-    }
-
-    // ── Exponer store para que las funciones anteriores puedan accederlo ──
-    // El store vive en el IIFE — lo capturamos via dpSyncToDatapack hook
-    // Alternativa: usar DATAPACK.funds que sí está expuesto
-    setInterval(function(){
-      if(typeof DATAPACK!=='undefined'&&DATAPACK.funds){
-        // Reconstruir store aproximado desde DATAPACK para el badge
-        updatePendingCount();
-      }
-    },1000);
-
-  });
-})();
+  }
+}
+v117_init();
 </script>
-</body></html>
+</body>
