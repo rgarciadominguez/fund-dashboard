@@ -11575,10 +11575,11 @@ async function mstDoSearch(){
   }
 
   window.dpDeleteFund = function(isin){
-    if (!confirm("¿Eliminar " + isin + " del datapack?")) return;
+    if(!confirm("Eliminar "+dpEsc(store[isin]?.meta?.name||isin)+"?")) return;
     delete store[isin];
-    dpUpdateStats(); dpRenderFundsList(); dpSyncToDatapack();
-    dpSetStatus("ok", isin + " eliminado.");
+    // Delete from Supabase
+    fetch(SB_URL+"/rest/v1/funds?isin=eq."+encodeURIComponent(isin),{method:"DELETE",headers:SB_HDR()}).catch(e=>console.warn("SB delete error",e));
+    dpSyncToDatapack(); dpUpdateStats(); dpRenderFundsList();
   };
 
   const DP_META_OPTS = {
@@ -11815,6 +11816,10 @@ async function mstDoSearch(){
       if(dpToken !== myToken) break;
       const isin = isins[i];
       if($("dpQueueList")) $("dpQueueList").textContent = isin + " (" + (i+1) + "/" + isins.length + ")";
+      if(store[isin]?.rows?.length){
+        dpSetStatus("ok",`⏭ ${isin} ya está en memoria (${store[isin].rows.length} pts) — omitido. Usa 🔄 Recargar para actualizar.`);
+        continue;
+      }
       dpSetStatus("info", `Procesando ${isin} (${i+1}/${isins.length})…`);
       try{
         const {meta, rows} = await dpProcessOneIsin(isin);
@@ -12527,9 +12532,15 @@ async function mstDoSearch(){
     dpWireAttrFile();
     wire("dpExportCsvBtn",    dpExportCsv);
     wire("dpExportJsonBtn",   dpExportJson);
-    wire("dpClearAllBtn", ()=>{
-      if(!confirm("¿Borrar TODOS los fondos del datapack?")) return;
+    wire("dpClearAllBtn", async ()=>{
+      if(!confirm("Borrar TODOS los fondos de la memoria y de la nube?")) return;
+      // Clear Supabase first
+      try{ await fetch(SB_URL+"/rest/v1/funds?isin=not.is.null",{method:"DELETE",headers:SB_HDR()}); }catch(e){console.warn("SB clear error",e);}
+      // Clear local store
       Object.keys(store).forEach(k=>delete store[k]);
+      dpSyncToDatapack(); dpUpdateStats(); dpRenderFundsList();
+      dpSetStatus("ok","Memoria y nube borradas.");
+    });
       if($("dpErrorBox")){ $("dpErrorBox").style.display="none"; $("dpErrorBox").innerHTML=""; }
       dpSetStat("dpStatErrors",0);
       dpSyncToDatapack();
