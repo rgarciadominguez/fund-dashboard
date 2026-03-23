@@ -199,6 +199,17 @@
 .brokerRow.compact .brokerLabel{font-size:11px;}
 
 </style>
+<style>
+  /* Hide advanced CSV options - not needed with Repo+Morningstar workflow */
+  details:has(#s1AdvBody),
+  details:has(#cmpAdvBody),
+  details:has(#btAdvBody),
+  details:has(#btBenchAdvBody) { display:none !important; }
+</style>
+<style>
+  /* Hide Investing picker buttons */
+  .invPickBtn, #s1InvBtnDirect { display:none !important; }
+</style>
 </head>
 <body>
 <header style="position:relative">
@@ -9622,11 +9633,6 @@ downloadCSV("screen1_daily_series.csv", toCSVSep(cols, rowsPlain, ";", {bom:true
     wireToggle("cmpAdvToggle",      "cmpAdvBody",      "Opciones avanzadas (CSV manual)");
     wireToggle("btAdvToggle",       "btAdvBody",       "CSV manual (Investing)");
     wireToggle("btBenchAdvToggle",  "btBenchAdvBody",  "CSV benchmark manual (Investing)");
-    // Hide advanced options (keep functional but invisible)
-    ["s1AdvToggle","cmpAdvToggle","btAdvToggle","btBenchAdvToggle"].forEach(id=>{
-      const el=document.getElementById(id);
-      if(el){ const d=el.closest("details"); if(d) d.style.display="none"; }
-    });
   })();
 
   window.addEventListener("load", ()=>{
@@ -9635,9 +9641,6 @@ downloadCSV("screen1_daily_series.csv", toCSVSep(cols, rowsPlain, ";", {bom:true
       setTimeout(()=>{ try{ resizePlotsIn("screen1"); }catch(_){} }, 60);
     }catch(_){}
   });
-
-  // Expose to global so external buttons can call it
-  window.invPickerOpen = invPickerOpen;
 
 })();
 
