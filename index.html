@@ -7249,7 +7249,7 @@ function repoPickerRender(){
   // Apply clasificacion filter
   const repoCl=document.getElementById("repoPickerClasif")?.value||"all";
   if(repoCl!=="all") arr=arr.filter(function(f){
-    const sc=(typeof store!=="undefined"&&store[f.isin]?.meta?.clasificacion)||"";
+    const sc=f.attrs?.clasificacion||(typeof store!=="undefined"&&store[f.isin]?.meta?.clasificacion)||"";
     return repoCl==="none"?!sc:sc===repoCl;
   });
 
@@ -12333,11 +12333,12 @@ async function mstDoSearch(){
         classNorm: cNorm,
         isin,
         attrs: {
-          categoria:  meta.category  || "",
-          tipoactivo: meta.assetType || "",
-          geografia:  meta.geography || "",
-          divisa:     meta.currency  || "",
-          issuer:     meta.issuer    || ""
+          categoria:     meta.categoria    || meta.category   || "",
+          tipoactivo:    meta.tipoActivo   || meta.assetType  || "",
+          geografia:     meta.geografia    || meta.geography  || "",
+          divisa:        meta.divisa       || meta.currency   || "",
+          issuer:        meta.issuer                         || "",
+          clasificacion: meta.clasificacion                  || ""
         },
         attrsN: {
           categoria:  (meta.category ||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,""),
