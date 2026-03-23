@@ -205,19 +205,6 @@
 /* Hide only the advanced-options toggle labels (summary), keep content visible */
 #s1AdvToggle, #cmpAdvToggle, #btAdvToggle, #btBenchAdvToggle { display:none !important; }
 </style>
-<style>
-#cmpAdvBody input[type="file"], #btAdvBody input[type="file"],
-#btBenchAdvBody input[type="file"], #cmpAdvBody > label,
-button#cmpRun { display:none !important; }
-#cmpAdvBody, #btAdvBody { display:block !important; }
-</style>
-<style id="v117-css">
-/* Ocultar inputs CSV en tabs 2 y 3, mantener Repo/MST visibles */
-#cmpAdvBody input[type="file"], #btAdvBody input[type="file"],
-#cmpAdvBody > label, button#cmpRun,
-span#cmpAdvToggle, span#btAdvToggle, span#btBenchAdvToggle { display:none !important; }
-#cmpAdvBody, #btAdvBody { display:block !important; }
-</style>
 </head>
 <body>
 <header style="position:relative">
@@ -295,10 +282,6 @@ span#cmpAdvToggle, span#btAdvToggle, span#btBenchAdvToggle { display:none !impor
       <div style="flex:1;height:1px;background:var(--border)"></div>
     </div>
 
-    <div style="display:flex;gap:6px;margin-bottom:10px" id="v117-btns">
-      <button onclick="v117_showPending()" style="flex:1;background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:7px 10px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:6px">🏷️ Sin clasificar <span id="v117PendingCount" style="background:#f59e0b;color:#fff;border-radius:9999px;padding:1px 7px;font-size:11px;font-weight:700;margin-left:auto">—</span></button>
-      <button onclick="v117_reloadAll()" style="flex:1;background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:7px 10px;cursor:pointer;font-size:12px;color:#166534">🔄 Recargar datos</button>
-    </div>
     <!-- Modo 2: ISINs manuales -->
     <div style="margin-bottom:10px">
       <label style="font-size:12px;font-weight:600;color:var(--muted);display:block;margin-bottom:6px">✏️ AÑADIR ISINs (descarga series de Morningstar)</label>
@@ -309,9 +292,26 @@ ES0156572002"></textarea>
 
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
       <button class="btn" id="dpRunBtn" style="font-size:12px;padding:7px 14px">▶ Descargar y guardar</button>
+      <button class="btnGhost" id="dpSaveSnapshotBtn" style="font-size:12px;padding:7px 14px" title="Incrusta los fondos en el HTML y descarga el archivo con memoria incluida">💾 Snapshot HTML</button>
+      <button class="btnGhost" id="dpGistSyncBtn" style="font-size:12px;padding:7px 14px;border-color:#7c3aed;color:#7c3aed" title="Guardar/cargar fondos en la nube (GitHub Gist)">☁️ Nube</button>
     </div>
 
-    
+    <!-- Gist sync panel (hidden by default) -->
+    <div id="dpGistPanel" style="display:none;margin-bottom:12px;padding:10px 12px;border:1px solid #7c3aed33;border-radius:12px;background:#faf5ff;font-size:12px;">
+      <div style="font-weight:700;color:#7c3aed;margin-bottom:8px">☁️ Sincronización automática (Supabase) (GitHub Gist)</div>
+      <div style="color:#555;margin-bottom:8px;line-height:1.4">Guarda tus fondos en un Gist privado de GitHub. Se cargarán automáticamente al abrir el dashboard desde cualquier dispositivo.</div>
+      <label style="display:block;margin-bottom:4px;color:#64748b">Token GitHub (scope: gist)</label>
+      <div style="display:flex;gap:6px;margin-bottom:8px">
+        <input id="dpGistToken" type="password" placeholder="ghp_..." style="flex:1;padding:7px 10px;border:1px solid #cbd5e1;border-radius:10px;font-size:12px;background:#fff">
+        <button id="dpGistSaveTokenBtn" class="btnGhost" style="font-size:11px;padding:6px 10px;white-space:nowrap">Guardar token</button>
+      </div>
+      <div id="dpGistInfo" style="font-size:11px;color:#64748b;margin-bottom:8px"></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button id="dpGistUploadBtn" class="btn" style="font-size:12px;padding:7px 14px;background:#7c3aed;border-color:#6d28d9">⬆️ Subir a nube</button>
+        <button id="dpGistDownloadBtn" class="btnGhost" style="font-size:12px;padding:7px 14px;border-color:#7c3aed;color:#7c3aed">⬇️ Descargar de nube</button>
+        <button id="dpGistForgetBtn" class="btnGhost" style="font-size:11px;padding:6px 10px;color:#c00;border-color:#c00">Olvidar token</button>
+      </div>
+    </div>
 
     <div id="dpStatus" style="font-size:12px;padding:8px 10px;border-radius:8px;margin-bottom:12px;display:none"></div>
 
@@ -6950,16 +6950,6 @@ function repoEnsurePickerDOM(){
             <option value="retail">Retail</option>
             <option value="other">Otras</option>
           </select>
-          <select id="v117ClasifFilter" onchange="if(typeof repoPickerRender==='function')repoPickerRender()" style="padding:6px 8px;border:1px solid var(--border);border-radius:12px;background:#fff;font-size:12px">
-            <option value="all">Clasificación: todas</option>
-            <option value="Top">⭐ Top</option>
-            <option value="Bueno">👍 Bueno</option>
-            <option value="Medio">👌 Medio</option>
-            <option value="Malo">👎 Malo</option>
-            <option value="Clase similar">Clase similar</option>
-            <option value="Clase sucia">Clase sucia</option>
-            <option value="none">Sin clasificar</option>
-          </select>
 
           <!-- Quick dropdown filters: auto-generated for meta fields with <= 5 unique values -->
           <div class="repoQuickFilters" id="repoQuickFilters"></div>
@@ -11598,8 +11588,7 @@ async function mstDoSearch(){
     tipoActivo:["RV","RF MP","RF LP","Mixto","Alternativo","Monetario"],
     geografia:["Global","Europa","USA","España","Asia","Emergentes","Latam"],
     divisa:["Euro","EuroHedge","USD","GBP","JPY","Otra"],
-    issuer:["Gubernamental","Corporativa","Mixto","High Yield","Inflación"],
-    clasificacion:["Top","Bueno","Medio","Malo","Clase similar","Clase sucia"]
+    issuer:["Gubernamental","Corporativa","Mixto","High Yield","Inflación"]
   };
 
   function dpMakeSelect(id,opts,current){
@@ -11657,9 +11646,7 @@ async function mstDoSearch(){
       {id:'ef_tipo',   label:'Tipo activo',         type:'select', key:'tipoActivo', val:m.tipoActivo||''},
       {id:'ef_geo',    label:'Geografía',           type:'select', key:'geografia',  val:m.geografia||''},
       {id:'ef_div',    label:'Divisa',              type:'select', key:'divisa',     val:m.divisa||''},
-      {id:'ef_issuer',  label:'Subcategoría/Issuer',  type:'select', key:'issuer',        val:m.issuer||''},
-      {id:'ef_clasif',  label:'Clasificación ⭐',       type:'select', key:'clasificacion', val:m.clasificacion||''},
-      {id:'ef_opinion', label:'Opinión',               type:'text',   key:null,            val:m.opinion||''},
+      {id:'ef_issuer', label:'Subcategoría/Issuer', type:'select', key:'issuer',     val:m.issuer||''},
     ];
     body.innerHTML=`<div style="font-size:11px;color:#64748b;font-family:monospace;margin-bottom:4px">${dpEsc(isin)}</div>
     ${FIELDS.map(fi=>`<div>
@@ -11674,8 +11661,7 @@ async function mstDoSearch(){
       store[isin].meta={...m, name:nm,
         clase:dpGetFieldVal('ef_clase'), categoria:dpGetFieldVal('ef_cat'),
         tipoActivo:dpGetFieldVal('ef_tipo'), geografia:dpGetFieldVal('ef_geo'),
-        divisa:dpGetFieldVal('ef_div'), issuer:dpGetFieldVal('ef_issuer'),
-        clasificacion:dpGetFieldVal('ef_clasif'), opinion:($('ef_opinion')?.value||'').trim()};
+        divisa:dpGetFieldVal('ef_div'), issuer:dpGetFieldVal('ef_issuer')};
       ['ef_clase','ef_cat','ef_tipo','ef_geo','ef_div','ef_issuer'].forEach((fid,i)=>{
         const keys=['clase','categoria','tipoActivo','geografia','divisa','issuer'];
         const val=dpGetFieldVal(fid);
@@ -11847,7 +11833,7 @@ async function mstDoSearch(){
     dpRunning = false;
     $("dpRunBtn") && ($("dpRunBtn").disabled=false);
     if($("dpQueueList")) $("dpQueueList").textContent="—";
-    dpSetStatus(errors?"warn":"ok", errors ? `Hecho con ${errors} error(es). Ver detalle arriba.` : `✅ ${isins.length - errors} fondo(s) guardados. Guardado automáticamente en la nube.`);
+    dpSetStatus(errors?"warn":"ok", errors ? `Hecho con ${errors} error(es). Ver detalle arriba.` : `✅ ${isins.length - errors} fondo(s) guardados. Pulsa "💾 Snapshot HTML" para hacer la memoria permanente.`);
   }
 
   function dpSetStat(id,v){ const e=$(id); if(e) e.textContent=String(v); }
@@ -12030,9 +12016,7 @@ async function mstDoSearch(){
     assetType: ['tipoactivo','tipo activo','tipo de activo','assettype','asset type','tipo'],
     geography: ['geografia','geografía','geography','region','región'],
     currency:  ['divisa','currency','moneda'],
-    issuer:    ['issuer','gestora','manager','brandname','companyname'],
-    clasificacion: ['clasificacion'],
-    opinion:       ['opinion']
+    issuer:    ['issuer','gestora','manager','brandname','companyname']
   };
 
   function dpNormHeader(s){
@@ -12116,9 +12100,7 @@ async function mstDoSearch(){
         assetType: colMap.assetType !== undefined ? String(row[colMap.assetType]||"").trim()  : "",
         geography: colMap.geography !== undefined ? String(row[colMap.geography]||"").trim()  : "",
         currency:  colMap.currency  !== undefined ? String(row[colMap.currency]||"").trim()   : "",
-        issuer:    colMap.issuer    !== undefined ? String(row[colMap.issuer]||"").trim()     : "",
-        clasificacion: colMap.clasificacion !== undefined ? (function(v){v=String(v||'').trim();return(v==='0'||v==='-')?'':v;})(row[colMap.clasificacion]) : '',
-        opinion:       colMap.opinion       !== undefined ? (function(v){v=String(v||'').trim();return(v==='0'||v==='-')?'':v;})(row[colMap.opinion]) : ''
+        issuer:    colMap.issuer    !== undefined ? String(row[colMap.issuer]||"").trim()     : ""
       });
     }
     if (!funds.length) throw new Error("No encontré ISINs válidos en el archivo");
@@ -12141,13 +12123,6 @@ async function mstDoSearch(){
           geography: f.geography || existing.meta?.geography || "",
           currency:  f.currency  || existing.meta?.currency  || "",
           issuer:    f.issuer    || existing.meta?.issuer     || ""
-          clase:         f.className     || existing.meta?.clase         || '',
-          categoria:     f.category      || existing.meta?.categoria      || '',
-          tipoActivo:    f.assetType     || existing.meta?.tipoActivo     || '',
-          geografia:     f.geography     || existing.meta?.geografia      || '',
-          divisa:        f.currency      || existing.meta?.divisa         || '',
-          clasificacion: f.clasificacion || existing.meta?.clasificacion  || '',
-          opinion:       f.opinion       || existing.meta?.opinion        || ''
         },
         rows: existing.rows || [],
         updatedAt: Date.now()
@@ -12359,8 +12334,6 @@ async function mstDoSearch(){
     try { if (typeof repoPickerRender === "function") repoPickerRender(); } catch(_) {}
   }
   window.dpSyncToDatapack = dpSyncToDatapack;
-  window.__dpStore = store; // expose store for external scripts
-  window.dpProcessOneIsin = dpProcessOneIsin; // expose for reload
 
   // ── Supabase Cloud Sync (auto-save / auto-load) ──
   const SB_URL  = "https://dcnvdaaexyuhqvyrrkob.supabase.co";
@@ -12480,6 +12453,26 @@ async function mstDoSearch(){
     const wire=(id,fn)=>{ const e=$(id); if(e) e.addEventListener("click",fn); };
     wire("dpRunBtn",          dpRun);
     dpWireAttrFile();
+    wire("dpSaveSnapshotBtn", dpSaveSnapshot);
+    // Gist cloud sync
+    wire("dpGistSyncBtn", ()=>{
+      const p=$("dpGistPanel"); if(!p) return;
+      const open = p.style.display==="none";
+      p.style.display = open?"block":"none";
+      if(open){ const t=gistGetToken(); const el=$("dpGistToken"); if(el&&t) el.value=t; gistUpdateInfo(); }
+    });
+    wire("dpGistSaveTokenBtn", ()=>{
+      const el=$("dpGistToken"); if(!el) return;
+      gistSetToken(el.value.trim()); gistUpdateInfo();
+      dpSetStatus("ok","Token guardado en este dispositivo.");
+    });
+    wire("dpGistUploadBtn",   gistUpload);
+    wire("dpGistDownloadBtn", gistDownload);
+    wire("dpGistForgetBtn", ()=>{
+      if(!confirm("¿Olvidar token y Gist ID de este dispositivo?")) return;
+      gistForget(); gistUpdateInfo(); dpSetStatus("ok","Token olvidado.");
+      const el=$("dpGistToken"); if(el) el.value="";
+    });
     wire("dpExportCsvBtn",    dpExportCsv);
     wire("dpExportJsonBtn",   dpExportJson);
     wire("dpClearAllBtn", ()=>{
@@ -12522,8 +12515,4 @@ async function mstDoSearch(){
   else dpInit();
 
 })();
-</script></div></div>
-<script id="v117-js">
-(function(){var c=atob("KGZ1bmN0aW9uKCl7CmZ1bmN0aW9uIG1rKHRhZyxjc3MsdHh0KXt2YXIgZWw9ZG9jdW1lbnQuY3JlYXRlRWxlbWVudCh0YWcpO2lmKGNzcyllbC5zdHlsZS5jc3NUZXh0PWNzcztpZih0eHQpZWwudGV4dENvbnRlbnQ9dHh0O3JldHVybiBlbDt9CndpbmRvdy52MTE3X3Nob3dQZW5kaW5nPWZ1bmN0aW9uKCl7CiAgdmFyIHN0b3JlPXdpbmRvdy5fX2RwU3RvcmV8fHt9OwogIHZhciBpc2lucz1PYmplY3Qua2V5cyhzdG9yZSkuZmlsdGVyKGZ1bmN0aW9uKGspe3JldHVybiEoc3RvcmVba10mJnN0b3JlW2tdLm1ldGEmJnN0b3JlW2tdLm1ldGEuY2xhc2lmaWNhY2lvbik7fSkuc29ydCgpOwogIGlmKCFpc2lucy5sZW5ndGgpe2FsZXJ0KCJUb2RvcyBsb3MgZm9uZG9zIHRpZW5lbiBjbGFzaWZpY2FjaW9uLiIpO3JldHVybjt9CiAgdmFyIG9sZD1kb2N1bWVudC5nZXRFbGVtZW50QnlJZCgidjExN01vZGFsIik7aWYob2xkKW9sZC5yZW1vdmUoKTsKICB2YXIgb3ZlcmxheT1taygiZGl2IiwicG9zaXRpb246Zml4ZWQ7aW5zZXQ6MDtiYWNrZ3JvdW5kOnJnYmEoMTUsMjMsNDIsLjU1KTt6LWluZGV4Ojk5OTk5OTtkaXNwbGF5OmZsZXg7YWxpZ24taXRlbXM6Y2VudGVyO2p1c3RpZnktY29udGVudDpjZW50ZXI7cGFkZGluZzoyMHB4Iik7CiAgb3ZlcmxheS5pZD0idjExN01vZGFsIjsKICBvdmVybGF5LmFkZEV2ZW50TGlzdGVuZXIoImNsaWNrIixmdW5jdGlvbihlKXtpZihlLnRhcmdldD09PW92ZXJsYXkpb3ZlcmxheS5yZW1vdmUoKTt9KTsKICB2YXIgYm94PW1rKCJkaXYiLCJiYWNrZ3JvdW5kOiNmZmY7Ym9yZGVyLXJhZGl1czoxNnB4O3dpZHRoOm1pbig1MDBweCwxMDAlKTttYXgtaGVpZ2h0Ojgwdmg7b3ZlcmZsb3c6aGlkZGVuO2JveC1zaGFkb3c6MCAxOHB4IDU1cHggcmdiYSgxNSwyMyw0MiwuMjUpO2Rpc3BsYXk6ZmxleDtmbGV4LWRpcmVjdGlvbjpjb2x1bW4iKTsKICB2YXIgaGQ9bWsoImRpdiIsInBhZGRpbmc6MTRweCAxNnB4O2JvcmRlci1ib3R0b206MXB4IHNvbGlkICNlNWU3ZWI7ZGlzcGxheTpmbGV4O2p1c3RpZnktY29udGVudDpzcGFjZS1iZXR3ZWVuO2FsaWduLWl0ZW1zOmNlbnRlcjtmbGV4LXNocmluazowIik7CiAgaGQuYXBwZW5kQ2hpbGQobWsoImRpdiIsImZvbnQtd2VpZ2h0OjgwMDtmb250LXNpemU6MTVweCIsIlNpbiBjbGFzaWZpY2FyICgiK2lzaW5zLmxlbmd0aCsiKSIpKTsKICB2YXIgY2I9bWsoImJ1dHRvbiIsImJhY2tncm91bmQ6bm9uZTtib3JkZXI6bm9uZTtjdXJzb3I6cG9pbnRlcjtmb250LXNpemU6MjBweDtjb2xvcjojNjQ3NDhiIiwieCIpOwogIGNiLmFkZEV2ZW50TGlzdGVuZXIoImNsaWNrIixmdW5jdGlvbigpe292ZXJsYXkucmVtb3ZlKCk7fSk7aGQuYXBwZW5kQ2hpbGQoY2IpOwogIHZhciBib2R5PW1rKCJkaXYiLCJwYWRkaW5nOjEycHggMTZweDtvdmVyZmxvdzphdXRvO2ZsZXg6MSIpOwogIGlzaW5zLmZvckVhY2goZnVuY3Rpb24oaXNpbil7CiAgICB2YXIgbT0oc3RvcmVbaXNpbl0mJnN0b3JlW2lzaW5dLm1ldGEpfHx7fTsKICAgIHZhciBwdHM9KHN0b3JlW2lzaW5dJiZzdG9yZVtpc2luXS5yb3dzJiZzdG9yZVtpc2luXS5yb3dzLmxlbmd0aCl8fDA7CiAgICB2YXIgcm93PW1rKCJkaXYiLCJib3JkZXI6MXB4IHNvbGlkICNlNWU3ZWI7Ym9yZGVyLXJhZGl1czo4cHg7cGFkZGluZzo4cHggMTBweDttYXJnaW4tYm90dG9tOjZweDtkaXNwbGF5OmZsZXg7anVzdGlmeS1jb250ZW50OnNwYWNlLWJldHdlZW47YWxpZ24taXRlbXM6Y2VudGVyIik7CiAgICB2YXIgaW5mbz1taygiZGl2IiwiZmxleDoxO292ZXJmbG93OmhpZGRlbjttYXJnaW4tcmlnaHQ6OHB4Iik7CiAgICBpbmZvLmFwcGVuZENoaWxkKG1rKCJkaXYiLCJmb250LXdlaWdodDo2MDA7Zm9udC1zaXplOjEzcHg7d2hpdGUtc3BhY2U6bm93cmFwO292ZXJmbG93OmhpZGRlbjt0ZXh0LW92ZXJmbG93OmVsbGlwc2lzIixtLm5hbWV8fGlzaW4pKTsKICAgIGluZm8uYXBwZW5kQ2hpbGQobWsoImRpdiIsImZvbnQtc2l6ZToxMXB4O2NvbG9yOiM2NDc0OGIiLGlzaW4rIiAtICIrcHRzKyIgcHRzIikpOwogICAgdmFyIGJ0bj1taygiYnV0dG9uIiwiYmFja2dyb3VuZDojMjU2M2ViO2NvbG9yOiNmZmY7Ym9yZGVyOm5vbmU7Ym9yZGVyLXJhZGl1czo2cHg7cGFkZGluZzo0cHggMTBweDtmb250LXNpemU6MTJweDtjdXJzb3I6cG9pbnRlciIsIkNsYXNpZmljYXIiKTsKICAgIChmdW5jdGlvbihpKXtidG4uYWRkRXZlbnRMaXN0ZW5lcigiY2xpY2siLGZ1bmN0aW9uKCl7b3ZlcmxheS5yZW1vdmUoKTtzZXRUaW1lb3V0KGZ1bmN0aW9uKCl7d2luZG93LmRwRWRpdEZ1bmQmJndpbmRvdy5kcEVkaXRGdW5kKGkpO30sMTUwKTt9KTt9KShpc2luKTsKICAgIHJvdy5hcHBlbmRDaGlsZChpbmZvKTtyb3cuYXBwZW5kQ2hpbGQoYnRuKTtib2R5LmFwcGVuZENoaWxkKHJvdyk7CiAgfSk7CiAgYm94LmFwcGVuZENoaWxkKGhkKTtib3guYXBwZW5kQ2hpbGQoYm9keSk7b3ZlcmxheS5hcHBlbmRDaGlsZChib3gpO2RvY3VtZW50LmJvZHkuYXBwZW5kQ2hpbGQob3ZlcmxheSk7Cn07CndpbmRvdy52MTE3X3JlbG9hZEFsbD1hc3luYyBmdW5jdGlvbigpewogIGlmKCF3aW5kb3cuZHBQcm9jZXNzT25lSXNpbil7YWxlcnQoIkZ1bmNpb24gbm8gZGlzcG9uaWJsZS4iKTtyZXR1cm47fQogIHZhciBzdG9yZT13aW5kb3cuX19kcFN0b3JlfHx7fTsKICB2YXIgbWVtSXNpbnM9T2JqZWN0LmtleXMoc3RvcmUpOwogIHZhciB0YT1kb2N1bWVudC5nZXRFbGVtZW50QnlJZCgiZHBJc2luSW5wdXQiKTsKICB2YXIgdGFUZXh0PXRhP3RhLnZhbHVlLnRyaW0oKToiIjsKICB2YXIgbmV3SXNpbnM9W107CiAgaWYodGFUZXh0KXt0YVRleHQucmVwbGFjZSgvWyw7XS9nLCIgIikuc3BsaXQoIiAiKS5mb3JFYWNoKGZ1bmN0aW9uKHMpe3M9cy50cmltKCkudG9VcHBlckNhc2UoKTtpZihzLmxlbmd0aD41JiYhc3RvcmVbc10pbmV3SXNpbnMucHVzaChzKTt9KTt9CiAgdmFyIGFsbD1tZW1Jc2lucy5jb25jYXQobmV3SXNpbnMpOwogIGlmKCFhbGwubGVuZ3RoKXthbGVydCgiTm8gaGF5IGZvbmRvcy4iKTtyZXR1cm47fQogIGlmKCFjb25maXJtKCJSZWNhcmdhciAiK21lbUlzaW5zLmxlbmd0aCsiIGZvbmRvcyIrKG5ld0lzaW5zLmxlbmd0aD8iICsgIituZXdJc2lucy5sZW5ndGgrIiBudWV2b3MiOiIiKSsiPyBTb2xvIHB1bnRvcyBudWV2b3MuIikpcmV0dXJuOwogIHZhciBkcD1kb2N1bWVudC5nZXRFbGVtZW50QnlJZCgiZHBTdGF0dXMiKTsKICBmdW5jdGlvbiBzcyh0eHQsY2xzKXtpZighZHApcmV0dXJuO2RwLnN0eWxlLmRpc3BsYXk9ImJsb2NrIjtkcC5jbGFzc05hbWU9Y2xzfHwiIjtkcC50ZXh0Q29udGVudD10eHQ7fQogIHZhciBhZGRlZD0wLGVycm9ycz0wOwogIGZvcih2YXIgaT0wO2k8YWxsLmxlbmd0aDtpKyspewogICAgdmFyIGlzaW49YWxsW2ldO3NzKCIoIisoaSsxKSsiLyIrYWxsLmxlbmd0aCsiKSAiK2lzaW4rIi4uLiIsIiIpOwogICAgdHJ5ewogICAgICB2YXIgcmVzPWF3YWl0IHdpbmRvdy5kcFByb2Nlc3NPbmVJc2luKGlzaW4pOwogICAgICB2YXIgcHJldj1zdG9yZVtpc2luXXx8e307dmFyIHBtPXByZXYubWV0YXx8e307CiAgICAgIHZhciBlZD17fTtpZihwcmV2LnJvd3MpcHJldi5yb3dzLmZvckVhY2goZnVuY3Rpb24ocil7ZWRbci5kYXRlXT0xO30pOwogICAgICB2YXIgbm89cmVzLnJvd3MuZmlsdGVyKGZ1bmN0aW9uKHIpe3JldHVybiFlZFtyLmRhdGVdO30pOwogICAgICBhZGRlZCs9bm8ubGVuZ3RoOwogICAgICB2YXIgbWc9KHByZXYucm93c3x8W10pLmNvbmNhdChubykuc29ydChmdW5jdGlvbihhLGIpe3JldHVybiBhLmRhdGU8Yi5kYXRlPy0xOjE7fSk7CiAgICAgIHZhciBubT1PYmplY3QuYXNzaWduKHt9LHJlcy5tZXRhLHtjbGFzaWZpY2FjaW9uOnBtLmNsYXNpZmljYWNpb258fCIiLG9waW5pb246cG0ub3Bpbmlvbnx8IiJ9KTsKICAgICAgd2luZG93Ll9fZHBTdG9yZVtpc2luXT17bWV0YTpubSxyb3dzOm1nLHVwZGF0ZWRBdDpEYXRlLm5vdygpfTsKICAgICAgaWYod2luZG93LmRwU3luY1RvRGF0YXBhY2spd2luZG93LmRwU3luY1RvRGF0YXBhY2soKTsKICAgIH1jYXRjaChlcil7ZXJyb3JzKys7Y29uc29sZS53YXJuKCJFcnJvciAiK2lzaW4sZXIpO30KICAgIGF3YWl0IG5ldyBQcm9taXNlKGZ1bmN0aW9uKHIpe3NldFRpbWVvdXQociwyMDApO30pOwogIH0KICBpZih3aW5kb3cuZHBSZW5kZXJGdW5kc0xpc3Qpd2luZG93LmRwUmVuZGVyRnVuZHNMaXN0KCk7CiAgc3MoIlJlY2FyZ2E6ICIrYWRkZWQrIiBwdHMgZW4gIithbGwubGVuZ3RoKyIgZm9uZG9zIisoZXJyb3JzPyIgKCIrZXJyb3JzKyIgZXJyKSI6IiIpLGVycm9ycz8id2FybiI6Im9rIik7CiAgc2V0VGltZW91dChmdW5jdGlvbigpe2lmKGRwKWRwLnN0eWxlLmRpc3BsYXk9Im5vbmUiO30sODAwMCk7Cn07CmZ1bmN0aW9uIHVwZCgpewogIHZhciBiPWRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCJ2MTE3UGVuZGluZ0NvdW50Iik7aWYoIWIpcmV0dXJuOwogIHZhciBuPU9iamVjdC5rZXlzKHdpbmRvdy5fX2RwU3RvcmV8fHt9KS5maWx0ZXIoZnVuY3Rpb24oayl7dmFyIHM9d2luZG93Ll9fZHBTdG9yZVtrXTtyZXR1cm4hKHMmJnMubWV0YSYmcy5tZXRhLmNsYXNpZmljYWNpb24pO30pLmxlbmd0aDsKICBiLnRleHRDb250ZW50PW47Yi5zdHlsZS5iYWNrZ3JvdW5kPW4+MD8iI2Y1OWUwYiI6IiMxMGI5ODEiOwp9CmZ1bmN0aW9uIGluaXQoKXsKICBpZighd2luZG93Ll9fZHBTdG9yZXx8IXdpbmRvdy5kcEVkaXRGdW5kfHwhd2luZG93LmRwUHJvY2Vzc09uZUlzaW4pe3NldFRpbWVvdXQoaW5pdCw1MDApO3JldHVybjt9CiAgdXBkKCk7CiAgaWYodHlwZW9mIHdpbmRvdy5yZXBvUGlja2VyUmVuZGVyPT09ImZ1bmN0aW9uIil7CiAgICB2YXIgb3JpZz13aW5kb3cucmVwb1BpY2tlclJlbmRlcjsKICAgIHdpbmRvdy5yZXBvUGlja2VyUmVuZGVyPWZ1bmN0aW9uKCl7CiAgICAgIG9yaWcuYXBwbHkodGhpcyxhcmd1bWVudHMpOwogICAgICB2YXIgc2VsPWRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCJ2MTE3Q2xhc2lmRmlsdGVyIik7aWYoIXNlbHx8c2VsLnZhbHVlPT09ImFsbCIpcmV0dXJuOwogICAgICB2YXIgY2xhc2lmPXNlbC52YWx1ZTt2YXIgc3RvcmU9d2luZG93Ll9fZHBTdG9yZXx8e307CiAgICAgIHZhciBsaXN0PWRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCJyZXBvTGlzdCIpO2lmKCFsaXN0KXJldHVybjsKICAgICAgdmFyIGl0ZW1zPWxpc3QucXVlcnlTZWxlY3RvckFsbCgiLnJlcG9JdGVtIik7CiAgICAgIGZvcih2YXIgaj0wO2o8aXRlbXMubGVuZ3RoO2orKyl7CiAgICAgICAgdmFyIG1FbD1pdGVtc1tqXS5xdWVyeVNlbGVjdG9yKCIubSIpOwogICAgICAgIHZhciBwYXJ0cz0obUVsP21FbC50ZXh0Q29udGVudDoiIikuc3BsaXQoU3RyaW5nLmZyb21DaGFyQ29kZSgxODMpKTsKICAgICAgICB2YXIgaXNpbj1wYXJ0cy5sZW5ndGg+MT9wYXJ0c1sxXS50cmltKCk6IiI7CiAgICAgICAgdmFyIHNjPShzdG9yZVtpc2luXSYmc3RvcmVbaXNpbl0ubWV0YSYmc3RvcmVbaXNpbl0ubWV0YS5jbGFzaWZpY2FjaW9uKXx8IiI7CiAgICAgICAgaXRlbXNbal0uc3R5bGUuZGlzcGxheT0oY2xhc2lmPT09Im5vbmUiPyFzYzpzYz09PWNsYXNpZik/IiI6IiBub25lIjsKICAgICAgfQogICAgfTsKICB9CiAgdmFyIG9zPXdpbmRvdy5kcFN5bmNUb0RhdGFwYWNrOwogIHdpbmRvdy5kcFN5bmNUb0RhdGFwYWNrPWZ1bmN0aW9uKCl7aWYob3Mpb3MuYXBwbHkodGhpcyxhcmd1bWVudHMpO3VwZCgpO307Cn0KaWYoZG9jdW1lbnQucmVhZHlTdGF0ZT09PSJsb2FkaW5nIil7ZG9jdW1lbnQuYWRkRXZlbnRMaXN0ZW5lcigiRE9NQ29udGVudExvYWRlZCIsaW5pdCk7fWVsc2V7aW5pdCgpO30KfSkoKTs=");var s=document.createElement("script");s.textContent=decodeURIComponent(escape(c));document.head.appendChild(s);})();
-</script>
-</body>
+</script></div></div></body></html>
