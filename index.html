@@ -2553,9 +2553,20 @@ function resizePlotsIn(screenId){
     document.querySelectorAll(".screen").forEach(s=>s.classList.add("hidden"));
     document.getElementById(id).classList.remove("hidden");
     btns.forEach(b=>b.classList.toggle("active", b.dataset.screen===id));
-    // Fix: si Tab 2 se renderizó estando oculto, forzamos el render de small multiples al entrar
-    if (id==="screen2" && typeof cmpEnsureSmallMultiplesRendered==="function") {
-      try{ cmpEnsureSmallMultiplesRendered(false); }catch(e){ console.warn(e); }
+    // Fix: ejecutar plotJobs pendientes al entrar a Tab 2 si se renderizó estando oculto
+    if (id==="screen2"){
+      const host = document.getElementById("cmpSmallMultiples");
+      if (host && host._pendingPlotJobs && host._pendingPlotJobs.length > 0){
+        const jobs = host._pendingPlotJobs;
+        host._pendingPlotJobs = [];
+        requestAnimationFrame(()=>requestAnimationFrame(()=>{
+          jobs.forEach(fn=>{ try{ fn(); }catch(e){ console.warn(e); } });
+          host._plotsRendered = true;
+          setTimeout(()=>{ try{ resizePlotsIn("screen2"); }catch(e){}; }, 120);
+        }));
+      } else if (typeof cmpEnsureSmallMultiplesRendered==="function") {
+        try{ cmpEnsureSmallMultiplesRendered(false); }catch(e){ console.warn(e); }
+      }
     }
 
     // Ensure Plotly fills the available width when switching tabs
@@ -3143,14 +3154,23 @@ function renderCmpSmallMultiples(){
     });
   });
 
-  // Two-pass after paint to avoid "hidden tab" sizing issues
-  requestAnimationFrame(()=>requestAnimationFrame(()=>{
-    plotJobs.forEach(fn=>{ try{ fn(); }catch(e){ console.warn(e); } });
-    // extra resize pass
-    setTimeout(()=>{
-      try{ resizePlotsIn("screen2"); }catch(e){}
-    }, 120);
-  }));
+  // Guardar plotJobs en el host para ejecutarlos cuando screen2 sea visible
+  host._pendingPlotJobs = plotJobs;
+  host._plotsRendered = false;
+
+  function executePlotJobs(){
+    if (!host._pendingPlotJobs || host._pendingPlotJobs.length === 0) return;
+    const jobs = host._pendingPlotJobs;
+    host._pendingPlotJobs = [];
+    jobs.forEach(fn=>{ try{ fn(); }catch(e){ console.warn(e); } });
+    host._plotsRendered = true;
+    setTimeout(()=>{ try{ resizePlotsIn("screen2"); }catch(e){} }, 120);
+  }
+
+  const screen2 = document.getElementById("screen2");
+  if (screen2 && !screen2.classList.contains("hidden")){
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{ executePlotJobs(); }));
+  }
 }
 
 
