@@ -2553,17 +2553,24 @@ function resizePlotsIn(screenId){
     document.querySelectorAll(".screen").forEach(s=>s.classList.add("hidden"));
     document.getElementById(id).classList.remove("hidden");
     btns.forEach(b=>b.classList.toggle("active", b.dataset.screen===id));
-    // Fix: ejecutar plotJobs pendientes al entrar a Tab 2 si se renderizó estando oculto
+    // Fix tab-switch: re-renderizar plots de screen2 si pintaron con ancho 0 (estaba oculta)
     if (id==="screen2"){
       const host = document.getElementById("cmpSmallMultiples");
-      if (host && host._pendingPlotJobs && host._pendingPlotJobs.length > 0){
-        const jobs = host._pendingPlotJobs;
-        host._pendingPlotJobs = [];
+      const hasPlots = host && host.querySelectorAll && host.querySelectorAll(".js-plotly-plot").length > 0;
+      const hasJobs = host && host._cmpPlotJobs && host._cmpPlotJobs.length > 0;
+      if (hasJobs && !hasPlots){
+        // Plots nunca se pintaron (primera vez con tab oculta)
         requestAnimationFrame(()=>requestAnimationFrame(()=>{
-          jobs.forEach(fn=>{ try{ fn(); }catch(e){ console.warn(e); } });
-          host._plotsRendered = true;
+          (host._cmpPlotJobs||[]).forEach(fn=>{ try{ fn(); }catch(e){ console.warn(e); } });
           setTimeout(()=>{ try{ resizePlotsIn("screen2"); }catch(e){}; }, 120);
         }));
+      } else if (hasPlots){
+        // Plots ya existen pero pueden tener ancho 0 - forzar resize multi-pass
+        requestAnimationFrame(()=>{
+          resizePlotsIn("screen2");
+          setTimeout(()=>{ try{ resizePlotsIn("screen2"); }catch(e){}; }, 150);
+          setTimeout(()=>{ try{ resizePlotsIn("screen2"); }catch(e){}; }, 400);
+        });
       } else if (typeof cmpEnsureSmallMultiplesRendered==="function") {
         try{ cmpEnsureSmallMultiplesRendered(false); }catch(e){ console.warn(e); }
       }
@@ -3154,23 +3161,17 @@ function renderCmpSmallMultiples(){
     });
   });
 
-  // Guardar plotJobs en el host para ejecutarlos cuando screen2 sea visible
-  host._pendingPlotJobs = plotJobs;
-  host._plotsRendered = false;
+  // Guardar jobs para que el tab-switch pueda re-ejecutarlos si pintaron con ancho 0
+  host._cmpPlotJobs = plotJobs;
 
-  function executePlotJobs(){
-    if (!host._pendingPlotJobs || host._pendingPlotJobs.length === 0) return;
-    const jobs = host._pendingPlotJobs;
-    host._pendingPlotJobs = [];
-    jobs.forEach(fn=>{ try{ fn(); }catch(e){ console.warn(e); } });
-    host._plotsRendered = true;
-    setTimeout(()=>{ try{ resizePlotsIn("screen2"); }catch(e){} }, 120);
+  function _runPlotJobs(){
+    plotJobs.forEach(fn=>{ try{ fn(); }catch(e){ console.warn(e); } });
+    setTimeout(()=>{ try{ resizePlotsIn("screen2"); }catch(e){} }, 80);
+    setTimeout(()=>{ try{ resizePlotsIn("screen2"); }catch(e){} }, 350);
+    setTimeout(()=>{ try{ resizePlotsIn("screen2"); }catch(e){} }, 800);
   }
 
-  const screen2 = document.getElementById("screen2");
-  if (screen2 && !screen2.classList.contains("hidden")){
-    requestAnimationFrame(()=>requestAnimationFrame(()=>{ executePlotJobs(); }));
-  }
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{ _runPlotJobs(); }));
 }
 
 
