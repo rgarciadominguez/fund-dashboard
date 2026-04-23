@@ -212,13 +212,13 @@
 #cmpAdvBody,#btAdvBody{display:block!important;padding:4px 0!important;background:none!important;border:none!important}
 </style>
 <style>
-/* ===== Mejora 1: saved analyses (Comparación) ===== */
-#savedAnCard .hd{ display:flex; justify-content:space-between; align-items:center; }
-#savedAnCloudStatus{ font-size:11px; cursor:help; }
-#savedAnCard .row.savedAnRow{ gap:8px; align-items:center; flex-wrap:wrap; }
-#savedAnCard select#savedAnSelect{ flex:1; min-width:260px; padding:8px 10px; border-radius:12px; border:1px solid var(--border); background:#fff; color:var(--text); font-size:13px; }
-#savedAnNotes{ display:none; margin-top:10px; padding:8px 12px; background:#f8fafc; border-left:3px solid var(--accent); border-radius:6px; font-size:13px; line-height:1.45; white-space:pre-wrap; }
-#savedAnHelp{ margin-top:8px; font-size:11px; color:var(--muted); }
+/* ===== Mejora 1: saved analyses (Comparación + Backtest) ===== */
+#savedAnCard .hd, #btSavedAnCard .hd{ display:flex; justify-content:space-between; align-items:center; }
+#savedAnCloudStatus, #btSavedAnCloudStatus{ font-size:11px; cursor:help; }
+#savedAnCard .row.savedAnRow, #btSavedAnCard .row.savedAnRow{ gap:8px; align-items:center; flex-wrap:wrap; }
+#savedAnCard select#savedAnSelect, #btSavedAnCard select#btSavedAnSelect{ flex:1; min-width:260px; padding:8px 10px; border-radius:12px; border:1px solid var(--border); background:#fff; color:var(--text); font-size:13px; }
+#savedAnNotes, #btSavedAnNotes{ display:none; margin-top:10px; padding:8px 12px; background:#f8fafc; border-left:3px solid var(--accent); border-radius:6px; font-size:13px; line-height:1.45; white-space:pre-wrap; }
+#savedAnHelp, #btSavedAnHelp{ margin-top:8px; font-size:11px; color:var(--muted); }
 .savedAnModalOverlay{ display:none; position:fixed; inset:0; background:rgba(15,23,42,.5); z-index:9999; align-items:center; justify-content:center; padding:20px; }
 .savedAnModalOverlay.open{ display:flex; }
 .savedAnModal{ background:#fff; border-radius:14px; max-width:520px; width:100%; max-height:90vh; display:flex; flex-direction:column; box-shadow:0 20px 60px rgba(0,0,0,.3); }
@@ -819,6 +819,53 @@ ES0156572002"></textarea>
 </div>
 <div class="screen hidden" id="screen3">
 <div class="wrap">
+
+<!-- ===== Mejora 1: Panel de análisis guardados (Backtest) ===== -->
+<div class="card" id="btSavedAnCard" style="margin-bottom:14px;">
+  <div class="hd">
+    <span class="pill">💾 Carteras guardadas</span>
+    <span class="pill" id="btSavedAnCloudStatus" title="Estado de sincronización con Supabase">☁️ …</span>
+  </div>
+  <div class="bd">
+    <div class="row savedAnRow">
+      <select id="btSavedAnSelect">
+        <option value="">— selecciona una cartera —</option>
+      </select>
+      <button class="iconBtn" id="btSavedAnLoad" title="Cargar la cartera seleccionada">Cargar</button>
+      <button class="iconBtn" id="btSavedAnSaveNew" title="Guardar el estado actual como cartera nueva">💾 Guardar actual</button>
+      <button class="iconBtn" id="btSavedAnSaveOver" title="Sobreescribir la cartera seleccionada con el estado actual">↻ Sobreescribir</button>
+      <button class="iconBtn" id="btSavedAnDelete" title="Eliminar la cartera seleccionada">🗑️</button>
+      <button class="iconBtn" id="btSavedAnExport" title="Descargar como JSON (una si hay seleccionada, o todas)">⬇ Exportar</button>
+      <button class="iconBtn" id="btSavedAnImport" title="Importar carteras desde un fichero JSON">⬆ Importar</button>
+      <input type="file" id="btSavedAnImportFile" accept=".json,application/json" style="display:none;">
+    </div>
+    <div id="btSavedAnNotes"></div>
+    <div id="btSavedAnHelp">
+      Guarda fondos + pesos + benchmark + fechas + rebal para volver a enseñar la cartera a un cliente con un clic. Requiere fondos cargados desde el repositorio (📚 Repo), no CSVs manuales.
+    </div>
+  </div>
+</div>
+
+<!-- Modal para nombre + notas (Backtest) -->
+<div id="btSavedAnModalOverlay" class="savedAnModalOverlay">
+  <div class="savedAnModal" role="dialog" aria-modal="true" aria-labelledby="btSavedAnModalTitle">
+    <div class="savedAnModalHeader">
+      <span id="btSavedAnModalTitle">Guardar cartera</span>
+      <button type="button" class="savedAnModalClose" id="btSavedAnModalCloseBtn" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="savedAnModalBody">
+      <label for="btSavedAnModalName">Nombre</label>
+      <input type="text" id="btSavedAnModalName" placeholder="Ej: Cartera conservadora — cliente X">
+      <label for="btSavedAnModalNotes">Notas (opcional)</label>
+      <textarea id="btSavedAnModalNotes" rows="5" placeholder="Objetivo de la cartera, perfil del cliente, observaciones…"></textarea>
+    </div>
+    <div class="savedAnModalFooter">
+      <button type="button" class="iconBtn" id="btSavedAnModalCancel">Cancelar</button>
+      <button type="button" class="btn" id="btSavedAnModalSave" style="width:auto; padding:8px 16px;">Guardar</button>
+    </div>
+  </div>
+</div>
+
 <div class="card">
 <div class="hd">
 <div>
@@ -13155,6 +13202,559 @@ async function mstDoSearch(){
     document.addEventListener('DOMContentLoaded', () => setTimeout(wire, 300));
   } else {
     setTimeout(wire, 300);
+  }
+})();
+
+/* ===== Mejora 1: Saved Analyses (Backtest) =====
+   Guarda/carga el estado completo de la tab Backtest:
+   - Fondos principales (ISIN + peso) y benchmark (ISIN + peso)
+   - Periodo, rebal mode/bands (principal + benchmark), showBench, outliers
+   - Notas libres
+   Persistencia: localStorage + tabla Supabase `analyses` (tipo='backtest').
+*/
+(function(){
+  const LS_KEY = 'fundDashboard.savedAnalyses.backtest.v1';
+  const ANALYSIS_TYPE = 'backtest';
+  const SUPA_URL_BASE = 'https://dcnvdaaexyuhqvyrrkob.supabase.co';
+  const SUPA_KEY_FALLBACK = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRjbnZkYWFleHl1aHF2eXJya29iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxOTQ1MDUsImV4cCI6MjA4OTc3MDUwNX0.MXp-zIRWIMfKfprSbzvIe3Z52o4swdNW2RK77SZHL-o';
+
+  function supaUrl(path){ return (window.SB_URL || SUPA_URL_BASE) + path; }
+  function supaHeaders(extra){
+    const key = window.SB_KEY || SUPA_KEY_FALLBACK;
+    return Object.assign({
+      'apikey': key,
+      'Authorization': 'Bearer ' + key,
+      'Content-Type': 'application/json',
+      'Prefer': 'resolution=merge-duplicates,return=representation'
+    }, extra || {});
+  }
+
+  function esc(s){
+    return String(s||'').replace(/[&<>"']/g, c=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;" }[c]));
+  }
+  function slugify(s){
+    return (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,30);
+  }
+  function fundIsin(f){
+    if (!f) return '';
+    if (f.meta && f.meta.isin) return f.meta.isin;
+    if (f.fileName && f.fileName.indexOf('repo:')===0) return f.fileName.slice(5);
+    return '';
+  }
+  function notify(kind, html){
+    if (typeof setBtMsg === 'function'){ try{ setBtMsg(kind, html); return; }catch(_){ } }
+    console.log('[SavedBacktests]', kind, html);
+  }
+
+  // ---- captura / aplicación del estado ----
+  function captureState(){
+    const $ = id => document.getElementById(id);
+    const BTref = window.BT || {};
+    const funds = [];
+    const benchFunds = [];
+
+    const fArr = BTref.funds || [];
+    const wArr = BTref.weights || [];
+    for (let i=0; i<fArr.length; i++){
+      if (!fArr[i]) continue;
+      funds.push({
+        slot: i,
+        isin: fundIsin(fArr[i]),
+        nombre: fArr[i].name || '',
+        weight: Number(wArr[i]) || 0
+      });
+    }
+    const bfArr = BTref.benchFunds || [];
+    const bwArr = BTref.benchWeights || [];
+    for (let i=0; i<bfArr.length; i++){
+      if (!bfArr[i]) continue;
+      benchFunds.push({
+        slot: i,
+        isin: fundIsin(bfArr[i]),
+        nombre: bfArr[i].name || '',
+        weight: Number(bwArr[i]) || 0
+      });
+    }
+
+    const showBenchEl = $('btShowBench');
+    return {
+      funds,
+      benchFunds,
+      settings: {
+        startDate: ($('btStart')||{}).value || '',
+        endDate:   ($('btEnd')||{}).value || '',
+        showBench: showBenchEl ? !!showBenchEl.checked : true,
+        outliers:  ($('btOutliers')||{}).value || 'on',
+        rebalMode:     (($('btRebalMode')||{}).value) || (BTref.rebalMode || 'none'),
+        bandX:         Number(($('btBandX')||{}).value || BTref.bandX || 5),
+        benchRebalMode:(($('btBenchRebalMode')||{}).value) || (BTref.benchRebalMode || 'none'),
+        benchBandX:    Number(($('btBenchBandX')||{}).value || BTref.benchBandX || 5)
+      }
+    };
+  }
+
+  async function applyState(analysis){
+    const data = analysis.data || { funds: analysis.funds, benchFunds: analysis.benchFunds, settings: analysis.settings };
+    const funds = data.funds || [];
+    const benchFunds = data.benchFunds || [];
+    const settings = data.settings || {};
+
+    if (!window.DATAPACK || !window.DATAPACK.loaded){
+      alert('Primero carga el datapack del repositorio desde la pestaña Fondo.');
+      return false;
+    }
+    if (typeof repoParsedForFund !== 'function'){
+      alert('La función interna repoParsedForFund no está disponible. Recarga la página.');
+      return false;
+    }
+    if (!window.BT){ alert('BT no inicializado.'); return false; }
+
+    // Reset BT slots
+    window.BT.funds = Array(10).fill(null);
+    window.BT.weights = Array(10).fill(0);
+    window.BT.benchFunds = Array(10).fill(null);
+    window.BT.benchWeights = Array(10).fill(0);
+
+    const missing = [];
+
+    // Load main funds
+    for (const it of funds){
+      const slot = Number(it.slot);
+      if (!(slot>=0 && slot<10)) continue;
+      if (!it.isin){ missing.push(it.nombre || '(sin ISIN)'); continue; }
+      const dpFund = (window.DATAPACK.funds||[]).find(f => f.isin === it.isin);
+      if (!dpFund){ missing.push(it.nombre || it.isin); continue; }
+      try{
+        const parsed = await repoParsedForFund(dpFund, 'screen3', 'fund');
+        parsed.meta = parsed.meta || {};
+        parsed.meta.isin = it.isin;
+        window.BT.funds[slot] = parsed;
+        window.BT.weights[slot] = Number(it.weight)||0;
+      }catch(e){
+        console.warn('[SavedBacktests] main load fail', it.isin, e);
+        missing.push(it.nombre || it.isin);
+      }
+    }
+
+    // Load benchmark funds
+    for (const it of benchFunds){
+      const slot = Number(it.slot);
+      if (!(slot>=0 && slot<10)) continue;
+      if (!it.isin){ missing.push(it.nombre || '(sin ISIN benchmark)'); continue; }
+      const dpFund = (window.DATAPACK.funds||[]).find(f => f.isin === it.isin);
+      if (!dpFund){ missing.push(it.nombre || it.isin); continue; }
+      try{
+        const parsed = await repoParsedForFund(dpFund, 'screen3', 'bench');
+        parsed.meta = parsed.meta || {};
+        parsed.meta.isin = it.isin;
+        window.BT.benchFunds[slot] = parsed;
+        window.BT.benchWeights[slot] = Number(it.weight)||0;
+      }catch(e){
+        console.warn('[SavedBacktests] bench load fail', it.isin, e);
+        missing.push(it.nombre || it.isin);
+      }
+    }
+
+    // Clear all file inputs (repo slots win)
+    for (let i=1; i<=10; i++){
+      const fi = document.getElementById('btFile'+i);  if (fi) { try{ fi.value=''; }catch(_){ } }
+      const bf = document.getElementById('btBFile'+i); if (bf) { try{ bf.value=''; }catch(_){ } }
+    }
+
+    // Re-render weights tables + status
+    try{ if (typeof btRenderWeightsTable === 'function') btRenderWeightsTable(); }catch(_){ }
+    try{ if (typeof btRenderBenchWeightsTable === 'function') btRenderBenchWeightsTable(); }catch(_){ }
+    try{ if (typeof btUpdatePeriodInfo === 'function') btUpdatePeriodInfo(); }catch(_){ }
+    try{
+      const n = (window.BT.funds||[]).filter(Boolean).length;
+      const st = document.getElementById('btStatus'); if (st) st.textContent = `Cargados: ${n} archivos`;
+      const nb = (window.BT.benchFunds||[]).filter(Boolean).length;
+      const bst = document.getElementById('btBenchStatus'); if (bst) bst.textContent = `Cargados: ${nb} archivos`;
+    }catch(_){ }
+
+    // Apply settings after a short delay
+    setTimeout(() => {
+      const $ = id => document.getElementById(id);
+      const fireChange = el => { try{ el.dispatchEvent(new Event('change', {bubbles:true})); }catch(_){ } };
+      function setVal(id, v){
+        if (v === undefined || v === null || v === '') return;
+        const el = $(id); if (!el) return;
+        if (el.value !== String(v)){ el.value = v; fireChange(el); }
+      }
+      setVal('btStart', settings.startDate);
+      setVal('btEnd',   settings.endDate);
+      setVal('btOutliers', settings.outliers);
+      setVal('btRebalMode', settings.rebalMode);
+      setVal('btBandX', settings.bandX);
+      setVal('btBenchRebalMode', settings.benchRebalMode);
+      setVal('btBenchBandX', settings.benchBandX);
+      const sb = $('btShowBench');
+      if (sb && typeof settings.showBench === 'boolean' && sb.checked !== settings.showBench){
+        sb.checked = settings.showBench; fireChange(sb);
+      }
+      // Sync BT internal rebal state
+      if (window.BT){
+        window.BT.rebalMode = settings.rebalMode || 'none';
+        window.BT.bandX = Number(settings.bandX) || 5;
+        window.BT.benchRebalMode = settings.benchRebalMode || 'none';
+        window.BT.benchBandX = Number(settings.benchBandX) || 5;
+      }
+      // Attempt to enable/update calc button
+      try{ if (typeof btEnforceRebalAvailability === 'function') btEnforceRebalAvailability(); }catch(_){ }
+    }, 150);
+
+    if (missing.length){
+      notify('warn', `Cartera cargada, pero estos fondos no están en el repositorio actual: <b>${esc(missing.join(', '))}</b>.`);
+    } else {
+      notify('ok', `Cartera <b>${esc(analysis.nombre)}</b> cargada (${funds.length} fondos${benchFunds.length?` + ${benchFunds.length} benchmark`:''}). Pulsa <b>Calcular cartera</b> para ver resultados.`);
+    }
+    return true;
+  }
+
+  // ---- localStorage ----
+  function lsGetAll(){
+    try{ return JSON.parse(localStorage.getItem(LS_KEY) || '[]'); }
+    catch(e){ console.warn('[SavedBacktests] lsGetAll', e); return []; }
+  }
+  function lsSetAll(arr){
+    try{ localStorage.setItem(LS_KEY, JSON.stringify(arr)); }
+    catch(e){ console.warn('[SavedBacktests] lsSetAll', e); }
+  }
+  function lsUpsert(a){
+    const arr = lsGetAll();
+    const i = arr.findIndex(x => x.id === a.id);
+    if (i >= 0) arr[i] = a; else arr.unshift(a);
+    lsSetAll(arr);
+  }
+  function lsDelete(id){
+    lsSetAll(lsGetAll().filter(x => x.id !== id));
+  }
+
+  // ---- Supabase ----
+  let cloudStatus = 'unknown';
+  async function supaList(){
+    try{
+      const url = supaUrl('/rest/v1/analyses?tipo=eq.' + encodeURIComponent(ANALYSIS_TYPE) + '&select=*&order=fecha_guardado.desc&limit=200');
+      const res = await fetch(url, { headers: supaHeaders(), credentials:'omit' });
+      if (!res.ok) throw new Error('status ' + res.status);
+      const rows = await res.json();
+      cloudStatus = 'ok';
+      return (rows||[]).map(r => ({
+        id: r.id,
+        nombre: r.nombre,
+        tipo: r.tipo || ANALYSIS_TYPE,
+        fecha_guardado: r.fecha_guardado,
+        fecha_modificacion: r.updated_at || r.fecha_guardado,
+        notas: r.notas || '',
+        data: r.data || {}
+      }));
+    }catch(e){
+      console.warn('[SavedBacktests] supaList', e);
+      cloudStatus = 'offline';
+      return [];
+    }
+  }
+  async function supaUpsert(a){
+    try{
+      const body = {
+        id: a.id,
+        nombre: a.nombre,
+        tipo: a.tipo || ANALYSIS_TYPE,
+        fecha_guardado: a.fecha_guardado,
+        notas: a.notas || '',
+        data: {
+          funds: a.funds || (a.data||{}).funds || [],
+          benchFunds: a.benchFunds || (a.data||{}).benchFunds || [],
+          settings: a.settings || (a.data||{}).settings || {}
+        },
+        updated_at: new Date().toISOString()
+      };
+      const res = await fetch(supaUrl('/rest/v1/analyses'), {
+        method: 'POST',
+        headers: supaHeaders(),
+        credentials:'omit',
+        body: JSON.stringify(body)
+      });
+      if (!res.ok) throw new Error('status ' + res.status);
+      cloudStatus = 'ok';
+      return true;
+    }catch(e){
+      console.warn('[SavedBacktests] supaUpsert', e);
+      cloudStatus = 'offline';
+      return false;
+    }
+  }
+  async function supaDelete(id){
+    try{
+      const res = await fetch(supaUrl('/rest/v1/analyses?id=eq.' + encodeURIComponent(id)), {
+        method: 'DELETE', headers: supaHeaders(), credentials:'omit'
+      });
+      if (!res.ok) throw new Error('status ' + res.status);
+      return true;
+    }catch(e){ console.warn('[SavedBacktests] supaDelete', e); return false; }
+  }
+
+  // ---- merge + render ----
+  let cached = [];
+  async function refresh(){
+    const local = lsGetAll();
+    const supa = await supaList();
+    const byId = {};
+    [...local, ...supa].forEach(a => {
+      const cur = byId[a.id];
+      if (!cur){ byId[a.id] = a; return; }
+      const tCur = cur.fecha_modificacion || cur.fecha_guardado || '';
+      const tNew = a.fecha_modificacion || a.fecha_guardado || '';
+      if (tNew > tCur) byId[a.id] = a;
+    });
+    cached = Object.values(byId).sort((a,b) =>
+      (b.fecha_guardado || '').localeCompare(a.fecha_guardado || '')
+    );
+    renderDropdown();
+    renderCloudStatus();
+  }
+
+  function renderDropdown(){
+    const sel = document.getElementById('btSavedAnSelect');
+    if (!sel) return;
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">— selecciona una cartera —</option>';
+    cached.forEach(a => {
+      const opt = document.createElement('option');
+      opt.value = a.id;
+      const d = a.fecha_guardado ? ' · ' + new Date(a.fecha_guardado).toLocaleDateString('es-ES') : '';
+      const nf = (a.data && a.data.funds) ? a.data.funds.length : (a.funds ? a.funds.length : 0);
+      const nb = (a.data && a.data.benchFunds) ? a.data.benchFunds.length : (a.benchFunds ? a.benchFunds.length : 0);
+      opt.textContent = `${a.nombre} (${nf}${nb?`+${nb}bench`:''} fondos)${d}`;
+      sel.appendChild(opt);
+    });
+    sel.value = cur;
+    updateNotes();
+  }
+  function renderCloudStatus(){
+    const el = document.getElementById('btSavedAnCloudStatus');
+    if (!el) return;
+    if (cloudStatus === 'ok'){ el.textContent = '☁️ sync'; el.style.background = '#ecfdf5'; el.style.borderColor = '#a7f3d0'; el.style.color = '#059669'; el.title = 'Sincronizado con Supabase'; }
+    else if (cloudStatus === 'offline'){ el.textContent = '☁️ offline'; el.style.background = '#fef3c7'; el.style.borderColor = '#fcd34d'; el.style.color = '#b45309'; el.title = 'No se pudo conectar con Supabase. Las carteras solo se guardan en este navegador.'; }
+    else { el.textContent = '☁️ …'; el.title = 'Comprobando conexión'; }
+  }
+  function updateNotes(){
+    const sel = document.getElementById('btSavedAnSelect');
+    const notesEl = document.getElementById('btSavedAnNotes');
+    if (!sel || !notesEl) return;
+    const id = sel.value;
+    if (!id){ notesEl.style.display = 'none'; notesEl.textContent = ''; return; }
+    const a = cached.find(x => x.id === id);
+    if (a && a.notas && a.notas.trim()){
+      notesEl.style.display = 'block';
+      notesEl.innerHTML = '<b>Notas:</b> ' + esc(a.notas);
+    } else {
+      notesEl.style.display = 'none';
+      notesEl.textContent = '';
+    }
+  }
+
+  // ---- modal ----
+  function openModal(existing){
+    const ov = document.getElementById('btSavedAnModalOverlay');
+    const title = document.getElementById('btSavedAnModalTitle');
+    const nameEl = document.getElementById('btSavedAnModalName');
+    const notesEl = document.getElementById('btSavedAnModalNotes');
+    if (!ov || !nameEl || !notesEl) return;
+    if (existing){
+      title.textContent = 'Sobreescribir cartera';
+      nameEl.value = existing.nombre || '';
+      notesEl.value = existing.notas || '';
+      ov.dataset.editingId = existing.id;
+    } else {
+      title.textContent = 'Guardar cartera';
+      nameEl.value = '';
+      notesEl.value = '';
+      ov.dataset.editingId = '';
+    }
+    ov.classList.add('open');
+    setTimeout(() => { try{ nameEl.focus(); nameEl.select(); }catch(_){ } }, 10);
+  }
+  function closeModal(){
+    const ov = document.getElementById('btSavedAnModalOverlay');
+    if (ov){ ov.classList.remove('open'); delete ov.dataset.editingId; }
+  }
+
+  // ---- handlers ----
+  async function onSaveConfirm(){
+    const ov = document.getElementById('btSavedAnModalOverlay');
+    const nameEl = document.getElementById('btSavedAnModalName');
+    const notesEl = document.getElementById('btSavedAnModalNotes');
+    const nombre = (nameEl.value || '').trim();
+    if (!nombre){ alert('Pon un nombre a la cartera.'); nameEl.focus(); return; }
+    if (!window.BT || !(window.BT.funds||[]).filter(Boolean).length){
+      alert('No hay fondos cargados. Carga fondos en la tab Backtest antes de guardar.');
+      return;
+    }
+    const captured = captureState();
+    const fundsWithIsin = captured.funds.filter(f => f.isin);
+    const benchWithIsin = captured.benchFunds.filter(f => f.isin);
+    if (!fundsWithIsin.length){
+      alert('Los fondos actuales no vienen del repositorio (parecen CSVs manuales). Solo se pueden guardar carteras basadas en fondos del Repo. Carga los fondos desde "📚 Repo" primero.');
+      return;
+    }
+    const skippedMain = captured.funds.length - fundsWithIsin.length;
+    const skippedBench = captured.benchFunds.length - benchWithIsin.length;
+    if (skippedMain + skippedBench > 0){
+      if (!confirm(`${skippedMain+skippedBench} fondo(s) no vienen del repositorio y no se guardarán. ¿Continuar?`)) return;
+    }
+    const editingId = ov.dataset.editingId || '';
+    const now = new Date().toISOString();
+    const fechaG = editingId
+      ? ((cached.find(x => x.id === editingId) || {}).fecha_guardado || now)
+      : now;
+    const analysis = {
+      id: editingId || ('bt_' + Math.floor(Date.now()/1000) + '_' + (slugify(nombre) || 'sin-nombre')),
+      nombre,
+      tipo: ANALYSIS_TYPE,
+      fecha_guardado: fechaG,
+      fecha_modificacion: now,
+      notas: (notesEl.value || '').trim(),
+      funds: fundsWithIsin,
+      benchFunds: benchWithIsin,
+      settings: captured.settings,
+      data: { funds: fundsWithIsin, benchFunds: benchWithIsin, settings: captured.settings }
+    };
+    lsUpsert(analysis);
+    await supaUpsert(analysis);
+    closeModal();
+    await refresh();
+    const sel = document.getElementById('btSavedAnSelect');
+    if (sel){ sel.value = analysis.id; updateNotes(); }
+    notify('ok', `Cartera <b>${esc(nombre)}</b> guardada (${fundsWithIsin.length} fondos${benchWithIsin.length?` + ${benchWithIsin.length} benchmark`:''})${cloudStatus==='offline'?' · solo local (Supabase offline)':''}.`);
+  }
+
+  async function onLoadClick(){
+    const sel = document.getElementById('btSavedAnSelect');
+    const id = sel && sel.value;
+    if (!id){ alert('Selecciona una cartera primero.'); return; }
+    const a = cached.find(x => x.id === id);
+    if (!a){ alert('Cartera no encontrada.'); return; }
+    const btn = document.getElementById('btSavedAnLoad');
+    const prev = btn ? btn.textContent : null;
+    if (btn){ btn.disabled = true; btn.textContent = 'Cargando…'; }
+    try{ await applyState(a); }
+    finally { if (btn){ btn.disabled = false; btn.textContent = prev || 'Cargar'; } }
+  }
+
+  async function onDeleteClick(){
+    const sel = document.getElementById('btSavedAnSelect');
+    const id = sel && sel.value;
+    if (!id){ alert('Selecciona una cartera para eliminar.'); return; }
+    const a = cached.find(x => x.id === id);
+    if (!a) return;
+    if (!confirm(`¿Eliminar la cartera "${a.nombre}"? No se puede deshacer.`)) return;
+    lsDelete(id);
+    await supaDelete(id);
+    await refresh();
+    notify('ok', `Cartera eliminada.`);
+  }
+
+  function onExportClick(){
+    const sel = document.getElementById('btSavedAnSelect');
+    const id = sel && sel.value;
+    let payload, fname;
+    if (id){
+      const a = cached.find(x => x.id === id);
+      if (!a) return;
+      payload = a;
+      fname = `backtest_${a.id}.json`;
+    } else {
+      if (!cached.length){ alert('No hay carteras para exportar.'); return; }
+      payload = { version: 1, tipo: ANALYSIS_TYPE, exported_at: new Date().toISOString(), analyses: cached };
+      fname = `backtests_all_${new Date().toISOString().slice(0,10)}.json`;
+    }
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = fname;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+  }
+  function onImportClick(){
+    const inp = document.getElementById('btSavedAnImportFile');
+    if (!inp) return;
+    inp.value = '';
+    inp.click();
+  }
+  async function onImportFile(e){
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    try{
+      const text = await f.text();
+      const parsed = JSON.parse(text);
+      const items = Array.isArray(parsed.analyses) ? parsed.analyses
+                  : (parsed.id ? [parsed] : []);
+      if (!items.length){ alert('Fichero JSON no reconocido.'); return; }
+      let added = 0;
+      for (const a of items){
+        if (!a.id || !a.nombre) continue;
+        // Only import backtest entries
+        if (a.tipo && a.tipo !== ANALYSIS_TYPE) continue;
+        lsUpsert(a);
+        await supaUpsert(a);
+        added++;
+      }
+      await refresh();
+      notify('ok', `Importadas <b>${added}</b> carteras.`);
+    }catch(err){
+      alert('Error al importar: ' + err.message);
+    }
+  }
+
+  // ---- init ----
+  function wire(){
+    const sel = document.getElementById('btSavedAnSelect');
+    if (!sel){ console.warn('[SavedBacktests] UI no encontrada'); return; }
+    sel.addEventListener('change', updateNotes);
+    const $ = id => document.getElementById(id);
+    $('btSavedAnLoad')      && $('btSavedAnLoad').addEventListener('click', onLoadClick);
+    $('btSavedAnSaveNew')   && $('btSavedAnSaveNew').addEventListener('click', () => openModal(null));
+    $('btSavedAnSaveOver')  && $('btSavedAnSaveOver').addEventListener('click', () => {
+      const id = sel.value;
+      if (!id){ alert('Selecciona una cartera para sobreescribir.'); return; }
+      const a = cached.find(x => x.id === id);
+      if (!a) return;
+      if (!confirm(`Sobreescribir "${a.nombre}" con el estado actual?`)) return;
+      openModal(a);
+    });
+    $('btSavedAnDelete')    && $('btSavedAnDelete').addEventListener('click', onDeleteClick);
+    $('btSavedAnExport')    && $('btSavedAnExport').addEventListener('click', onExportClick);
+    $('btSavedAnImport')    && $('btSavedAnImport').addEventListener('click', onImportClick);
+    $('btSavedAnImportFile')&& $('btSavedAnImportFile').addEventListener('change', onImportFile);
+    $('btSavedAnModalSave') && $('btSavedAnModalSave').addEventListener('click', onSaveConfirm);
+    $('btSavedAnModalCancel')  && $('btSavedAnModalCancel').addEventListener('click', closeModal);
+    $('btSavedAnModalCloseBtn')&& $('btSavedAnModalCloseBtn').addEventListener('click', closeModal);
+    const ov = document.getElementById('btSavedAnModalOverlay');
+    if (ov) ov.addEventListener('click', e => { if (e.target === ov) closeModal(); });
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape'){
+        const ov2 = document.getElementById('btSavedAnModalOverlay');
+        if (ov2 && ov2.classList.contains('open')) closeModal();
+      }
+    });
+    refresh();
+  }
+
+  window.SavedBacktests = {
+    capture: captureState,
+    apply: applyState,
+    refresh,
+    list: () => cached.slice(),
+    save: (nombre, notas) => { openModal(null); setTimeout(()=>{
+      const n=document.getElementById('btSavedAnModalName'); const t=document.getElementById('btSavedAnModalNotes');
+      if (n) n.value = nombre||''; if (t) t.value = notas||'';
+    },20); }
+  };
+
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', () => setTimeout(wire, 400));
+  } else {
+    setTimeout(wire, 400);
   }
 })();
 </script></div></div></body></html>
