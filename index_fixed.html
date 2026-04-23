@@ -447,7 +447,9 @@ ES0156572002"></textarea>
 </div>
 
 <div class="kpiSep"></div>
-<div class="kpiNote">Estilo Finect (última fecha - periodo)</div>
+<details style="margin-top:4px;">
+<summary style="cursor:pointer;font-size:12px;color:var(--muted);font-weight:600;">Ver KPIs por horizontes (estilo Finect)</summary>
+<div class="kpiNote" style="margin-top:8px;">Estilo Finect (última fecha - periodo)</div>
 
 <div class="kpis4">
 <div class="kpi"><div class="t">Rent. anualizada 10 años</div><div class="v" id="kR10">—</div></div>
@@ -455,12 +457,13 @@ ES0156572002"></textarea>
 <div class="kpi"><div class="t">Rent. anualizada 3 años</div><div class="v" id="kR3">—</div></div>
 <div class="kpi"><div class="t">Rent. anualizada 1 año</div><div class="v" id="kR1">—</div></div>
 </div>
-<div class="kpis4" style="margin-top:10px;">
+<div class="kpis4" style="margin-top:10px; margin-bottom:0;">
 <div class="kpi"><div class="t">Vol media 10 años</div><div class="v" id="kV10">—</div></div>
 <div class="kpi"><div class="t">Vol media 5 años</div><div class="v" id="kV5">—</div></div>
 <div class="kpi"><div class="t">Vol media 3 años</div><div class="v" id="kV3">—</div></div>
 <div class="kpi"><div class="t">Vol media 1 año</div><div class="v" id="kV1">—</div></div>
 </div>
+</details>
 
 <div class="kpiSep"></div>
 <div class="kpiNote">Media histórica (rolling) de todos los horizontes disponibles</div>
@@ -476,6 +479,37 @@ ES0156572002"></textarea>
 <div class="kpi"><div class="t">Vol media rolling 5 años</div><div class="v" id="kAvgV5">—</div></div>
 <div class="kpi"><div class="t">Vol media rolling 3 años</div><div class="v" id="kAvgV3">—</div></div>
 <div class="kpi"><div class="t">Vol media rolling 1 año</div><div class="v" id="kAvgV1">—</div></div>
+</div>
+<div style="height:12px"></div>
+<!-- Evolución NAV (Base 100) — homólogo a cmpGrowth (Comparación) y btPlotGrowth (Backtest) -->
+<div class="card" style="border-radius:14px;">
+<div class="hd" style="border-radius:14px 14px 0 0;">
+<span class="pill">Evolución (Base 100)</span>
+<button class="iconBtn" id="dlGrowth">Descargar</button>
+</div>
+<div class="bd">
+<div style="display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap; margin-bottom:8px;">
+<div class="subhd" style="margin:0; min-width:180px;">Periodo (gráfico de línea)</div>
+<div>
+<div class="subhd" style="margin:0 0 4px 0; font-size:12px; color:var(--muted);">Desde</div>
+<input class="dateInput" id="s1GrowthStart" type="date">
+</div>
+<div>
+<div class="subhd" style="margin:0 0 4px 0; font-size:12px; color:var(--muted);">Hasta</div>
+<input class="dateInput" id="s1GrowthEnd" type="date">
+</div>
+<div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+<button class="iconBtn" id="s1GrowthQ1">1a</button>
+<button class="iconBtn" id="s1GrowthQ3">3a</button>
+<button class="iconBtn" id="s1GrowthQ5">5a</button>
+<button class="iconBtn" id="s1GrowthQ10">10a</button>
+<button class="iconBtn" id="s1GrowthQall">Max</button>
+</div>
+</div>
+<div class="note" id="s1GrowthNote" style="margin-top:2px; margin-bottom:6px;"></div>
+<div class="plot" id="plotGrowth"></div>
+<details><summary>Ver / descargar tabla</summary><div id="tblGrowth"></div></details>
+</div>
 </div>
 <div style="height:12px"></div>
 <!-- Row 1 charts -->
@@ -2029,6 +2063,25 @@ if (!meFull || meFull.length < 13){
 
 document.getElementById("status").textContent = `${fmtDateES(series[0].date)} → ${fmtDateES(end)}`;
 
+  // ---- Evolución Base 100 (serie activa: daily o monthly según modo) ----
+  // Guardamos la serie para que los controles de periodo (Desde/Hasta/1a/3a/5a/10a/Max)
+  // puedan re-render sin necesidad de recalcular todo el análisis.
+  STATE.growthSeriesFull = Array.isArray(series) ? series.slice() : [];
+  // Inicializar inputs de fechas al rango completo al primer render
+  try {
+    const sdEl = document.getElementById("s1GrowthStart");
+    const edEl = document.getElementById("s1GrowthEnd");
+    if (sdEl && edEl && STATE.growthSeriesFull.length >= 2) {
+      sdEl.value = fmtDate(STATE.growthSeriesFull[0].date);
+      edEl.value = fmtDate(STATE.growthSeriesFull[STATE.growthSeriesFull.length-1].date);
+      sdEl.min = fmtDate(STATE.growthSeriesFull[0].date);
+      sdEl.max = fmtDate(STATE.growthSeriesFull[STATE.growthSeriesFull.length-1].date);
+      edEl.min = fmtDate(STATE.growthSeriesFull[0].date);
+      edEl.max = fmtDate(STATE.growthSeriesFull[STATE.growthSeriesFull.length-1].date);
+    }
+  } catch(_){}
+  try { renderPlotGrowth(); } catch(e) { console.warn("[plotGrowth] error", e); }
+
   // Yearly return bars (calendar year, last obs in year vs last obs prev year)
   const ye = yearEnd(series);
 
@@ -2629,7 +2682,145 @@ async function onRun(){
   computeAndRender();
 }
 
+/* ---------- plotGrowth (Base 100) — renderizador independiente para el selector de periodo ---------- */
+function renderPlotGrowth(){
+  const g_el = document.getElementById("plotGrowth");
+  const full = Array.isArray(STATE.growthSeriesFull) ? STATE.growthSeriesFull : [];
+  if (!g_el || full.length < 2) return;
+
+  // Recortar por fechas si hay valores en los inputs
+  const sdEl = document.getElementById("s1GrowthStart");
+  const edEl = document.getElementById("s1GrowthEnd");
+  const sd = sdEl && sdEl.value ? new Date(sdEl.value + "T00:00:00Z") : full[0].date;
+  const ed = edEl && edEl.value ? new Date(edEl.value + "T00:00:00Z") : full[full.length-1].date;
+  const series = full.filter(p => p.date >= sd && p.date <= ed);
+  const noteEl = document.getElementById("s1GrowthNote");
+
+  if (series.length < 2) {
+    Plotly.purge("plotGrowth");
+    if (noteEl) noteEl.textContent = "Rango seleccionado sin datos suficientes.";
+    return;
+  }
+
+  const baseNav = series[0].nav;
+  const firstDate = series[0].date;
+  const xs = series.map(p => fmtDate(p.date));
+  const ys = series.map(p => (p.nav / baseNav) * 100);
+  const cagrs = series.map(p => {
+    const days = Math.max(0, (p.date.getTime() - firstDate.getTime())/(24*3600*1000));
+    const years = days / 365.25;
+    if (years <= 0) return NaN;
+    const gross = p.nav / baseNav;
+    if (!Number.isFinite(gross) || gross <= 0) return NaN;
+    return Math.pow(gross, 1/years) - 1;
+  });
+  const rowsPlain = series.map((p,i) => [
+    fmtDate(p.date),
+    Number(((p.nav/baseNav)*100).toFixed(6)),
+    Number.isFinite(cagrs[i]) ? Number((cagrs[i]*100).toFixed(6)) : ""
+  ]);
+
+  // Anotación discreta sobre el último punto con la CAGR total (tono slate coherente con resto UI).
+  const lastP = series[series.length-1];
+  const endY = (lastP.nav / baseNav) * 100;
+  const endCagr = cagrs[cagrs.length-1];
+  const annotations = [{
+    x: fmtDate(lastP.date),
+    y: endY,
+    xref:"x", yref:"y",
+    text: Number.isFinite(endCagr) ? `${(endCagr*100).toFixed(2)}%` : "n.a.",
+    showarrow: false,
+    xanchor:"left", yanchor:"middle",
+    font:{size:11, color:"#0f172a", family:"Trebuchet MS"}
+  }];
+
+  Plotly.newPlot("plotGrowth", [{
+    type:"scatter", mode:"lines",
+    x: xs, y: ys,
+    customdata: cagrs.map(c => Number.isFinite(c) ? c : null),
+    line:{width:1.6, color:"#475569"},
+    hovertemplate:"%{x}<br>Base 100: %{y:.2f}<br>Rent. anualizada desde inicio: %{customdata:.2%}<extra></extra>"
+  }, {
+    type:"scatter", mode:"markers",
+    x:[xs[xs.length-1]], y:[endY],
+    marker:{size:6, color:"#475569", line:{width:1.5, color:"#ffffff"}},
+    hoverinfo:"skip",
+    showlegend:false
+  }], {
+    margin:{l:55, r:70, t:10, b:45},
+    xaxis:{tickformat:"%Y", dtick:"M12", tickfont:{size:11}},
+    yaxis:{title:"Base 100"},
+    annotations: annotations,
+    font:{family:"Trebuchet MS", size:12, color:"#0f172a"},
+    paper_bgcolor:"rgba(0,0,0,0)", plot_bgcolor:"rgba(0,0,0,0)",
+    showlegend:false
+  }, {displayModeBar:false, responsive:true});
+
+  if (noteEl){
+    noteEl.textContent = `Rango: ${fmtDateES(firstDate)} → ${fmtDateES(lastP.date)} · ${series.length} obs · Rent. anualizada: ${Number.isFinite(endCagr) ? (endCagr*100).toFixed(2)+"%" : "n.a."}`;
+  }
+
+  const tblEl = document.getElementById("tblGrowth");
+  if (tblEl) {
+    const bodyRows = rowsPlain.map(r => `<tr><td class="num">${r[0]}</td><td class="num">${Number(r[1]).toFixed(2)}</td><td class="num">${r[2]===""?"":Number(r[2]).toFixed(2)+"%"}</td></tr>`).join("");
+    tblEl.innerHTML = `<table><thead><tr><th class="num">Fecha</th><th class="num">Base 100</th><th class="num">Rent. anualizada desde inicio</th></tr></thead><tbody>${bodyRows}</tbody></table>`;
+  }
+  STATE.tables.growth = { cols:["Date","Base100","AnnualizedReturn_from_start_pct"], rowsPlain };
+}
+
+// Controles del selector de periodo del gráfico Base 100 (screen1)
+(function(){
+  function setLastYears(y){
+    const full = Array.isArray(STATE.growthSeriesFull) ? STATE.growthSeriesFull : [];
+    if (full.length < 2) return;
+    const sdEl = document.getElementById("s1GrowthStart");
+    const edEl = document.getElementById("s1GrowthEnd");
+    if (!sdEl || !edEl) return;
+    const endDate = (edEl.value ? new Date(edEl.value+"T00:00:00Z") : full[full.length-1].date);
+    const s = new Date(Date.UTC(endDate.getUTCFullYear()-y, endDate.getUTCMonth(), endDate.getUTCDate()));
+    const fullStart = full[0].date;
+    const effS = (s < fullStart) ? fullStart : s;
+    sdEl.value = fmtDate(effS);
+    if (!edEl.value) edEl.value = fmtDate(endDate);
+    renderPlotGrowth();
+  }
+  function setMax(){
+    const full = Array.isArray(STATE.growthSeriesFull) ? STATE.growthSeriesFull : [];
+    if (full.length < 2) return;
+    const sdEl = document.getElementById("s1GrowthStart");
+    const edEl = document.getElementById("s1GrowthEnd");
+    if (!sdEl || !edEl) return;
+    sdEl.value = fmtDate(full[0].date);
+    edEl.value = fmtDate(full[full.length-1].date);
+    renderPlotGrowth();
+  }
+  const sdEl = document.getElementById("s1GrowthStart");
+  const edEl = document.getElementById("s1GrowthEnd");
+  if (sdEl) sdEl.addEventListener("change", ()=>{
+    if (edEl && sdEl.value && edEl.value && sdEl.value > edEl.value) edEl.value = sdEl.value;
+    renderPlotGrowth();
+  });
+  if (edEl) edEl.addEventListener("change", ()=>{
+    if (sdEl && sdEl.value && edEl.value && sdEl.value > edEl.value) sdEl.value = edEl.value;
+    renderPlotGrowth();
+  });
+  const q1  = document.getElementById("s1GrowthQ1");
+  const q3  = document.getElementById("s1GrowthQ3");
+  const q5  = document.getElementById("s1GrowthQ5");
+  const q10 = document.getElementById("s1GrowthQ10");
+  const qA  = document.getElementById("s1GrowthQall");
+  if (q1)  q1.addEventListener("click",  ()=>setLastYears(1));
+  if (q3)  q3.addEventListener("click",  ()=>setLastYears(3));
+  if (q5)  q5.addEventListener("click",  ()=>setLastYears(5));
+  if (q10) q10.addEventListener("click", ()=>setLastYears(10));
+  if (qA)  qA.addEventListener("click",  setMax);
+})();
+
 /* ---------- downloads ---------- */
+(function(){
+  const btn = document.getElementById("dlGrowth");
+  if (btn) btn.addEventListener("click", ()=>{ const t=STATE.tables.growth; if(t) downloadCSV("evolucion_base100.csv", toCSV(t.cols,t.rowsPlain)); });
+})();
 document.getElementById("dlYearlyRet").addEventListener("click", ()=>{ const t=STATE.tables.yearlyRet; if(t) downloadCSV("rentabilidad_anual.csv", toCSV(t.cols,t.rowsPlain)); });
 document.getElementById("dlYearlyVol").addEventListener("click", ()=>{ const t=STATE.tables.yearlyVol; if(t) downloadCSV("volatilidad_anual.csv", toCSV(t.cols,t.rowsPlain)); });
 document.getElementById("dlRollRet").addEventListener("click", ()=>{ const t=STATE.tables.rollRet; if(t) downloadCSV("rolling_rentabilidad.csv", toCSV(t.cols,t.rowsPlain)); });
@@ -9338,36 +9529,9 @@ y0.addEventListener("change", ()=>computeAndRender());
       computeAndRender();
     });
 
-    // Insert daily line card after KPI card
-    const kInfo = document.getElementById("kInfo");
-    if (kInfo){
-      const card = kInfo.closest(".card");
-      if (card && !document.getElementById("s1DailyCard")){
-        const div = document.createElement("div");
-        div.className="card";
-        div.id="s1DailyCard";
-        div.innerHTML = `
-          <div class="hd">
-            <span class="pill">Evolución histórica (diaria)</span>
-            <div class="row" style="gap:8px;align-items:center;justify-content:flex-end;">
-              <button class="iconBtn" type="button" id="s1DlCsv">Descargar CSV</button>
-            </div>
-          </div>
-          <div class="bd">
-            <div id="s1DailyLine" style="height:340px;"></div>
-            <div class="note" id="s1DailyNote">—</div>
-          </div>`;
-        card.insertAdjacentElement("afterend", div);
-
-        document.getElementById("s1DlCsv").addEventListener("click", ()=>{
-          const ser = (window.__S1_LAST_DAILY_SERIES || []);
-          if (!ser.length){ setMsg("warn","No hay serie diaria para descargar."); return; }
-          const cols = ["Date","NAV"];
-const rowsPlain = ser.map(p=>[fmtDate(p.date), p.nav]);
-downloadCSV("screen1_daily_series.csv", toCSVSep(cols, rowsPlain, ";", {bom:true}));
-        });
-      }
-    }
+    // Card "Evolución histórica (diaria)" eliminada — redundante con el nuevo gráfico
+    // "Evolución (Base 100)" que está justo debajo de los KPIs y ya tiene selector de
+    // periodo (Desde/Hasta · 1a/3a/5a/10a/Max) + hover con CAGR desde inicio.
   }
 
   function s1YearsFromSeries(series){
@@ -9745,16 +9909,11 @@ downloadCSV("screen1_daily_series.csv", toCSVSep(cols, rowsPlain, ";", {bom:true
           // Run original
           _computeAndRender();
 
-          // Render daily line chart based on filtered daily series
+          // Card "Evolución histórica (diaria)" eliminada — mantenemos solo la asignación
+          // de __S1_LAST_DAILY_SERIES por si algún otro módulo la consume.
           window.__S1_LAST_DAILY_SERIES = STATE.dailySeries || [];
-          s1RenderDailyLine(window.__S1_LAST_DAILY_SERIES);
-          const note = document.getElementById("s1DailyNote");
-          if (note){
-            const a = window.__S1_LAST_DAILY_SERIES;
-            note.innerHTML = a.length ? `Obs: <b>${a.length}</b> · ${fmtDate(a[0].date)} → ${fmtDate(a[a.length-1].date)}` : "—";
-          }
 
-          
+
     // Brokers availability (Tab 1) — only when ISIN is known (repo / Morningstar)
     try{
       const brEl = document.getElementById("s1BrokersRow");
