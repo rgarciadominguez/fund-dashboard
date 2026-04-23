@@ -876,6 +876,7 @@ ES0156572002"></textarea>
 <span class="pill" id="btSumPill">Suma pesos: 0.0%</span>
 <span class="pill" id="btBenchSumPill">Benchmark: —</span>
 <button class="btn" disabled="" id="btCalc">Calcular cartera</button>
+<button class="btn" disabled="" id="btSaveToRepo" title="Guarda la cartera calculada como pseudo-fondo (ISIN sintético C-...) en el repo, para usarla en Comparación o como componente en otro backtest">💾 Guardar al repo</button>
 </div>
 </div>
 <div class="bd">
@@ -2838,6 +2839,7 @@ function pairwiseReturns(fA, fB, horizon){
 
 // ===== Screen 2: comparison & correlation =====
 const CMP = { funds: [], range:null, growthCSV:null };
+window.CMP = CMP; // expose for saved-analyses module (needs window.CMP)
 
 function setCmpMsg(kind, html){
   const el=document.getElementById("cmpMsg");
@@ -3925,6 +3927,7 @@ document.getElementById("cmpDlGrowth").addEventListener("click", ()=>{
 
 // ===== Rolling Corr/Beta charts (Screen2) =====
 const CMPROLL = { a:0, b:1, years:3, _bound:false };
+window.CMPROLL = CMPROLL; // expose for saved-analyses module
 
 function rollMonthKey(d){
   // YYYY-MM (UTC)
@@ -4142,6 +4145,7 @@ const BT = {
   portOverlapDaily: null,            // buy&hold portfolio rebuilt from overlap start (for corr/beta)
   benchOverlapDaily: null,           // benchmark rebuilt from overlap start (for corr/beta)
 };
+window.BT = BT; // expose for saved-analyses module (needs window.BT)
 
 function setBtMsg(kind, html){
   const el=document.getElementById("btMsg");
@@ -6351,6 +6355,7 @@ const DATAPACK = {
 
   cache:new Map(), // cacheKey -> parsed bundle per screen role + output
 };;
+window.DATAPACK = DATAPACK; // expose for saved-analyses module
 
 
 const REPO_CTX = { kind:null, slot:null, isBench:false, inputId:null, screenId:null, role:"fund", output:null };
@@ -11648,8 +11653,28 @@ async function mstDoSearch(){
     getFund:  (isin) => store[isin] || null,
     listIsins: ()   => Object.keys(store),
     getStore:  ()   => store,
-    count:     ()   => Object.keys(store).length
+    count:     ()   => Object.keys(store).length,
+    // Upsert a fund (meta + rows) into the in-memory repo and sync to datapack + Supabase.
+    // Used by "Guardar cartera al repo" (Backtest) to insert synthetic portfolio funds.
+    // Returns a Promise that resolves when the fund is persisted to Supabase.
+    upsertFund: async (isin, fund) => {
+      if (!isin || !fund || !fund.meta || !Array.isArray(fund.rows)) {
+        console.warn("[DP.upsertFund] invalid payload", {isin, fund});
+        return false;
+      }
+      store[isin] = { meta: fund.meta, rows: fund.rows, updatedAt: Date.now() };
+      try { dpUpdateStats(); } catch(_) {}
+      try { dpRenderFundsList && dpRenderFundsList(); } catch(_) {}
+      try { dpSyncToDatapack(); } catch(_) {}
+      // Immediate upsert to Supabase (sbAutoSave is debounced 1.5s — a refresh
+      // before that would lose the fund). Wait for the POST so callers know it's persisted.
+      try {
+        if (typeof sbSaveFund === "function"){ await sbSaveFund(isin); }
+      } catch(e){ console.warn("[DP.upsertFund] sbSaveFund failed", e); }
+      return true;
+    }
   };
+  // (DP.META_OPTS is exposed later, right after DP_META_OPTS is declared.)
 
   // ── UI helpers ──
   const $ = id => document.getElementById(id);
@@ -11716,14 +11741,16 @@ async function mstDoSearch(){
   };
 
   const DP_META_OPTS = {
-    clase:["Limpia","Retail","Institucional","Otro"],
+    clase:["Limpia","Retail","Institucional","Cartera","Otro"],
     categoria:["Indexado","Activo","Smart Beta","Mixto"],
     tipoActivo:["RV","RF MP","RF LP","Mixto","Alternativo","Monetario"],
     geografia:["Global","Europa","USA","España","Asia","Emergentes","Latam"],
     divisa:["Euro","EuroHedge","USD","GBP","JPY","Otra"],
     issuer:["Gubernamental","Corporativa","Mixto","High Yield","Inflación"],
-    clasificacion:["Top","Bueno","Medio","Malo","Clase similar","Clase sucia"]
+    clasificacion:["Top","Bueno","Medio","Malo","Clase similar","Clase sucia","N.A."]
   };
+  // Expose for external modules (e.g. "Guardar cartera al repo") to render the same select lists.
+  if (window.DP) window.DP.META_OPTS = DP_META_OPTS;
 
   function dpMakeSelect(id,opts,current){
     const isCustom = current && !opts.includes(current);
@@ -12759,7 +12786,12 @@ async function mstDoSearch(){
   // ---- captura / aplicación del estado ----
   function captureState(){
     const $ = id => document.getElementById(id);
-    const funds = (window.CMP && window.CMP.funds ? window.CMP.funds : []).map(f => ({
+    // Preferimos CMP.funds (estado final tras calcular), pero si aún no se ha
+    // procesado, caemos a CMP.repoFunds (slots cargados desde 📚 Repo)
+    let fundsSource = (window.CMP && Array.isArray(window.CMP.funds) && window.CMP.funds.length)
+      ? window.CMP.funds
+      : (window.CMP && Array.isArray(window.CMP.repoFunds) ? window.CMP.repoFunds.filter(Boolean) : []);
+    const funds = fundsSource.map(f => ({
       isin: fundIsin(f),
       nombre: f.name || ''
     }));
@@ -13038,7 +13070,13 @@ async function mstDoSearch(){
     const notesEl = document.getElementById('savedAnModalNotes');
     const nombre = (nameEl.value || '').trim();
     if (!nombre){ alert('Pon un nombre al análisis.'); nameEl.focus(); return; }
-    if (!window.CMP || !window.CMP.funds || !window.CMP.funds.length){
+    if (!window.CMP){
+      alert('CMP no inicializado. Recarga la página.');
+      return;
+    }
+    const hasFunds  = Array.isArray(window.CMP.funds)     && window.CMP.funds.length > 0;
+    const hasRepoFn = Array.isArray(window.CMP.repoFunds) && window.CMP.repoFunds.some(Boolean);
+    if (!hasFunds && !hasRepoFn){
       alert('No hay fondos cargados. Carga fondos en la tab Comparación antes de guardar.');
       return;
     }
@@ -13755,6 +13793,398 @@ async function mstDoSearch(){
     document.addEventListener('DOMContentLoaded', () => setTimeout(wire, 400));
   } else {
     setTimeout(wire, 400);
+  }
+})();
+
+/* =========================================================================
+   MEJORA 2 · Guardar cartera del Backtest al repo como pseudo-fondo
+   ========================================================================= */
+(function(){
+  "use strict";
+
+  // ---------- Utilidades ----------
+  function slugify(s){
+    return String(s||"").toLowerCase()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 40) || "cartera";
+  }
+  function esc(s){ return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+  function fmtDateISO(d){
+    try { return new Date(d).toISOString().slice(0,10); } catch(_){ return ""; }
+  }
+  function fmtDateES(d){
+    try {
+      const x = new Date(d);
+      return ("0"+x.getUTCDate()).slice(-2)+"/"+("0"+(x.getUTCMonth()+1)).slice(-2)+"/"+x.getUTCFullYear();
+    } catch(_){ return ""; }
+  }
+  // Toast genérico — reutiliza notify si existe; si no, fallback a alert breve.
+  function notifyOk(msg){
+    try { if (typeof notify === "function") return notify("ok", msg); } catch(_){}
+    // fallback silencioso (mensaje breve)
+    const el = document.getElementById("btStatus");
+    if (el){ el.textContent = msg.replace(/<[^>]+>/g,""); }
+  }
+  function notifyWarn(msg){
+    try { if (typeof notify === "function") return notify("warn", msg); } catch(_){}
+    alert(msg.replace(/<[^>]+>/g,""));
+  }
+
+  // ---------- Habilitar/deshabilitar el botón ----------
+  function isPortReady(){
+    return !!(window.BT && Array.isArray(window.BT.portDaily) && window.BT.portDaily.length >= 2);
+  }
+  function refreshButtonState(){
+    const btn = document.getElementById("btSaveToRepo");
+    if (!btn) return;
+    btn.disabled = !isPortReady();
+  }
+
+  // ---------- Captura de la cartera actual ----------
+  function captureActivePortfolio(){
+    const BT = window.BT;
+    if (!BT) return null;
+    const funds = Array.isArray(BT.funds) ? BT.funds : [];
+    const weights = Array.isArray(BT.weights) ? BT.weights : [];
+    const composicion = [];
+    for (let i=0; i<funds.length; i++){
+      const f = funds[i];
+      const w = Number(weights[i]||0);
+      if (!f || !w) continue;
+      const isin = (f.meta && f.meta.isin) || f.isin || null;
+      composicion.push({
+        isin: isin || null,
+        nombre: f.name || f.fileName || "(sin nombre)",
+        peso: w
+      });
+    }
+    return {
+      composicion,
+      rebalMode: BT.rebalMode || "none",
+      bandX: BT.bandX != null ? BT.bandX : null,
+      portDaily: BT.portDaily || []
+    };
+  }
+
+  // Devuelve una divisa si todos los componentes comparten la misma, si no "".
+  function guessCurrency(composicion){
+    const BT = window.BT;
+    if (!BT) return "";
+    const currs = new Set();
+    for (const c of composicion){
+      const f = (BT.funds||[]).find(x => x && x.meta && x.meta.isin === c.isin);
+      const cur = f && f.meta && (f.meta.currency || f.meta.divisa);
+      if (cur) currs.add(String(cur).toUpperCase());
+    }
+    return currs.size === 1 ? [...currs][0] : "";
+  }
+
+  // ---------- Helpers para los selects de metadata (réplica del patrón dpMakeSelect) ----------
+  // Cada select se acompaña de un input "Nueva opción..." que aparece si el usuario
+  // elige "__new__". Devuelve el valor final leyendo getSelectVal(id).
+  function buildSelect(id, opts, current){
+    const safe = (s)=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+    const isCustom = current && !opts.includes(current);
+    return `<select id="${id}_sel" data-brepo-sel="1" style="flex:1;padding:6px 8px;border:1px solid #cbd5e1;border-radius:8px;font-size:12px;background:#fff">
+      <option value="">— sin especificar —</option>
+      ${opts.map(o=>`<option value="${safe(o)}" ${o===current?'selected':''}>${safe(o)}</option>`).join('')}
+      <option value="__new__" ${isCustom?'selected':''}>Nueva opción...</option>
+    </select>
+    <input id="${id}_inp" type="text" placeholder="Escribe nueva opción" value="${isCustom?safe(current):''}"
+      style="display:${isCustom?'block':'none'};flex:1;padding:6px 8px;border:1px solid #7c3aed;border-radius:8px;font-size:12px"/>`;
+  }
+  function getSelectVal(id){
+    const sel = document.getElementById(id+"_sel");
+    const inp = document.getElementById(id+"_inp");
+    if (!sel) return "";
+    return sel.value === "__new__" ? (inp?.value||"").trim() : sel.value;
+  }
+  // Handler genérico para mostrar/ocultar el input de "nueva opción" cuando
+  // el usuario cambia el select. Se delega a nivel de modal para no recargar listeners.
+  function onSelectChange(ev){
+    const t = ev.target;
+    if (!t || t.tagName !== "SELECT" || t.dataset.brepoSel !== "1") return;
+    const id = t.id.replace(/_sel$/, "");
+    const inp = document.getElementById(id+"_inp");
+    if (!inp) return;
+    inp.style.display = t.value === "__new__" ? "block" : "none";
+    if (t.value !== "__new__") inp.value = "";
+  }
+
+  // ---------- Modal ----------
+  function ensureModal(){
+    if (document.getElementById("btRepoSaveModalOverlay")) return;
+    const opts = (window.DP && window.DP.META_OPTS) || {};
+    const row = (label, selHtml) => `
+      <div style="margin-bottom:10px;">
+        <label style="display:block;font-size:11px;color:#64748b;margin-bottom:4px;font-weight:600">${label}</label>
+        <div style="display:flex;gap:6px">${selHtml}</div>
+      </div>`;
+    const html = `
+    <div id="btRepoSaveModalOverlay" class="savedAnModalOverlay">
+      <div class="savedAnModal" role="dialog" aria-modal="true" aria-labelledby="btRepoSaveModalTitle" style="max-width:560px;">
+        <div class="savedAnModalHeader">
+          <span id="btRepoSaveModalTitle">Guardar cartera al repo</span>
+          <button type="button" class="savedAnModalClose" id="btRepoSaveModalCloseBtn" aria-label="Cerrar">✕</button>
+        </div>
+        <div class="savedAnModalBody">
+          <label for="btRepoSaveName">Nombre de la cartera</label>
+          <input type="text" id="btRepoSaveName" placeholder="Ej: 60/40 Mixta Conservadora" autocomplete="off" />
+          <div id="btRepoSaveIsinPreview" style="font-size:11px;color:#666;margin-top:-8px;margin-bottom:10px;"></div>
+
+          <div style="border-top:1px solid #e5e7eb;margin:8px 0 10px;padding-top:8px;">
+            <div style="font-size:11px;color:#64748b;margin-bottom:6px;font-weight:700;letter-spacing:.02em;">CLASIFICACIÓN (igual que cualquier fondo del repo)</div>
+            ${row("Clase",              buildSelect("brepo_clase",   opts.clase||[],         "Cartera"))}
+            ${row("Categoría",          buildSelect("brepo_cat",     opts.categoria||[],     ""))}
+            ${row("Tipo activo",        buildSelect("brepo_tipo",    opts.tipoActivo||[],    "Mixto"))}
+            ${row("Geografía",          buildSelect("brepo_geo",     opts.geografia||[],     ""))}
+            ${row("Divisa",             buildSelect("brepo_div",     opts.divisa||[],        "Euro"))}
+            ${row("Subcategoría/Issuer",buildSelect("brepo_issuer",  opts.issuer||[],        ""))}
+            ${row("Clasificación",      buildSelect("brepo_clasif",  opts.clasificacion||[], "N.A."))}
+          </div>
+
+          <label for="brepo_opinion">Opinión (texto libre)</label>
+          <input type="text" id="brepo_opinion" placeholder="Ej: para clientes con perfil 50 que..." />
+
+          <label for="btRepoSaveNotes">Notas internas (opcional)</label>
+          <textarea id="btRepoSaveNotes" rows="2" placeholder="Contexto libre — propuesta cliente X, motivo de creación, etc."></textarea>
+
+          <div id="btRepoSaveSummary" style="font-size:12px;color:#444;margin-top:10px;padding:8px 10px;background:#f6f8fb;border-radius:8px;"></div>
+
+          <div id="btRepoSaveWarning" style="display:none;font-size:12px;color:#a15c00;margin-top:8px;padding:8px 10px;background:#fff3cd;border-radius:8px;"></div>
+        </div>
+        <div class="savedAnModalFooter">
+          <button type="button" class="iconBtn" id="btRepoSaveCancel">Cancelar</button>
+          <button type="button" class="btn" id="btRepoSaveConfirm">Guardar al repo</button>
+        </div>
+      </div>
+    </div>`;
+    const wrapper = document.createElement("div");
+    wrapper.innerHTML = html;
+    const node = wrapper.firstElementChild;
+    document.body.appendChild(node);
+    // Listener delegado para los selects "nueva opción"
+    node.addEventListener("change", onSelectChange);
+  }
+
+  function openModal(snap){
+    ensureModal();
+    const ov       = document.getElementById("btRepoSaveModalOverlay");
+    const nameEl   = document.getElementById("btRepoSaveName");
+    const notesEl  = document.getElementById("btRepoSaveNotes");
+    const opinEl   = document.getElementById("brepo_opinion");
+    const isinPrev = document.getElementById("btRepoSaveIsinPreview");
+    const summary  = document.getElementById("btRepoSaveSummary");
+    const warnEl   = document.getElementById("btRepoSaveWarning");
+
+    nameEl.value = "";
+    notesEl.value = "";
+    if (opinEl) opinEl.value = "";
+    isinPrev.textContent = "ISIN sintético: C-<slug>";
+    warnEl.style.display = "none";
+    warnEl.textContent = "";
+
+    // Resetear selects a sus defaults razonables. La divisa se auto-rellena
+    // con la detectada de los componentes (si todos coinciden) o Euro.
+    const guessed = guessCurrency(snap.composicion);
+    const setSel = (id, val) => {
+      const sel = document.getElementById(id+"_sel");
+      const inp = document.getElementById(id+"_inp");
+      if (!sel) return;
+      // Intenta seleccionar el valor; si no existe entre las opciones estándar, queda en blanco.
+      let found = false;
+      for (const opt of sel.options){
+        if (opt.value === val){ sel.value = val; found = true; break; }
+      }
+      if (!found){ sel.value = ""; }
+      if (inp) inp.style.display = "none";
+      if (inp) inp.value = "";
+    };
+    setSel("brepo_clase",  "Cartera");
+    setSel("brepo_cat",    "");
+    setSel("brepo_tipo",   "Mixto");
+    setSel("brepo_geo",    "");
+    setSel("brepo_div",    guessed === "EUR" || guessed === "EURO" ? "Euro" : (guessed || "Euro"));
+    setSel("brepo_issuer", "");
+    setSel("brepo_clasif", "N.A.");
+
+    const firstD = snap.portDaily[0] && snap.portDaily[0].date;
+    const lastD  = snap.portDaily[snap.portDaily.length-1] && snap.portDaily[snap.portDaily.length-1].date;
+    const nComp  = snap.composicion.length;
+    const sumW   = snap.composicion.reduce((s,c)=>s+Number(c.peso||0),0);
+    const noIsinCount = snap.composicion.filter(c=>!c.isin).length;
+
+    summary.innerHTML = `
+      <b>Resumen</b><br>
+      Componentes: ${nComp} (suma pesos ${sumW.toFixed(2)}%)<br>
+      Periodo de la serie: ${firstD?fmtDateES(firstD):"—"} → ${lastD?fmtDateES(lastD):"—"} (${snap.portDaily.length} obs. diarias)<br>
+      Rebal: <code>${esc(snap.rebalMode)}</code>${snap.bandX!=null?` · banda ${snap.bandX}%`:""}`;
+
+    if (noIsinCount){
+      warnEl.style.display = "block";
+      warnEl.innerHTML = `⚠ ${noIsinCount} componente(s) no vienen del repositorio (CSV manual). Se guardará la serie de la cartera, pero la composición no tendrá ISIN para esos fondos.`;
+    }
+
+    // Live preview of synthetic ISIN as user types the name
+    nameEl.oninput = () => {
+      const name = nameEl.value.trim();
+      isinPrev.textContent = name ? `ISIN sintético: C-${slugify(name)}` : "ISIN sintético: C-<slug>";
+    };
+
+    ov.classList.add("open");
+    setTimeout(()=>{ try{ nameEl.focus(); }catch(_){} }, 10);
+  }
+
+  function closeModal(){
+    const ov = document.getElementById("btRepoSaveModalOverlay");
+    if (ov) ov.classList.remove("open");
+  }
+
+  // ---------- Guardado ----------
+  async function doSaveToRepo(snap){
+    const nameEl  = document.getElementById("btRepoSaveName");
+    const notesEl = document.getElementById("btRepoSaveNotes");
+    const opinEl  = document.getElementById("brepo_opinion");
+    const confirmBtn = document.getElementById("btRepoSaveConfirm");
+    const nombre  = (nameEl.value || "").trim();
+    if (!nombre){ alert("Pon un nombre a la cartera."); nameEl.focus(); return; }
+
+    // Recoge campos de clasificación
+    const clase         = getSelectVal("brepo_clase");
+    const categoria     = getSelectVal("brepo_cat");
+    const tipoActivo    = getSelectVal("brepo_tipo");
+    const geografia     = getSelectVal("brepo_geo");
+    const divisa        = getSelectVal("brepo_div");
+    const issuer        = getSelectVal("brepo_issuer");
+    const clasificacion = getSelectVal("brepo_clasif");
+    const opinion       = (opinEl?.value || "").trim();
+
+    // Obligamos clasificación para evitar que se guarde sin clasificar.
+    if (!clasificacion){
+      alert('La "Clasificación" es obligatoria para no dejar el fondo sin clasificar. Elige una opción (Top/Bueno/Medio/Malo/...).');
+      const sel = document.getElementById("brepo_clasif_sel");
+      if (sel) sel.focus();
+      return;
+    }
+
+    const isin = "C-" + slugify(nombre);
+    const notas = (notesEl.value || "").trim();
+
+    // Colisión: confirmar sobreescribir
+    const dp = window.DP;
+    if (!dp || typeof dp.upsertFund !== "function"){
+      alert("El módulo del repo (window.DP.upsertFund) no está disponible. Recarga la página.");
+      return;
+    }
+    if (dp.hasFund(isin)){
+      if (!confirm(`Ya existe un fondo con ISIN "${isin}" en el repo. ¿Sobreescribir?`)) return;
+    }
+
+    const rows = snap.portDaily
+      .map(p => ({ date: fmtDateISO(p.date), value: Number(p.nav) }))
+      .filter(r => r.date && Number.isFinite(r.value) && r.value > 0);
+
+    if (rows.length < 2){
+      alert("La serie de la cartera no tiene datos suficientes para guardar.");
+      return;
+    }
+
+    // Meta con el mismo shape que cualquier fondo del repo (compat con dpEditFund,
+    // dpSyncToDatapack, repoBuildStacked, etc.) + campos extra específicos de cartera.
+    const meta = {
+      name: nombre,
+      isin,
+      // Campos estándar de clasificación (mismos que dpEditFund)
+      clase,
+      categoria,
+      tipoActivo,
+      geografia,
+      divisa,
+      issuer,
+      clasificacion,
+      opinion,
+      // Compat: algunos módulos leen meta.currency / meta.category / ...
+      currency:  divisa || "",
+      category:  categoria || "",
+      assetType: tipoActivo || "",
+      geography: geografia || "",
+      className: clase || "",
+      // Campos específicos de cartera (para auditoría + futura regeneración)
+      notas,
+      composicion: snap.composicion,          // [{isin, nombre, peso}]
+      origen: {
+        tipo: "backtest-portfolio",
+        rebalMode: snap.rebalMode,
+        bandX: snap.bandX,
+        fecha_guardado: new Date().toISOString()
+      }
+    };
+
+    // Feedback visual durante el POST a Supabase (upsertFund es async ahora)
+    if (confirmBtn){ confirmBtn.disabled = true; confirmBtn.textContent = "Guardando…"; }
+    try{
+      const ok = await dp.upsertFund(isin, { meta, rows });
+      if (!ok){
+        alert("No se pudo guardar la cartera. Revisa la consola.");
+        return;
+      }
+      closeModal();
+      notifyOk(`Cartera <b>${esc(nombre)}</b> guardada en el repo como <code>${esc(isin)}</code> (${rows.length} obs.) · clasificación: <b>${esc(clasificacion)}</b>. Ya disponible en 📚 Repo y persistida en la nube.`);
+    } catch(e){
+      console.error("[btSaveToRepo] error", e);
+      alert("Error al guardar la cartera: " + (e && e.message || e));
+    } finally {
+      if (confirmBtn){ confirmBtn.disabled = false; confirmBtn.textContent = "Guardar al repo"; }
+    }
+  }
+
+  // ---------- Wire-up ----------
+  function wire(){
+    const btn = document.getElementById("btSaveToRepo");
+    if (btn){
+      btn.addEventListener("click", () => {
+        if (!isPortReady()){
+          alert('Primero pulsa "Calcular cartera" para generar la serie.');
+          return;
+        }
+        const snap = captureActivePortfolio();
+        if (!snap || !snap.composicion.length){
+          alert("La cartera actual no tiene componentes con peso > 0.");
+          return;
+        }
+        openModal(snap);
+      });
+    }
+
+    // Delegación para los botones del modal (se crea dinámicamente)
+    document.addEventListener("click", (ev) => {
+      const t = ev.target;
+      if (!t || !t.id) return;
+      if (t.id === "btRepoSaveCancel" || t.id === "btRepoSaveModalCloseBtn"){
+        closeModal();
+      } else if (t.id === "btRepoSaveConfirm"){
+        const snap = captureActivePortfolio();
+        if (!snap){ closeModal(); return; }
+        doSaveToRepo(snap);
+      } else if (t.id === "btRepoSaveModalOverlay"){
+        // click en el overlay (fuera del modal) cierra
+        closeModal();
+      }
+    });
+
+    // Refresca el estado del botón cada vez que el usuario interactúa
+    // (evita tener que hookear btRun directamente — el polling es barato)
+    setInterval(refreshButtonState, 500);
+
+    refreshButtonState();
+  }
+
+  if (document.readyState === "loading"){
+    document.addEventListener("DOMContentLoaded", () => setTimeout(wire, 500));
+  } else {
+    setTimeout(wire, 500);
   }
 })();
 </script></div></div></body></html>
