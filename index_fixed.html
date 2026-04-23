@@ -211,6 +211,27 @@
 #btAdvBody input[type="file"],#btBenchAdvBody input[type="file"]{display:none!important}
 #cmpAdvBody,#btAdvBody{display:block!important;padding:4px 0!important;background:none!important;border:none!important}
 </style>
+<style>
+/* ===== Mejora 1: saved analyses (Comparación) ===== */
+#savedAnCard .hd{ display:flex; justify-content:space-between; align-items:center; }
+#savedAnCloudStatus{ font-size:11px; cursor:help; }
+#savedAnCard .row.savedAnRow{ gap:8px; align-items:center; flex-wrap:wrap; }
+#savedAnCard select#savedAnSelect{ flex:1; min-width:260px; padding:8px 10px; border-radius:12px; border:1px solid var(--border); background:#fff; color:var(--text); font-size:13px; }
+#savedAnNotes{ display:none; margin-top:10px; padding:8px 12px; background:#f8fafc; border-left:3px solid var(--accent); border-radius:6px; font-size:13px; line-height:1.45; white-space:pre-wrap; }
+#savedAnHelp{ margin-top:8px; font-size:11px; color:var(--muted); }
+.savedAnModalOverlay{ display:none; position:fixed; inset:0; background:rgba(15,23,42,.5); z-index:9999; align-items:center; justify-content:center; padding:20px; }
+.savedAnModalOverlay.open{ display:flex; }
+.savedAnModal{ background:#fff; border-radius:14px; max-width:520px; width:100%; max-height:90vh; display:flex; flex-direction:column; box-shadow:0 20px 60px rgba(0,0,0,.3); }
+.savedAnModalHeader{ display:flex; justify-content:space-between; align-items:center; padding:14px 18px; border-bottom:1px solid var(--border); font-weight:700; font-size:15px; }
+.savedAnModalBody{ padding:16px 18px; overflow:auto; flex:1; }
+.savedAnModalBody label{ display:block; margin-bottom:4px; font-weight:600; font-size:12px; color:var(--text); }
+.savedAnModalBody input[type="text"], .savedAnModalBody textarea{ width:100%; padding:8px 10px; border-radius:8px; border:1px solid var(--border); box-sizing:border-box; font-family:inherit; font-size:13px; }
+.savedAnModalBody input[type="text"]{ margin-bottom:12px; }
+.savedAnModalBody textarea{ resize:vertical; min-height:90px; }
+.savedAnModalBody input[type="text"]:focus, .savedAnModalBody textarea:focus{ outline:2px solid var(--accent); outline-offset:-1px; }
+.savedAnModalFooter{ display:flex; justify-content:flex-end; gap:8px; padding:12px 18px; border-top:1px solid var(--border); }
+.savedAnModalClose{ border:none; background:none; font-size:18px; cursor:pointer; color:var(--muted); }
+</style>
 </head>
 <body>
 <header style="position:relative">
@@ -580,6 +601,53 @@ ES0156572002"></textarea>
 <div class="wrap">
 <h2 style="margin:0 0 6px 0;">Comparación de fondos y correlación</h2>
 <p class="sub">Sube hasta 10 fondos de Investing. Verás comparativa anual, crecimiento en base 100 desde inicio común y matrices R²/beta con ventana común.</p>
+
+<!-- ===== Mejora 1: Panel de análisis guardados ===== -->
+<div class="card" id="savedAnCard" style="margin-bottom:14px;">
+  <div class="hd">
+    <span class="pill">💾 Análisis guardados</span>
+    <span class="pill" id="savedAnCloudStatus" title="Estado de sincronización con Supabase">☁️ …</span>
+  </div>
+  <div class="bd">
+    <div class="row savedAnRow">
+      <select id="savedAnSelect">
+        <option value="">— selecciona un análisis —</option>
+      </select>
+      <button class="iconBtn" id="savedAnLoad" title="Cargar el análisis seleccionado">Cargar</button>
+      <button class="iconBtn" id="savedAnSaveNew" title="Guardar el estado actual como análisis nuevo">💾 Guardar actual</button>
+      <button class="iconBtn" id="savedAnSaveOver" title="Sobreescribir el análisis seleccionado con el estado actual">↻ Sobreescribir</button>
+      <button class="iconBtn" id="savedAnDelete" title="Eliminar el análisis seleccionado">🗑️</button>
+      <button class="iconBtn" id="savedAnExport" title="Descargar como JSON (uno si hay seleccionado, o todos)">⬇ Exportar</button>
+      <button class="iconBtn" id="savedAnImport" title="Importar análisis desde un fichero JSON">⬆ Importar</button>
+      <input type="file" id="savedAnImportFile" accept=".json,application/json" style="display:none;">
+    </div>
+    <div id="savedAnNotes"></div>
+    <div id="savedAnHelp">
+      Guarda la combinación actual de fondos + periodo + configuración para volver a enseñársela a un cliente con un clic. Requiere fondos cargados desde el repositorio (📚 Repo), no CSVs manuales.
+    </div>
+  </div>
+</div>
+
+<!-- Modal para nombre + notas -->
+<div id="savedAnModalOverlay" class="savedAnModalOverlay">
+  <div class="savedAnModal" role="dialog" aria-modal="true" aria-labelledby="savedAnModalTitle">
+    <div class="savedAnModalHeader">
+      <span id="savedAnModalTitle">Guardar análisis</span>
+      <button type="button" class="savedAnModalClose" id="savedAnModalCloseBtn" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="savedAnModalBody">
+      <label for="savedAnModalName">Nombre</label>
+      <input type="text" id="savedAnModalName" placeholder="Ej: RV global value vs growth — cliente X">
+      <label for="savedAnModalNotes">Notas (opcional)</label>
+      <textarea id="savedAnModalNotes" rows="5" placeholder="Para qué sirve este análisis, con quién usarlo, qué observaciones…"></textarea>
+    </div>
+    <div class="savedAnModalFooter">
+      <button type="button" class="iconBtn" id="savedAnModalCancel">Cancelar</button>
+      <button type="button" class="btn" id="savedAnModalSave" style="width:auto; padding:8px 16px;">Guardar</button>
+    </div>
+  </div>
+</div>
+
 <div class="grid">
 <div class="card">
 <div class="hd"><span class="pill">Entrada</span><span class="pill" id="cmpStatus">Sin datos</span></div>
@@ -12597,5 +12665,496 @@ async function mstDoSearch(){
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",dpInit);
   else dpInit();
 
+})();
+
+/* ===== Mejora 1: Saved Analyses (Comparación) =====
+   Guarda/carga estado completo de la tab Comparación:
+   - Fondos (por ISIN, recargados desde DATAPACK)
+   - Periodo, mini-mode, matrices (years/agg), rolling, horizon, freq
+   - Notas libres
+   Persistencia: localStorage + tabla Supabase `analyses` (merge por id, más reciente gana).
+*/
+(function(){
+  const LS_KEY = 'fundDashboard.savedAnalyses.v1';
+  const ANALYSIS_TYPE = 'comparacion';
+  const SUPA_URL_BASE = 'https://dcnvdaaexyuhqvyrrkob.supabase.co';
+  const SUPA_KEY_FALLBACK = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRjbnZkYWFleHl1aHF2eXJya29iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxOTQ1MDUsImV4cCI6MjA4OTc3MDUwNX0.MXp-zIRWIMfKfprSbzvIe3Z52o4swdNW2RK77SZHL-o';
+
+  function supaUrl(path){ return (window.SB_URL || SUPA_URL_BASE) + path; }
+  function supaHeaders(extra){
+    const key = window.SB_KEY || SUPA_KEY_FALLBACK;
+    return Object.assign({
+      'apikey': key,
+      'Authorization': 'Bearer ' + key,
+      'Content-Type': 'application/json',
+      'Prefer': 'resolution=merge-duplicates,return=representation'
+    }, extra || {});
+  }
+
+  // ---- utilidades ----
+  function esc(s){
+    return String(s||'').replace(/[&<>"']/g, c=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;" }[c]));
+  }
+  function slugify(s){
+    return (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,30);
+  }
+  function fundIsin(f){
+    if (!f) return '';
+    if (f.meta && f.meta.isin) return f.meta.isin;
+    if (f.fileName && f.fileName.indexOf('repo:')===0) return f.fileName.slice(5);
+    return '';
+  }
+  function notify(kind, html){
+    if (typeof setCmpMsg === 'function'){ try{ setCmpMsg(kind, html); return; }catch(_){ } }
+    console.log('[SavedAnalyses]', kind, html);
+  }
+
+  // ---- captura / aplicación del estado ----
+  function captureState(){
+    const $ = id => document.getElementById(id);
+    const funds = (window.CMP && window.CMP.funds ? window.CMP.funds : []).map(f => ({
+      isin: fundIsin(f),
+      nombre: f.name || ''
+    }));
+    const rollA = (window.CMPROLL && typeof window.CMPROLL.a === 'number') ? window.CMPROLL.a : 0;
+    const rollB = (window.CMPROLL && typeof window.CMPROLL.b === 'number') ? window.CMPROLL.b : 1;
+    return {
+      funds,
+      settings: {
+        startDate: ($('cmpStartDate')||{}).value || '',
+        endDate:   ($('cmpEndDate')||{}).value || '',
+        cmpMiniMode: ($('cmpMiniMode')||{}).value || 'bars7',
+        matYears: ($('cmpMatYears')||{}).value || '3',
+        matAgg:   ($('cmpMatAgg')||{}).value || 'trailing',
+        matStart: ($('cmpMatStart')||{}).value || '',
+        matEnd:   ($('cmpMatEnd')||{}).value || '',
+        rollingA: rollA,
+        rollingB: rollB,
+        cmpHorizon: ($('cmpHorizon')||{}).value || '3',
+        cmpFreq:    ($('cmpFreq')||{}).value || 'daily'
+      }
+    };
+  }
+
+  async function applyState(analysis){
+    const data = analysis.data || { funds: analysis.funds, settings: analysis.settings };
+    const funds = data.funds || [];
+    const settings = data.settings || {};
+
+    if (!window.DATAPACK || !window.DATAPACK.loaded){
+      alert('Primero carga el datapack del repositorio desde la pestaña Fondo.');
+      return false;
+    }
+    if (typeof repoParsedForFund !== 'function'){
+      alert('La función interna repoParsedForFund no está disponible. Recarga la página.');
+      return false;
+    }
+    if (!window.CMP){ alert('CMP no inicializado.'); return false; }
+
+    window.CMP.repoFunds = Array(10).fill(null);
+    const missing = [];
+
+    for (let i=0; i<funds.length && i<10; i++){
+      const isin = funds[i].isin;
+      if (!isin){ missing.push(funds[i].nombre || '(sin ISIN)'); continue; }
+      const dpFund = (window.DATAPACK.funds||[]).find(f => f.isin === isin);
+      if (!dpFund){ missing.push(funds[i].nombre || isin); continue; }
+      try{
+        const parsed = await repoParsedForFund(dpFund, 'screen2', 'fund');
+        parsed.meta = parsed.meta || {};
+        parsed.meta.isin = isin;
+        window.CMP.repoFunds[i] = parsed;
+      }catch(e){
+        console.warn('[SavedAnalyses] load fail', isin, e);
+        missing.push(funds[i].nombre || isin);
+      }
+    }
+
+    // Limpia los inputs de fichero (los slots repo mandan)
+    for (let i=1; i<=10; i++){
+      const fi = document.getElementById('cmpFile'+i);
+      if (fi) { try{ fi.value = ''; }catch(_){ } }
+    }
+
+    if (typeof cmpHandleInputs !== 'function'){
+      alert('cmpHandleInputs no disponible. Recarga la página.');
+      return false;
+    }
+    await cmpHandleInputs();
+
+    // Aplica settings tras un pequeño delay para que los renders hayan corrido
+    setTimeout(() => {
+      const $ = id => document.getElementById(id);
+      const fireChange = el => { try{ el.dispatchEvent(new Event('change', {bubbles:true})); }catch(_){ } };
+      function setVal(id, v){
+        if (v === undefined || v === null || v === '') return;
+        const el = $(id); if (!el) return;
+        if (el.value !== v){ el.value = v; fireChange(el); }
+      }
+      setVal('cmpStartDate', settings.startDate);
+      setVal('cmpEndDate',   settings.endDate);
+      setVal('cmpMiniMode',  settings.cmpMiniMode);
+      setVal('cmpMatYears',  settings.matYears);
+      setVal('cmpMatAgg',    settings.matAgg);
+      setVal('cmpMatStart',  settings.matStart);
+      setVal('cmpMatEnd',    settings.matEnd);
+      setVal('cmpHorizon',   settings.cmpHorizon);
+      setVal('cmpFreq',      settings.cmpFreq);
+      // rolling
+      if (window.CMPROLL && window.CMP && window.CMP.funds){
+        const n = window.CMP.funds.length;
+        window.CMPROLL.a = Math.max(0, Math.min(settings.rollingA ?? 0, n-1));
+        window.CMPROLL.b = Math.max(0, Math.min(settings.rollingB ?? 1, n-1));
+        const rA = $('cmpRollA'), rB = $('cmpRollB');
+        if (rA) rA.selectedIndex = window.CMPROLL.a;
+        if (rB) rB.selectedIndex = window.CMPROLL.b;
+        if (typeof cmpRenderRollingCharts === 'function') cmpRenderRollingCharts();
+      }
+    }, 150);
+
+    if (missing.length){
+      notify('warn', `Análisis cargado, pero estos fondos no están en el repositorio actual: <b>${esc(missing.join(', '))}</b>.`);
+    } else {
+      notify('ok', `Análisis <b>${esc(analysis.nombre)}</b> cargado (${funds.length} fondos).`);
+    }
+    return true;
+  }
+
+  // ---- localStorage ----
+  function lsGetAll(){
+    try{ return JSON.parse(localStorage.getItem(LS_KEY) || '[]'); }
+    catch(e){ console.warn('[SavedAnalyses] lsGetAll', e); return []; }
+  }
+  function lsSetAll(arr){
+    try{ localStorage.setItem(LS_KEY, JSON.stringify(arr)); }
+    catch(e){ console.warn('[SavedAnalyses] lsSetAll', e); }
+  }
+  function lsUpsert(a){
+    const arr = lsGetAll();
+    const i = arr.findIndex(x => x.id === a.id);
+    if (i >= 0) arr[i] = a; else arr.unshift(a);
+    lsSetAll(arr);
+  }
+  function lsDelete(id){
+    lsSetAll(lsGetAll().filter(x => x.id !== id));
+  }
+
+  // ---- Supabase ----
+  let cloudStatus = 'unknown';
+  async function supaList(){
+    try{
+      const url = supaUrl('/rest/v1/analyses?tipo=eq.' + encodeURIComponent(ANALYSIS_TYPE) + '&select=*&order=fecha_guardado.desc&limit=200');
+      const res = await fetch(url, { headers: supaHeaders(), credentials:'omit' });
+      if (!res.ok) throw new Error('status ' + res.status);
+      const rows = await res.json();
+      cloudStatus = 'ok';
+      return (rows||[]).map(r => ({
+        id: r.id,
+        nombre: r.nombre,
+        tipo: r.tipo || ANALYSIS_TYPE,
+        fecha_guardado: r.fecha_guardado,
+        fecha_modificacion: r.updated_at || r.fecha_guardado,
+        notas: r.notas || '',
+        data: r.data || {}
+      }));
+    }catch(e){
+      console.warn('[SavedAnalyses] supaList', e);
+      cloudStatus = 'offline';
+      return [];
+    }
+  }
+  async function supaUpsert(a){
+    try{
+      const body = {
+        id: a.id,
+        nombre: a.nombre,
+        tipo: a.tipo || ANALYSIS_TYPE,
+        fecha_guardado: a.fecha_guardado,
+        notas: a.notas || '',
+        data: { funds: a.funds || (a.data||{}).funds || [], settings: a.settings || (a.data||{}).settings || {} },
+        updated_at: new Date().toISOString()
+      };
+      const res = await fetch(supaUrl('/rest/v1/analyses'), {
+        method: 'POST',
+        headers: supaHeaders(),
+        credentials:'omit',
+        body: JSON.stringify(body)
+      });
+      if (!res.ok) throw new Error('status ' + res.status);
+      cloudStatus = 'ok';
+      return true;
+    }catch(e){
+      console.warn('[SavedAnalyses] supaUpsert', e);
+      cloudStatus = 'offline';
+      return false;
+    }
+  }
+  async function supaDelete(id){
+    try{
+      const res = await fetch(supaUrl('/rest/v1/analyses?id=eq.' + encodeURIComponent(id)), {
+        method: 'DELETE', headers: supaHeaders(), credentials:'omit'
+      });
+      if (!res.ok) throw new Error('status ' + res.status);
+      return true;
+    }catch(e){ console.warn('[SavedAnalyses] supaDelete', e); return false; }
+  }
+
+  // ---- merge + render ----
+  let cached = [];
+  async function refresh(){
+    const local = lsGetAll();
+    const supa = await supaList();
+    const byId = {};
+    [...local, ...supa].forEach(a => {
+      const cur = byId[a.id];
+      if (!cur){ byId[a.id] = a; return; }
+      const tCur = cur.fecha_modificacion || cur.fecha_guardado || '';
+      const tNew = a.fecha_modificacion || a.fecha_guardado || '';
+      if (tNew > tCur) byId[a.id] = a;
+    });
+    cached = Object.values(byId).sort((a,b) =>
+      (b.fecha_guardado || '').localeCompare(a.fecha_guardado || '')
+    );
+    renderDropdown();
+    renderCloudStatus();
+  }
+
+  function renderDropdown(){
+    const sel = document.getElementById('savedAnSelect');
+    if (!sel) return;
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">— selecciona un análisis —</option>';
+    cached.forEach(a => {
+      const opt = document.createElement('option');
+      opt.value = a.id;
+      const d = a.fecha_guardado ? ' · ' + new Date(a.fecha_guardado).toLocaleDateString('es-ES') : '';
+      const nf = (a.data && a.data.funds) ? a.data.funds.length : (a.funds ? a.funds.length : 0);
+      opt.textContent = `${a.nombre} (${nf} fondos)${d}`;
+      sel.appendChild(opt);
+    });
+    sel.value = cur;
+    updateNotes();
+  }
+  function renderCloudStatus(){
+    const el = document.getElementById('savedAnCloudStatus');
+    if (!el) return;
+    if (cloudStatus === 'ok'){ el.textContent = '☁️ sync'; el.style.background = '#ecfdf5'; el.style.borderColor = '#a7f3d0'; el.style.color = '#059669'; el.title = 'Sincronizado con Supabase'; }
+    else if (cloudStatus === 'offline'){ el.textContent = '☁️ offline'; el.style.background = '#fef3c7'; el.style.borderColor = '#fcd34d'; el.style.color = '#b45309'; el.title = 'No se pudo conectar con Supabase. Los análisis solo se guardan en este navegador.'; }
+    else { el.textContent = '☁️ …'; el.title = 'Comprobando conexión'; }
+  }
+  function updateNotes(){
+    const sel = document.getElementById('savedAnSelect');
+    const notesEl = document.getElementById('savedAnNotes');
+    if (!sel || !notesEl) return;
+    const id = sel.value;
+    if (!id){ notesEl.style.display = 'none'; notesEl.textContent = ''; return; }
+    const a = cached.find(x => x.id === id);
+    if (a && a.notas && a.notas.trim()){
+      notesEl.style.display = 'block';
+      notesEl.innerHTML = '<b>Notas:</b> ' + esc(a.notas);
+    } else {
+      notesEl.style.display = 'none';
+      notesEl.textContent = '';
+    }
+  }
+
+  // ---- modal ----
+  function openModal(existing){
+    const ov = document.getElementById('savedAnModalOverlay');
+    const title = document.getElementById('savedAnModalTitle');
+    const nameEl = document.getElementById('savedAnModalName');
+    const notesEl = document.getElementById('savedAnModalNotes');
+    if (!ov || !nameEl || !notesEl) return;
+    if (existing){
+      title.textContent = 'Sobreescribir análisis';
+      nameEl.value = existing.nombre || '';
+      notesEl.value = existing.notas || '';
+      ov.dataset.editingId = existing.id;
+    } else {
+      title.textContent = 'Guardar análisis';
+      nameEl.value = '';
+      notesEl.value = '';
+      ov.dataset.editingId = '';
+    }
+    ov.classList.add('open');
+    setTimeout(() => { try{ nameEl.focus(); nameEl.select(); }catch(_){ } }, 10);
+  }
+  function closeModal(){
+    const ov = document.getElementById('savedAnModalOverlay');
+    if (ov){ ov.classList.remove('open'); delete ov.dataset.editingId; }
+  }
+
+  // ---- handlers ----
+  async function onSaveConfirm(){
+    const ov = document.getElementById('savedAnModalOverlay');
+    const nameEl = document.getElementById('savedAnModalName');
+    const notesEl = document.getElementById('savedAnModalNotes');
+    const nombre = (nameEl.value || '').trim();
+    if (!nombre){ alert('Pon un nombre al análisis.'); nameEl.focus(); return; }
+    if (!window.CMP || !window.CMP.funds || !window.CMP.funds.length){
+      alert('No hay fondos cargados. Carga fondos en la tab Comparación antes de guardar.');
+      return;
+    }
+    const captured = captureState();
+    const fundsWithIsin = captured.funds.filter(f => f.isin);
+    if (!fundsWithIsin.length){
+      alert('Los fondos actuales no vienen del repositorio (parecen CSVs manuales). Solo se pueden guardar análisis basados en fondos del Repo. Carga los fondos desde "📚 Repo" primero.');
+      return;
+    }
+    if (fundsWithIsin.length < captured.funds.length){
+      const skipped = captured.funds.length - fundsWithIsin.length;
+      if (!confirm(`${skipped} fondo(s) no vienen del repositorio y no se guardarán. ¿Continuar?`)) return;
+    }
+    const editingId = ov.dataset.editingId || '';
+    const now = new Date().toISOString();
+    const fechaG = editingId
+      ? ((cached.find(x => x.id === editingId) || {}).fecha_guardado || now)
+      : now;
+    const analysis = {
+      id: editingId || ('cmp_' + Math.floor(Date.now()/1000) + '_' + (slugify(nombre) || 'sin-nombre')),
+      nombre,
+      tipo: ANALYSIS_TYPE,
+      fecha_guardado: fechaG,
+      fecha_modificacion: now,
+      notas: (notesEl.value || '').trim(),
+      funds: fundsWithIsin,
+      settings: captured.settings,
+      data: { funds: fundsWithIsin, settings: captured.settings }
+    };
+    lsUpsert(analysis);
+    await supaUpsert(analysis);
+    closeModal();
+    await refresh();
+    const sel = document.getElementById('savedAnSelect');
+    if (sel){ sel.value = analysis.id; updateNotes(); }
+    notify('ok', `Análisis <b>${esc(nombre)}</b> guardado (${fundsWithIsin.length} fondos)${cloudStatus==='offline'?' · solo local (Supabase offline)':''}.`);
+  }
+
+  async function onLoadClick(){
+    const sel = document.getElementById('savedAnSelect');
+    const id = sel && sel.value;
+    if (!id){ alert('Selecciona un análisis primero.'); return; }
+    const a = cached.find(x => x.id === id);
+    if (!a){ alert('Análisis no encontrado.'); return; }
+    const btn = document.getElementById('savedAnLoad');
+    const prev = btn ? btn.textContent : null;
+    if (btn){ btn.disabled = true; btn.textContent = 'Cargando…'; }
+    try{ await applyState(a); }
+    finally { if (btn){ btn.disabled = false; btn.textContent = prev || 'Cargar'; } }
+  }
+
+  async function onDeleteClick(){
+    const sel = document.getElementById('savedAnSelect');
+    const id = sel && sel.value;
+    if (!id){ alert('Selecciona un análisis para eliminar.'); return; }
+    const a = cached.find(x => x.id === id);
+    if (!a) return;
+    if (!confirm(`¿Eliminar el análisis "${a.nombre}"? No se puede deshacer.`)) return;
+    lsDelete(id);
+    await supaDelete(id);
+    await refresh();
+    notify('ok', `Análisis eliminado.`);
+  }
+
+  function onExportClick(){
+    const sel = document.getElementById('savedAnSelect');
+    const id = sel && sel.value;
+    let payload, fname;
+    if (id){
+      const a = cached.find(x => x.id === id);
+      if (!a) return;
+      payload = a;
+      fname = `analysis_${a.id}.json`;
+    } else {
+      if (!cached.length){ alert('No hay análisis para exportar.'); return; }
+      payload = { version: 1, tipo: ANALYSIS_TYPE, exported_at: new Date().toISOString(), analyses: cached };
+      fname = `analyses_all_${new Date().toISOString().slice(0,10)}.json`;
+    }
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = fname;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+  }
+  function onImportClick(){
+    const inp = document.getElementById('savedAnImportFile');
+    if (!inp) return;
+    inp.value = '';
+    inp.click();
+  }
+  async function onImportFile(e){
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    try{
+      const text = await f.text();
+      const parsed = JSON.parse(text);
+      const items = Array.isArray(parsed.analyses) ? parsed.analyses
+                  : (parsed.id ? [parsed] : []);
+      if (!items.length){ alert('Fichero JSON no reconocido.'); return; }
+      let added = 0;
+      for (const a of items){
+        if (!a.id || !a.nombre) continue;
+        lsUpsert(a);
+        await supaUpsert(a);
+        added++;
+      }
+      await refresh();
+      notify('ok', `Importados <b>${added}</b> análisis.`);
+    }catch(err){
+      alert('Error al importar: ' + err.message);
+    }
+  }
+
+  // ---- init ----
+  function wire(){
+    const sel = document.getElementById('savedAnSelect');
+    if (!sel){ console.warn('[SavedAnalyses] UI no encontrada'); return; }
+    sel.addEventListener('change', updateNotes);
+    const $ = id => document.getElementById(id);
+    $('savedAnLoad')      && $('savedAnLoad').addEventListener('click', onLoadClick);
+    $('savedAnSaveNew')   && $('savedAnSaveNew').addEventListener('click', () => openModal(null));
+    $('savedAnSaveOver')  && $('savedAnSaveOver').addEventListener('click', () => {
+      const id = sel.value;
+      if (!id){ alert('Selecciona un análisis para sobreescribir.'); return; }
+      const a = cached.find(x => x.id === id);
+      if (!a) return;
+      if (!confirm(`Sobreescribir "${a.nombre}" con el estado actual?`)) return;
+      openModal(a);
+    });
+    $('savedAnDelete')    && $('savedAnDelete').addEventListener('click', onDeleteClick);
+    $('savedAnExport')    && $('savedAnExport').addEventListener('click', onExportClick);
+    $('savedAnImport')    && $('savedAnImport').addEventListener('click', onImportClick);
+    $('savedAnImportFile')&& $('savedAnImportFile').addEventListener('change', onImportFile);
+    $('savedAnModalSave') && $('savedAnModalSave').addEventListener('click', onSaveConfirm);
+    $('savedAnModalCancel')  && $('savedAnModalCancel').addEventListener('click', closeModal);
+    $('savedAnModalCloseBtn')&& $('savedAnModalCloseBtn').addEventListener('click', closeModal);
+    const ov = document.getElementById('savedAnModalOverlay');
+    if (ov) ov.addEventListener('click', e => { if (e.target === ov) closeModal(); });
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape'){
+        const ov2 = document.getElementById('savedAnModalOverlay');
+        if (ov2 && ov2.classList.contains('open')) closeModal();
+      }
+    });
+    refresh();
+  }
+
+  // API pública (debug / uso externo)
+  window.SavedAnalyses = {
+    capture: captureState,
+    apply: applyState,
+    refresh,
+    list: () => cached.slice(),
+    save: (nombre, notas) => { openModal(null); setTimeout(()=>{
+      const n=document.getElementById('savedAnModalName'); const t=document.getElementById('savedAnModalNotes');
+      if (n) n.value = nombre||''; if (t) t.value = notas||'';
+    },20); }
+  };
+
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', () => setTimeout(wire, 300));
+  } else {
+    setTimeout(wire, 300);
+  }
 })();
 </script></div></div></body></html>
