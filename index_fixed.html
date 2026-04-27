@@ -5,6 +5,9 @@
 <title>Dashboard fondos — Investing CSV (v9)</title>
 <script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script><style id="plotly.js-style-global"></style>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<!-- PDF deliverables: html2canvas + jsPDF -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
     :root{
       --bg:#f6f7fb; --card:#ffffff; --text:#0f172a; --muted:#64748b;
@@ -231,6 +234,29 @@
 .savedAnModalBody input[type="text"]:focus, .savedAnModalBody textarea:focus{ outline:2px solid var(--accent); outline-offset:-1px; }
 .savedAnModalFooter{ display:flex; justify-content:flex-end; gap:8px; padding:12px 18px; border-top:1px solid var(--border); }
 .savedAnModalClose{ border:none; background:none; font-size:18px; cursor:pointer; color:var(--muted); }
+
+/* ===== Mejora 3: Export a PDF =====
+   Mientras se renderiza el PDF, el body lleva la clase .pdfExporting,
+   que oculta los controles interactivos que no aportan información impresa
+   (botones, selects, file inputs, modales overlays, toolbars Plotly, etc.). */
+.pdfBtn{ font-size:12px; padding:6px 12px; }
+body.pdfExporting .pdfHide,
+body.pdfExporting .iconBtn,
+body.pdfExporting button.btn,
+body.pdfExporting input[type="file"],
+body.pdfExporting input[type="date"],
+body.pdfExporting select,
+body.pdfExporting .modalOverlay,
+body.pdfExporting .savedAnModalOverlay,
+body.pdfExporting .repoBar,
+body.pdfExporting #s1AdvBody,
+body.pdfExporting #s1AdvToggle,
+body.pdfExporting .modebar,
+body.pdfExporting .modebar-container,
+body.pdfExporting details > summary { display:none !important; }
+body.pdfExporting details { display:block !important; }
+body.pdfExporting details > *:not(summary) { display:block !important; }
+.pdfSection { page-break-inside: avoid; break-inside: avoid; }
 </style>
 </head>
 <body>
@@ -425,6 +451,7 @@ ES0156572002"></textarea>
 </div>
 
 <button class="btn" disabled="" id="run">Calcular</button>
+<button class="iconBtn pdfBtn pdfHide" type="button" id="s1ExportPdf" title="Exportar pestaña Fondo a PDF" style="display:none;margin-left:6px;">📄 Exportar PDF</button>
 <div style="height:10px"></div>
 <div class="note" id="msg"></div>
 <div class="split"></div>
@@ -703,6 +730,7 @@ ES0156572002"></textarea>
 </div>
 <div style="height:10px"></div>
 <button class="btn" disabled="" id="cmpRun">Calcular comparación</button>
+<button class="iconBtn pdfBtn pdfHide" type="button" id="s2ExportPdf" title="Exportar pestaña Comparación a PDF" style="display:none;margin-left:6px;">📄 Exportar PDF</button>
 </div><!-- /cmpAdvBody -->
 <div style="height:10px"></div>
 <div class="note" id="cmpMsg"></div>
@@ -911,6 +939,7 @@ ES0156572002"></textarea>
 <span class="pill" id="btBenchSumPill">Benchmark: —</span>
 <button class="btn" disabled="" id="btCalc">Calcular cartera</button>
 <button class="btn" disabled="" id="btSaveToRepo" title="Guarda la cartera calculada como pseudo-fondo (ISIN sintético C-...) en el repo, para usarla en Comparación o como componente en otro backtest">💾 Guardar al repo</button>
+<button class="iconBtn pdfBtn pdfHide" type="button" id="s3ExportPdf" title="Exportar pestaña Backtest a PDF" style="display:none;margin-left:6px;">📄 Exportar PDF</button>
 </div>
 </div>
 <div class="bd">
@@ -14344,6 +14373,275 @@ async function mstDoSearch(){
     document.addEventListener("DOMContentLoaded", () => setTimeout(wire, 500));
   } else {
     setTimeout(wire, 500);
+  }
+})();
+
+/* =========================================================================
+   MEJORA 3 · Export PDF por pestaña (html2canvas + jsPDF)
+   - A4 portrait, márgenes 12mm, ancho ajustado a la página.
+   - Cada "card" del screen se trata como sección atómica → si no cabe en lo
+     que queda de la página actual, salto de página antes de pintarla.
+   - Footer en cada página: fecha de generación · disclaimer · nº página.
+   - Excluye encabezado de la pestaña y controles interactivos (botones,
+     selects, modales, inputs file, modebar Plotly) vía body.pdfExporting.
+   ========================================================================= */
+(function(){
+  "use strict";
+
+  const PDF_DISCLAIMER = "Documento informativo. Rentabilidades pasadas no garantizan rendimientos futuros. Consulte con su asesor antes de tomar decisiones de inversión.";
+
+  // Configuración por pestaña
+  const TABS = {
+    screen1: { label:"Fondo",        filename:"fondo" },
+    screen2: { label:"Comparación",  filename:"comparacion" },
+    screen3: { label:"Backtest",     filename:"backtest" }
+  };
+
+  // ---------- utilidades ----------
+  function todayISO(){
+    const d = new Date();
+    return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+  }
+  function todayES(){
+    const d = new Date();
+    return String(d.getDate()).padStart(2,"0")+"/"+String(d.getMonth()+1).padStart(2,"0")+"/"+d.getFullYear();
+  }
+
+  // Devuelve la lista de "secciones" a exportar de una pestaña.
+  // Heurística: dentro de cada `<div class="wrap">` del screen, todos los
+  // `.card` que sean hijos directos. Excluye el primer wrap (suele contener el h1/h2/sub).
+  function collectSections(screenId){
+    const screen = document.getElementById(screenId);
+    if (!screen) return [];
+    const wraps = Array.from(screen.querySelectorAll(":scope > .wrap"));
+    if (!wraps.length) return [];
+    // Excluir el wrap del encabezado: el primero que contenga h1/h2 o solo sub.
+    const wrapsBody = wraps.filter((w, i) => {
+      const hasHeading = !!w.querySelector(":scope > h1, :scope > h2");
+      const hasOnlySub = !w.querySelector(":scope > .card, :scope > .grid");
+      return !(i===0 && (hasHeading || hasOnlySub));
+    });
+    const cards = [];
+    for (const w of wraps){
+      // Dentro de wraps tipo "Resumen" puede haber un .grid con dos .card hijos
+      // o directamente .card hijos.
+      const direct = Array.from(w.querySelectorAll(":scope > .card"));
+      direct.forEach(c => cards.push(c));
+      const grids = Array.from(w.querySelectorAll(":scope > .grid"));
+      grids.forEach(g => {
+        Array.from(g.querySelectorAll(":scope > .card")).forEach(c => cards.push(c));
+      });
+    }
+    // Excluir cards no relevantes para el PDF (panel de carteras guardadas, etc.)
+    const skipIds = new Set(["savedAnCard","btSavedAnCard","savedAnList","btRepoSaveModalOverlay"]);
+    return cards.filter(c => !skipIds.has(c.id));
+  }
+
+  // Render una sección al canvas con html2canvas.
+  async function renderSectionToCanvas(el){
+    // Esperar un frame para que Plotly relayout/resize si fue forzado
+    await new Promise(r => requestAnimationFrame(r));
+    const canvas = await window.html2canvas(el, {
+      backgroundColor: "#ffffff",
+      scale: 2,                // alta resolución
+      useCORS: true,
+      logging: false,
+      windowWidth: document.documentElement.scrollWidth,
+      windowHeight: document.documentElement.scrollHeight
+    });
+    return canvas;
+  }
+
+  // Encaja un canvas (sección) en una página A4. Si no cabe en lo que queda,
+  // salta a página nueva. Si la sección ENTERA es más alta que una página,
+  // la trocea en cachos verticales.
+  function placeCanvasOnPdf(pdf, canvas, state){
+    const pageW = pdf.internal.pageSize.getWidth();
+    const pageH = pdf.internal.pageSize.getHeight();
+    const margin = state.margin;
+    const usableW = pageW - margin*2;
+    const footerH = 10; // mm reservados al footer
+    const usableH = pageH - margin*2 - footerH;
+
+    // Conversión: canvas px → mm manteniendo proporción usableW
+    const pxPerMm = canvas.width / usableW;
+    const sectionMmH = canvas.height / pxPerMm;
+
+    // Si cabe entera en una página y queda hueco suficiente: pintar tal cual.
+    // Si no cabe en lo que queda, saltar de página.
+    let remainMmH = (pageH - margin - footerH) - state.cursorY;
+    if (sectionMmH <= usableH){
+      if (sectionMmH > remainMmH){
+        // salto de página
+        addFooter(pdf, state);
+        pdf.addPage();
+        state.page += 1;
+        state.cursorY = margin;
+      }
+      const dataUrl = canvas.toDataURL("image/png");
+      pdf.addImage(dataUrl, "PNG", margin, state.cursorY, usableW, sectionMmH, undefined, "FAST");
+      state.cursorY += sectionMmH + 4; // 4mm gap entre secciones
+      return;
+    }
+
+    // Sección más alta que una página: trocear verticalmente
+    let yOffsetPx = 0;
+    while (yOffsetPx < canvas.height){
+      // Si no cabe nada, saltar de página
+      remainMmH = (pageH - margin - footerH) - state.cursorY;
+      if (remainMmH < 30){
+        addFooter(pdf, state);
+        pdf.addPage();
+        state.page += 1;
+        state.cursorY = margin;
+        remainMmH = (pageH - margin - footerH) - state.cursorY;
+      }
+      const sliceMmH = Math.min(remainMmH, sectionMmH - (yOffsetPx / pxPerMm));
+      const slicePxH = Math.round(sliceMmH * pxPerMm);
+
+      // Crear un canvas temporal con la franja
+      const tmp = document.createElement("canvas");
+      tmp.width = canvas.width;
+      tmp.height = slicePxH;
+      const ctx = tmp.getContext("2d");
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0,0,tmp.width,tmp.height);
+      ctx.drawImage(canvas, 0, yOffsetPx, canvas.width, slicePxH, 0, 0, canvas.width, slicePxH);
+      const dataUrl = tmp.toDataURL("image/png");
+      pdf.addImage(dataUrl, "PNG", margin, state.cursorY, usableW, sliceMmH, undefined, "FAST");
+
+      yOffsetPx += slicePxH;
+      state.cursorY += sliceMmH;
+      if (yOffsetPx < canvas.height){
+        addFooter(pdf, state);
+        pdf.addPage();
+        state.page += 1;
+        state.cursorY = margin;
+      }
+    }
+    state.cursorY += 4;
+  }
+
+  function addFooter(pdf, state){
+    const pageW = pdf.internal.pageSize.getWidth();
+    const pageH = pdf.internal.pageSize.getHeight();
+    pdf.setFontSize(8);
+    pdf.setTextColor(120,120,120);
+    const left  = `${state.fechaES} · ${state.tabLabel}`;
+    const right = `Página ${state.page}`;
+    pdf.text(left,  state.margin,           pageH - 6);
+    pdf.text(right, pageW - state.margin,   pageH - 6, { align:"right" });
+    // Disclaimer en la línea de arriba (pequeño, gris muy claro)
+    const maxW = pageW - state.margin*2;
+    const disclaimerLines = pdf.splitTextToSize(PDF_DISCLAIMER, maxW);
+    pdf.setFontSize(7);
+    pdf.setTextColor(150,150,150);
+    pdf.text(disclaimerLines, state.margin, pageH - 11);
+    pdf.setTextColor(0,0,0);
+  }
+
+  function ensureScreenVisibleSync(screenId){
+    // Si el screen está oculto (display:none por la tab), html2canvas captura
+    // las dimensiones erróneamente. Lo mostramos temporalmente y al final
+    // restauramos.
+    const el = document.getElementById(screenId);
+    if (!el) return ()=>{};
+    const wasHidden = el.classList.contains("hidden");
+    if (wasHidden) el.classList.remove("hidden");
+    return ()=>{ if (wasHidden) el.classList.add("hidden"); };
+  }
+
+  async function exportTabToPDF(screenId){
+    if (!window.html2canvas || !window.jspdf){
+      alert("Las librerías de PDF no se han cargado todavía. Espera unos segundos y reinténtalo.");
+      return;
+    }
+    const tabCfg = TABS[screenId];
+    if (!tabCfg){ alert("Pestaña no soportada para PDF: "+screenId); return; }
+
+    const sections = collectSections(screenId);
+    if (!sections.length){
+      alert("No se han detectado secciones para exportar en esta pestaña.");
+      return;
+    }
+
+    const trigger = document.getElementById(screenId.replace("screen","s")+"ExportPdf");
+    if (trigger){ trigger.disabled = true; trigger.textContent = "📄 Generando…"; }
+
+    const restoreScreen = ensureScreenVisibleSync(screenId);
+    document.body.classList.add("pdfExporting");
+
+    // Pequeña espera para que Plotly se redibuje sin botoneras y resize
+    try { if (typeof resizePlotsIn === "function") resizePlotsIn(screenId); } catch(_){}
+    await new Promise(r => setTimeout(r, 250));
+
+    try {
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF({ unit:"mm", format:"a4", orientation:"portrait" });
+      const state = {
+        margin: 12,
+        cursorY: 12,
+        page: 1,
+        fechaES: todayES(),
+        tabLabel: tabCfg.label
+      };
+
+      for (const sec of sections){
+        // Saltar secciones invisibles (display:none o vacías)
+        const rect = sec.getBoundingClientRect();
+        if (rect.width < 10 || rect.height < 10) continue;
+        const canvas = await renderSectionToCanvas(sec);
+        placeCanvasOnPdf(pdf, canvas, state);
+      }
+      // Footer de la última página
+      addFooter(pdf, state);
+
+      const filename = `${tabCfg.filename}_${todayISO()}.pdf`;
+      pdf.save(filename);
+    } catch(err){
+      console.error("[exportTabToPDF] error", err);
+      alert("No se ha podido generar el PDF: "+ (err && err.message || err));
+    } finally {
+      document.body.classList.remove("pdfExporting");
+      restoreScreen();
+      try { if (typeof resizePlotsIn === "function") resizePlotsIn(screenId); } catch(_){}
+      if (trigger){ trigger.disabled = false; trigger.textContent = "📄 Exportar PDF"; }
+    }
+  }
+
+  // Wire-up: muestra los botones cuando la pestaña tiene datos calculados.
+  function refreshButtonVisibility(){
+    const map = [
+      { id:"s1ExportPdf", ready: () => !!(window.STATE && window.STATE.dailySeries && window.STATE.dailySeries.length) },
+      { id:"s2ExportPdf", ready: () => !!(window.CMP && Array.isArray(window.CMP.funds) && window.CMP.funds.length >= 1) },
+      { id:"s3ExportPdf", ready: () => !!(window.BT && Array.isArray(window.BT.portDaily) && window.BT.portDaily.length >= 2) }
+    ];
+    for (const { id, ready } of map){
+      const btn = document.getElementById(id);
+      if (!btn) continue;
+      btn.style.display = ready() ? "" : "none";
+    }
+  }
+
+  function wire(){
+    const bind = (id, screenId) => {
+      const btn = document.getElementById(id);
+      if (!btn) return;
+      btn.addEventListener("click", () => exportTabToPDF(screenId));
+    };
+    bind("s1ExportPdf", "screen1");
+    bind("s2ExportPdf", "screen2");
+    bind("s3ExportPdf", "screen3");
+    setInterval(refreshButtonVisibility, 800);
+    refreshButtonVisibility();
+    // Expose for debugging from the console.
+    window.exportTabToPDF = exportTabToPDF;
+  }
+
+  if (document.readyState === "loading"){
+    document.addEventListener("DOMContentLoaded", () => setTimeout(wire, 600));
+  } else {
+    setTimeout(wire, 600);
   }
 })();
 </script></div></div></body></html>
