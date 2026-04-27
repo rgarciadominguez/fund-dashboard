@@ -10421,50 +10421,135 @@ y0.addEventListener("change", ()=>computeAndRender());
 
   // ── Search via morningstar.es HTML (verified working, no API token needed) ──
   async function mstFetchSearchHtml(url) {
-    // Proxy order tested and verified from file:// (codetabs works, allorigins/corsproxy blocked by morningstar.es):
-    // 1) direct (~500ms, works from https://)
-    // 2) codetabs (~500ms, works from file://, returns full HTML)
-    // 3) jina (backup ~3s, returns reduced HTML)
+    // Múltiples proxies de fallback. Probamos varios en orden y aceptamos el
+    // primero que funcione. Si todos fallan, lanzamos un error que detalla
+    // qué pasó con cada uno (visible en consola y en el modal).
     const attempts = [
-      url,
-      "https://api.codetabs.com/v1/proxy?quest=" + encodeURIComponent(url),
-      "https://r.jina.ai/" + encodeURIComponent(url),
+      { name:"direct",       url: url },
+      { name:"codetabs",     url: "https://api.codetabs.com/v1/proxy?quest=" + encodeURIComponent(url) },
+      { name:"corsproxy.io", url: "https://corsproxy.io/?" + encodeURIComponent(url) },
+      { name:"allorigins",   url: "https://api.allorigins.win/raw?url=" + encodeURIComponent(url) },
+      { name:"jina",         url: "https://r.jina.ai/" + encodeURIComponent(url) },
+      { name:"thingproxy",   url: "https://thingproxy.freeboard.io/fetch/" + url },
+      { name:"yacdn",        url: "https://yacdn.org/serve/" + url },
     ];
-    let lastErr = null;
-    for (const u of attempts) {
+    const failures = [];
+    const log = (msg) => { try { console.log("[Morningstar]", msg); } catch(_){} };
+    for (const { name, url: u } of attempts) {
       try {
         const ctrl = new AbortController();
         const timer = setTimeout(() => ctrl.abort(), 12000);
+        const t0 = performance.now();
         const res = await fetch(u, {credentials:"omit", cache:"default", signal: ctrl.signal});
         clearTimeout(timer);
-        if (!res.ok) { lastErr = new Error("HTTP "+res.status); continue; }
+        if (!res.ok){
+          const err = `${name}: HTTP ${res.status}`;
+          failures.push(err);
+          log(`${name} → HTTP ${res.status} (${(performance.now()-t0)|0}ms)`);
+          continue;
+        }
         const txt = await res.text();
-        if (!txt || txt.length < 500) { lastErr = new Error("Respuesta vacía"); continue; }
-        if (!txt.includes("snapshot")) { lastErr = new Error("Sin datos de fondos"); continue; }
+        if (!txt || txt.length < 500){
+          const err = `${name}: respuesta vacía (${txt ? txt.length : 0} bytes)`;
+          failures.push(err);
+          log(`${name} → respuesta vacía (${txt ? txt.length : 0} bytes)`);
+          continue;
+        }
+        // Validación laxa: aceptamos si parece HTML con ISIN/tabla/snapshot.
+        const looksValid = txt.includes("snapshot")
+                        || /\bISIN\b/i.test(txt)
+                        || /SecurityIDList|fondosResultsTable|results-table/i.test(txt)
+                        || /<table[^>]*>[\s\S]*<\/table>/i.test(txt);
+        if (!looksValid){
+          const err = `${name}: HTML no reconocido (${txt.length} bytes)`;
+          failures.push(err);
+          log(`${name} → HTML no reconocido (${txt.length} bytes)`);
+          continue;
+        }
+        log(`${name} → OK (${(performance.now()-t0)|0}ms, ${txt.length} bytes)`);
         return txt;
-      } catch(e) { lastErr = e; }
+      } catch(e) {
+        const msg = (e && e.message) || String(e);
+        failures.push(`${name}: ${msg}`);
+        log(`${name} → fail: ${msg}`);
+      }
     }
-    throw lastErr || new Error("No se pudo contactar con Morningstar");
+    const detail = failures.length ? `\nDetalle por proxy:\n  · ${failures.join("\n  · ")}` : "";
+    throw new Error(`No se pudo contactar con Morningstar (todos los proxies fallaron).${detail}`);
   }
 
   function mstParseSearchHtml(html) {
     const funds = [];
+    const seenIsins = new Set();
+    const ISIN_RE = /^[A-Z]{2}[A-Z0-9]{10}$/;
+    const log = (msg) => { try { console.log("[Morningstar/parse]", msg); } catch(_){} };
+
     try {
       const doc = new DOMParser().parseFromString(html, "text/html");
+
+      // 1) Estrategia clásica: filas de tabla con <a> que apunte a snapshot
       doc.querySelectorAll("table tr").forEach(row => {
-        const link = row.querySelector('a[href*="snapshot"]');
+        const link = row.querySelector('a[href*="snapshot"], a[href*="?id="]');
         if (!link) return;
-        const cells = row.querySelectorAll("td");
-        if (cells.length < 2) return;
+        const cells = Array.from(row.querySelectorAll("td"));
+        if (cells.length < 1) return;
         const name = link.textContent.trim();
-        const isin = cells[1]?.textContent.trim() || "";
+        // Buscamos el ISIN en cualquier celda (algunos layouts cambian el orden)
+        let isin = "";
+        for (const cell of cells){
+          const t = cell.textContent.trim();
+          if (ISIN_RE.test(t)) { isin = t; break; }
+        }
         const href = link.getAttribute("href") || "";
         const msId = (href.match(/[?&]id=([A-Z0-9]+)/i)||[])[1] || "";
-        if (name && /^[A-Z]{2}[A-Z0-9]{10}$/.test(isin)) {
+        if (name && ISIN_RE.test(isin) && !seenIsins.has(isin)) {
+          seenIsins.add(isin);
           funds.push({name, isin, msId, type:"fund"});
         }
       });
-    } catch(_) {}
+
+      // 2) Estrategia fallback: por cada <a> de snapshot, intentamos buscar el ISIN
+      //    en su entorno (siguientes celdas / texto adyacente) si la heurística de
+      //    fila no encontró nada para esa fila.
+      if (funds.length === 0){
+        doc.querySelectorAll('a[href*="snapshot"], a[href*="?id="]').forEach(link => {
+          const name = link.textContent.trim();
+          if (!name) return;
+          const href = link.getAttribute("href") || "";
+          const msId = (href.match(/[?&]id=([A-Z0-9]+)/i)||[])[1] || "";
+          // Buscamos un ISIN cerca del enlace (en el padre, en texto siguiente…)
+          const parent = link.closest("tr") || link.parentElement;
+          const blob = parent ? parent.textContent : "";
+          const m = blob.match(/\b[A-Z]{2}[A-Z0-9]{10}\b/);
+          const isin = m ? m[0] : "";
+          if (ISIN_RE.test(isin) && !seenIsins.has(isin)) {
+            seenIsins.add(isin);
+            funds.push({name, isin, msId, type:"fund"});
+          }
+        });
+      }
+
+      // 3) Estrategia última: extraer ISINs sueltos del HTML por regex y, si
+      //    encontramos < 60, devolverlos sin nombre (mejor algo que nada).
+      if (funds.length === 0){
+        const matches = html.match(/\b[A-Z]{2}[A-Z0-9]{10}\b/g) || [];
+        for (const m of matches){
+          if (ISIN_RE.test(m) && !seenIsins.has(m)) {
+            seenIsins.add(m);
+            funds.push({name: m, isin: m, msId: "", type:"fund"});
+          }
+          if (funds.length >= 60) break;
+        }
+        if (funds.length){
+          log(`extracted ${funds.length} ISINs by regex (no names)`);
+        }
+      }
+    } catch(e) {
+      log("parse error: " + (e && e.message || e));
+    }
+    if (funds.length === 0){
+      log("no funds extracted from HTML — Morningstar puede haber cambiado el formato. Tamaño HTML: " + (html ? html.length : 0));
+    }
     return funds;
   }
 
@@ -10912,11 +10997,15 @@ async function mstDoSearch(){
     }catch(e){
       if (!isCurrent()) return;
       const msg = (e && e.message) ? e.message : String(e);
-      if (list) list.innerHTML = `<div class="invItem"><div class="m"><b>Error</b>: ${mstEsc_(msg)}</div></div>`;
+      // Renderizar saltos de línea como <br> para que el detalle por proxy se lea bien
+      const msgHtml = mstEsc_(msg).replace(/\n/g, "<br>");
+      if (list) list.innerHTML = `<div class="invItem"><div class="m" style="white-space:pre-wrap"><b>Error</b>: ${msgHtml}</div></div>`;
       if (info) info.textContent = "";
       MST.lastResults = [];
       MST.lastFetchKey = null;
       mstSetSelected(null);
+      // También logueamos el error completo para debugging desde DevTools
+      try { console.error("[Morningstar/search]", e); } catch(_){}
     }
   }
 
