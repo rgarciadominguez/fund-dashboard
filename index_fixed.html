@@ -10626,22 +10626,113 @@ y0.addEventListener("change", ()=>computeAndRender());
     }
   }
 
+  // ---- Catálogo local: 31k fondos comercializados en España, generado offline ----
+  // (ver scripts en docs). Sirve para búsqueda por nombre sin depender de cookies
+  // WAF de Morningstar. La búsqueda por ISIN sigue usando security_details.
+  let __FUND_CATALOG_PROMISE = null;
+  function mstNormalize(s){
+    return String(s||"").toLowerCase()
+      .normalize("NFD").replace(/[̀-ͯ]/g,"")
+      .replace(/[^a-z0-9]+/g," ").trim();
+  }
+  function mstLoadLocalCatalog(){
+    if (!__FUND_CATALOG_PROMISE){
+      __FUND_CATALOG_PROMISE = (async () => {
+        const t0 = performance.now();
+        const res = await fetch("funds_catalog.json", {cache:"force-cache"});
+        if (!res.ok) throw new Error("No se pudo cargar funds_catalog.json: HTTP "+res.status);
+        const cat = await res.json();
+        const data = (cat.data||[]).map(row => {
+          const [isin, name, cur, tp, flags, tk, co] = row;
+          return {
+            isin, name,
+            cur: cur || "",
+            tp: tp || "",
+            flags: (flags|0),
+            tk: tk || "",
+            co: co || "",
+            n: mstNormalize(name)
+          };
+        });
+        console.log(`[FUND_CATALOG] cargado en ${(performance.now()-t0)|0}ms · ${data.length} fondos`);
+        return { data, flag_bits: cat.flag_bits || {acc:1,dist:2,hedged:4,inst:8,seed:16,esp_fi:32,sicav:64,etf:128} };
+      })();
+    }
+    return __FUND_CATALOG_PROMISE;
+  }
+  async function mstSearchLocalCatalog(term, limit){
+    const cat = await mstLoadLocalCatalog();
+    const q = mstNormalize(term);
+    if (!q) return [];
+    const tokens = q.split(" ").filter(t => t.length >= 1);
+    if (!tokens.length) return [];
+    const FB = cat.flag_bits;
+    const matches = [];
+    for (const f of cat.data){
+      let allMatch = true, score = 0;
+      for (const t of tokens){
+        if (!f.n.includes(t)){ allMatch = false; break; }
+        if (f.n.startsWith(t)) score += 5;
+        score += 1;
+      }
+      if (!allMatch) continue;
+      // Penalizamos hedged y seed/founder/trader (rara vez son la share class buscada)
+      if (f.flags & (FB.hedged||4)) score -= 1;
+      if (f.flags & (FB.seed||16))  score -= 3;
+      // Bonus para Acc + Dist sobre share classes "raras"
+      if (f.flags & (FB.acc||1))  score += 1;
+      if (f.flags & (FB.dist||2)) score += 1;
+      matches.push({ f, score });
+      if (matches.length > 2000) break;
+    }
+    matches.sort((a,b) => b.score - a.score || a.f.name.localeCompare(b.f.name));
+    // Convertir al shape compatible con mstNameCandidate/mstCurrencyCandidate/mstIsinCandidate
+    return matches.slice(0, Number(limit)||25).map(({f}) => ({
+      name: f.name,
+      isin: f.isin,
+      msId: "",
+      type: "fund",
+      score: 0,
+      fields: {
+        name: { value: f.name },
+        isin: { value: f.isin },
+        baseCurrency: { value: f.cur },
+        ticker: { value: f.tk }
+      },
+      meta: {
+        universe: f.tp || "FO",
+        flags: f.flags,
+        local: true
+      }
+    }));
+  }
+
   async function mstSearch(term, limit) {
     const tRaw = String(term||"").trim();
     if (!tRaw) return [];
-    // Camino primario: legacy-search/securities vía Worker (cookie aws-waf-token).
-    // Funciona tanto para nombres como para ISINs (filtra OR de varios campos).
+    // ISIN: ya teníamos camino directo a security_details (sin proxy), no toca
+    if (mstIsIsin(tRaw)){
+      try {
+        const results = await mstSearchLegacyAPI(tRaw, 5);
+        if (results.length) return results;
+      } catch(e){
+        if (e && e.message && /aws-waf-token/i.test(e.message)) console.warn("[Morningstar] cookie expirada, fallback");
+      }
+      return await mstSearchGlobal(tRaw, 5);
+    }
+    // Por nombre: catálogo local primero (offline, sin cookie ni proxy, instant).
     try {
-      const results = await mstSearchLegacyAPI(tRaw, limit || (mstIsIsin(tRaw) ? 5 : 25));
+      const local = await mstSearchLocalCatalog(tRaw, limit || 25);
+      if (local.length) return local;
+    } catch(e){
+      console.warn("[catálogo local] error:", (e && e.message) || e);
+    }
+    // Fallback: API protegida (en caso de que la cookie esté viva por algún motivo)
+    try {
+      const results = await mstSearchLegacyAPI(tRaw, limit || 25);
       if (results.length) return results;
     } catch(e){
-      console.warn("[Morningstar/legacy-search] failed, fallback to HTML:", (e && e.message) || e);
-      // Si la cookie expiró, propagamos el error para que el usuario lo vea
       if (e && e.message && /aws-waf-token/i.test(e.message)) throw e;
-    }
-    // Fallback: HTML scraping (probablemente bloqueado por WAF, pero por si acaso)
-    if (mstIsIsin(tRaw)) {
-      return await mstSearchGlobal(tRaw, 5);
     }
     return await mstSearchGlobal(tRaw, limit);
   }
