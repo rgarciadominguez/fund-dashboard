@@ -10421,17 +10421,17 @@ y0.addEventListener("change", ()=>computeAndRender());
 
   // ── Search via morningstar.es HTML (verified working, no API token needed) ──
   async function mstFetchSearchHtml(url) {
-    // Múltiples proxies de fallback. Probamos varios en orden y aceptamos el
-    // primero que funcione. Si todos fallan, lanzamos un error que detalla
-    // qué pasó con cada uno (visible en consola y en el modal).
+    // Proxy primario: Cloudflare Worker propio (estable, no bloqueado por
+    // Morningstar). Resto son proxies públicos como fallback en caso de que
+    // el Worker esté caído o llegue al rate limit (100k req/día).
+    const CF_WORKER = "https://white-grass-7fbd.rafagdominguez96.workers.dev/?url=";
     const attempts = [
+      { name:"cf-worker",    url: CF_WORKER + encodeURIComponent(url) },
       { name:"direct",       url: url },
       { name:"codetabs",     url: "https://api.codetabs.com/v1/proxy?quest=" + encodeURIComponent(url) },
       { name:"corsproxy.io", url: "https://corsproxy.io/?" + encodeURIComponent(url) },
       { name:"allorigins",   url: "https://api.allorigins.win/raw?url=" + encodeURIComponent(url) },
       { name:"jina",         url: "https://r.jina.ai/" + encodeURIComponent(url) },
-      { name:"thingproxy",   url: "https://thingproxy.freeboard.io/fetch/" + url },
-      { name:"yacdn",        url: "https://yacdn.org/serve/" + url },
     ];
     const failures = [];
     const log = (msg) => { try { console.log("[Morningstar]", msg); } catch(_){} };
