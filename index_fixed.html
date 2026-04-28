@@ -9541,6 +9541,20 @@ if (to<=floor) break;
       btnMs.textContent="⭐ Morningstar";
       btnMs.addEventListener("click", ()=>mstPickerOpen(ctx));
       wrap.appendChild(btnMs);
+
+      // Botón ✕ Quitar fondo — solo aplicable a Comparación y Backtest
+      if (ctx.kind === "cmp" || ctx.kind === "bt"){
+        const clearBtn = document.createElement("button");
+        clearBtn.type = "button";
+        clearBtn.className = "iconBtn";
+        clearBtn.textContent = "✕";
+        clearBtn.title = "Quitar fondo de este slot";
+        clearBtn.style.cssText = "padding:4px 8px;font-size:12px;color:#dc2626;border-color:#fecaca;";
+        clearBtn.addEventListener("click", ()=>{
+          if (typeof repoSlotClear === "function") repoSlotClear(ctx);
+        });
+        wrap.appendChild(clearBtn);
+      }
     };
   }
 
