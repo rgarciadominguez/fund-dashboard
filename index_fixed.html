@@ -7815,6 +7815,47 @@ function repoAttachButton(inputId, ctx){
   btn.textContent="📚 Repo";
   btn.addEventListener("click", ()=>repoPickerOpen(ctx));
   wrap.appendChild(btn);
+  // Botón ✕ Quitar — solo aplicable a slots de Comparación y Backtest
+  if (ctx.kind === "cmp" || ctx.kind === "bt"){
+    const clearBtn = document.createElement("button");
+    clearBtn.type = "button";
+    clearBtn.className = "iconBtn";
+    clearBtn.textContent = "✕";
+    clearBtn.title = "Quitar fondo de este slot";
+    clearBtn.style.cssText = "padding:4px 8px;font-size:12px;color:#dc2626;border-color:#fecaca;";
+    clearBtn.addEventListener("click", ()=>repoSlotClear(ctx));
+    wrap.appendChild(clearBtn);
+  }
+}
+
+// Limpia el slot indicado en su pestaña sin afectar a los demás.
+async function repoSlotClear(ctx){
+  if (ctx.kind === "cmp"){
+    if (typeof CMP === "undefined") return;
+    if (CMP.repoFunds) CMP.repoFunds[ctx.slot] = null;
+    const inp = document.getElementById("cmpFile" + (ctx.slot + 1));
+    if (inp) { try { inp.value = ""; } catch(_){} }
+    if (typeof cmpHandleInputs === "function"){
+      try { await cmpHandleInputs(); } catch(_){}
+    }
+  } else if (ctx.kind === "bt"){
+    if (typeof BT === "undefined") return;
+    if (ctx.isBench){
+      if (BT.benchFunds) BT.benchFunds[ctx.slot] = null;
+      if (BT.benchWeights) BT.benchWeights[ctx.slot] = 0;
+      const inp = document.getElementById("btBFile" + (ctx.slot + 1));
+      if (inp) { try { inp.value = ""; } catch(_){} }
+      try { btRenderBenchWeightsTable && btRenderBenchWeightsTable(); } catch(_){}
+    } else {
+      if (BT.funds) BT.funds[ctx.slot] = null;
+      if (BT.weights) BT.weights[ctx.slot] = 0;
+      const inp = document.getElementById("btFile" + (ctx.slot + 1));
+      if (inp) { try { inp.value = ""; } catch(_){} }
+      try { btRenderWeightsTable && btRenderWeightsTable(); } catch(_){}
+    }
+    try { btUpdatePeriodInfo && btUpdatePeriodInfo(); } catch(_){}
+    try { btUpdateSumUI && btUpdateSumUI(); } catch(_){}
+  }
 }
 
 // Bind uploader + inject buttons
