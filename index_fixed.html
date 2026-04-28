@@ -7564,10 +7564,22 @@ function repoPickerOpen(ctx){
   ctxEl.textContent = label;
 
   repoPickerPopulateFields();
+  // Reset COMPLETO de filtros: cada apertura del picker arranca limpia.
   const s = document.getElementById("repoPickerSearch");
-  s.value = "";
-  document.getElementById("repoPickerClass").value = "all";
-  document.getElementById("repoPickerField").value = "all";
+  if (s) s.value = "";
+  const clsSel = document.getElementById("repoPickerClass");
+  if (clsSel) clsSel.value = "all";
+  const clasifSel = document.getElementById("repoPickerClasif");
+  if (clasifSel) clasifSel.value = "all";
+  const fieldSel = document.getElementById("repoPickerField");
+  if (fieldSel) fieldSel.value = "all";
+  const fieldVal = document.getElementById("repoPickerFieldVal");
+  if (fieldVal) fieldVal.value = "";
+  // Reset quick filters dropdowns (Clase / Categoría / Tipo activo / Geografía / etc.)
+  const quickBox = document.getElementById("repoQuickFilters");
+  if (quickBox){
+    quickBox.querySelectorAll("select[data-field]").forEach(sel => { sel.value = "all"; });
+  }
   repoPickerOnFieldChange(true);
   repoPickerRender();
   setTimeout(()=>{ try{s.focus();}catch(_){} }, 0);
