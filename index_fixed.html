@@ -3087,11 +3087,40 @@ function renderCmpList(){
   if (!CMP.funds.length){ el.textContent="Sube hasta 10 fondos para ver comparación."; return; }
   const items = CMP.funds.map(f=>{
     const a = (f.series[0].date), b = (f.series[f.series.length-1].date);
-    return `<div><b>${escapeHTML(f.name)}</b><br/><span class="muted">${fmtDateES(a)} → ${fmtDateES(b)} · obs: ${f.series.length}</span></div>`;
+    const isin = (f.meta && f.meta.isin) || f.isin || "";
+    const isinHtml = isin
+      ? ` <span class="isinChip" onclick="copyIsinToClipboard('${escapeHTML(isin)}', this)" title="Click para copiar ISIN" style="cursor:pointer;font-family:'Courier New',monospace;font-size:11px;color:#475569;background:#f1f5f9;padding:2px 6px;border-radius:6px;margin-left:8px;user-select:all;">${escapeHTML(isin)}</span>`
+      : "";
+    return `<div><b>${escapeHTML(f.name)}</b>${isinHtml}<br/><span class="muted">${fmtDateES(a)} → ${fmtDateES(b)} · obs: ${f.series.length}</span></div>`;
   }).join("<div class='split' style='margin:10px 0'></div>");
   el.innerHTML = items;
 }
 function escapeHTML(s){ return String(s).replace(/[&<>"']/g, c=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;" }[c])); }
+
+// Copia un ISIN al portapapeles dando feedback visual breve sobre el elemento clicado.
+window.copyIsinToClipboard = function(isin, el){
+  if (!isin) return;
+  const fallbackCopy = (text) => {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position='fixed'; ta.style.left='-9999px';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); } catch(_){}
+    document.body.removeChild(ta);
+  };
+  const showOk = () => {
+    if (!el) return;
+    const orig = el.textContent;
+    const origColor = el.style.color;
+    el.textContent = '✓ ' + isin + ' copiado';
+    el.style.color = '#15803d';
+    setTimeout(() => { el.textContent = orig; el.style.color = origColor; }, 1100);
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(isin).then(showOk).catch(() => { fallbackCopy(isin); showOk(); });
+  } else {
+    fallbackCopy(isin); showOk();
+  }
+};
 
 async function cmpLoadFiles(files){
   CMP.funds = [];
@@ -4540,12 +4569,16 @@ function btRenderWeightsTable(){
   idxs.forEach(i=>{
     const f = BT.funds[i];
     const nm = escapeHTML(f?.name || `F${i+1}`);
+    const isin = (f?.meta && f.meta.isin) || f?.isin || "";
+    const isinHtml = isin
+      ? `<span class="isinChip" onclick="copyIsinToClipboard('${escapeHTML(isin)}', this)" title="Click para copiar ISIN" style="cursor:pointer;font-family:'Courier New',monospace;font-size:11px;color:#475569;background:#f1f5f9;padding:2px 6px;border-radius:6px;margin-left:8px;user-select:all;">${escapeHTML(isin)}</span>`
+      : "";
     const w = (Number(BT.weights[i])||0);
     const d0 = f?.dailySeries?.[0]?.date;
     const d1 = f?.dailySeries?.[f.dailySeries.length-1]?.date;
     html += `<tr>
       <td>
-        <div style="font-weight:650;">${nm}</div>
+        <div style="font-weight:650;">${nm}${isinHtml}</div>
         <div class="muted" style="font-size:12px;">${fmtDateES(d0)} → ${fmtDateES(d1)} · ${f.dailySeries.length} pts</div>
       </td>
       <td style="text-align:right;">
@@ -4597,12 +4630,16 @@ function btRenderBenchWeightsTable(){
   idxs.forEach(i=>{
     const f = BT.benchFunds[i];
     const nm = escapeHTML(f?.name || `F${i+1}`);
+    const isin = (f?.meta && f.meta.isin) || f?.isin || "";
+    const isinHtml = isin
+      ? `<span class="isinChip" onclick="copyIsinToClipboard('${escapeHTML(isin)}', this)" title="Click para copiar ISIN" style="cursor:pointer;font-family:'Courier New',monospace;font-size:11px;color:#475569;background:#f1f5f9;padding:2px 6px;border-radius:6px;margin-left:8px;user-select:all;">${escapeHTML(isin)}</span>`
+      : "";
     const w = (Number(BT.benchWeights[i])||0);
     const d0 = f?.dailySeries?.[0]?.date;
     const d1 = f?.dailySeries?.[f.dailySeries.length-1]?.date;
     html += `<tr>
       <td>
-        <div style="font-weight:650;">${nm}</div>
+        <div style="font-weight:650;">${nm}${isinHtml}</div>
         <div class="muted" style="font-size:12px;">${fmtDateES(d0)} → ${fmtDateES(d1)} · ${f.dailySeries.length} pts</div>
       </td>
       <td style="text-align:right;">
