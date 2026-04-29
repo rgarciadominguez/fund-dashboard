@@ -15300,4 +15300,465 @@ async function mstDoSearch(){
     setTimeout(wire, 600);
   }
 })();
+
+
+/* ======================================================================
+   Auto-driven flow via URL params (additive — no impact on manual usage)
+   Added: 2026-04-29
+
+   Allows the dashboard to be invoked from external tools (skill actualizar-af)
+   to automate fund analysis, comparison, and backtest with PDF export.
+
+   URL params:
+     ?action=fund|compare|backtest    Required to activate auto-flow
+     &isins=ISIN1,ISIN2,...           Comma-separated ISINs
+     &weights=W1,W2,...               Optional, only for backtest. Sum should be 100.
+     &exportPdf=1                     If "1", auto-export PDF and trigger download
+     &filename=Custom_Name            Optional, overrides default PDF filename (no extension)
+
+   Examples:
+     ?action=fund&isins=ES0175437005&exportPdf=1&filename=Ficha_Dunas
+     ?action=compare&isins=ES0175437005,LU1694789451&exportPdf=1&filename=Cmp_Ramon
+     ?action=backtest&isins=A,B,C&weights=33,33,34&exportPdf=1&filename=Backtest_Ramon_Total
+
+   Behavior:
+     - If no ?action= param, this module does NOTHING (manual flow preserved).
+     - Waits up to 30s for DATAPACK to autoload from Supabase.
+     - Resolves ISINs via DATAPACK.funds.
+     - Loads via repoParsedForFund (existing internal function).
+     - Switches to the relevant tab, runs computation, optionally exports PDF.
+     - Custom filename override is applied via a one-shot patch on jsPDF.save.
+     - Adds a small banner to the screen indicating which fund limits the
+       maximum-common period (visible inside the exported PDF).
+   ====================================================================== */
+(function autoFlowFromUrl(){
+  // -----------------------------------------------------------------------
+  // CSS additive: tighten the per-fund mini-charts in the Comparación PDF.
+  // Active only during PDF export (body.pdfExporting). Does NOT affect
+  // normal screen rendering. Safe to apply unconditionally on module load.
+  // -----------------------------------------------------------------------
+  (function injectPdfCss(){
+    if (document.getElementById("autoFlowPdfCss")) return;
+    const css = `
+/* autoFlow: compact per-fund cards in Comparación PDF (2 per row) */
+body.pdfExporting #cmpSmallMultiples {
+  grid-template-columns: repeat(2, 1fr) !important;
+  gap: 10px !important;
+}
+body.pdfExporting #cmpSmallMultiples > .card,
+body.pdfExporting #cmpSmallMultiples > .pdfPairCard {
+  padding: 4px 6px !important;
+  border: 1px solid #e5e7eb !important;
+  background: #fff !important;
+  border-radius: 4px !important;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+body.pdfExporting #cmpSmallMultiples .bd { padding: 4px !important; }
+body.pdfExporting #cmpSmallMultiples .plot { height: 160px !important; }
+body.pdfExporting #cmpSmallMultiples .subhd { font-size: 11px !important; margin: 2px 0 !important; }
+body.pdfExporting #cmpSmallMultiples .pill { font-size: 11px !important; }
+body.pdfExporting #cmpSmallMultiples .brokerRow { font-size: 10px !important; }
+/* Mantener apariencia de card cuando se ha "neutralizado" para PDF */
+body.pdfExporting .pdfPairCard .hd {
+  border-bottom: 1px solid #e5e7eb !important;
+  padding: 6px 4px !important;
+}
+body.pdfExporting .pdfPairCard .pill {
+  border: none !important; background: transparent !important;
+  padding: 0 !important; color: #0f172a !important; font-weight: 700 !important;
+}
+`;
+    const style = document.createElement("style");
+    style.id = "autoFlowPdfCss";
+    style.textContent = css;
+    document.head.appendChild(style);
+  })();
+
+  function getParams(){
+    try{ return new URLSearchParams(location.search); }catch(_){ return null; }
+  }
+  function log(msg){ try{ console.log("[autoFlow] "+msg); }catch(_){} }
+  function showStatus(msg){
+    let el = document.getElementById("autoFlowStatus");
+    if (!el){
+      el = document.createElement("div");
+      el.id = "autoFlowStatus";
+      el.style.cssText = "position:fixed;top:10px;right:10px;z-index:99999;padding:10px 14px;background:#1A2A3A;color:#fff;border-radius:8px;font-family:sans-serif;font-size:13px;box-shadow:0 2px 8px rgba(0,0,0,0.2);max-width:380px;";
+      document.body.appendChild(el);
+    }
+    el.textContent = "🤖 " + msg;
+  }
+  function hideStatus(){
+    const el = document.getElementById("autoFlowStatus");
+    if (el && el.parentElement) el.parentElement.removeChild(el);
+  }
+
+  async function waitFor(predicate, timeoutMs, label){
+    const t0 = Date.now();
+    while (Date.now() - t0 < timeoutMs){
+      try{ if (predicate()) return true; }catch(_){}
+      await new Promise(r=>setTimeout(r, 250));
+    }
+    throw new Error("Timeout esperando: "+(label||"condición"));
+  }
+
+  function switchToScreen(screenId){
+    const btn = Array.from(document.querySelectorAll(".tabBtn"))
+      .find(b => b.getAttribute("data-screen") === screenId);
+    if (btn) btn.click();
+  }
+
+  function findFundInDatapack(isin){
+    const isinNorm = String(isin||"").trim().toUpperCase();
+    if (!window.DATAPACK || !Array.isArray(window.DATAPACK.funds)) return null;
+    return window.DATAPACK.funds.find(f => String(f.isin||"").toUpperCase() === isinNorm) || null;
+  }
+
+  // One-shot custom filename override for jsPDF.save
+  let _origSave = null;
+  function patchPdfSave(filename){
+    if (!window.jspdf || !window.jspdf.jsPDF) return;
+    const proto = window.jspdf.jsPDF.prototype;
+    if (!_origSave) _origSave = proto.save;
+    const target = _origSave;
+    proto.save = function(_oldName){
+      const fname = (filename || "").endsWith(".pdf") ? filename : ((filename || "") + ".pdf");
+      return target.call(this, fname || _oldName);
+    };
+  }
+  function unpatchPdfSave(){
+    if (_origSave && window.jspdf && window.jspdf.jsPDF){
+      window.jspdf.jsPDF.prototype.save = _origSave;
+      _origSave = null;
+    }
+  }
+
+  // Identify the limiting fund (latest start date across loaded funds)
+  function findLimitingFund(funds){
+    let lim = null;
+    for (const f of funds){
+      if (!f || !f.dailySeries || !f.dailySeries.length) continue;
+      const start = f.dailySeries[0].date;
+      if (!lim || start > lim.start){
+        const name = (f.meta && f.meta.name) || f.name || (f.meta && f.meta.isin) || "?";
+        lim = { name: name, start: start };
+      }
+    }
+    return lim;
+  }
+
+  // Inject a banner indicating limiting fund (visible in PDF, marked as PDF-temp)
+  function showLimitingBanner(screenId, lim){
+    if (!lim) return;
+    const screen = document.getElementById(screenId);
+    if (!screen) return;
+    const banner = document.createElement("div");
+    banner.setAttribute("data-pdf-temp", "1");
+    banner.className = "card";
+    banner.style.cssText = "padding:10px 14px;margin:0 0 12px 0;background:#FFF8E1;border:1px solid #FFE082;border-radius:8px;font-size:12px;color:#5D4037;";
+    banner.innerHTML = '<b>Periodo: máximo común entre los fondos cargados.</b><br>El fondo que limita el inicio del periodo es <b>'
+      + (lim.name || "?") + '</b> (datos disponibles desde <b>' + (lim.start || "?") + '</b>). '
+      + 'Si quieres una simulación con periodo más largo excluyendo ese fondo, pídela aparte.';
+    screen.insertBefore(banner, screen.firstChild);
+  }
+
+  // ----- Action: fund (single fund, screen1) -----
+  async function actionFund(isins){
+    if (!isins || !isins.length) throw new Error("action=fund requiere un ISIN");
+    if (typeof repoParsedForFund !== "function") throw new Error("repoParsedForFund no disponible");
+    const isin = isins[0];
+    const dpFund = findFundInDatapack(isin);
+    if (!dpFund) throw new Error("ISIN no encontrado en datapack: "+isin);
+
+    showStatus("Cargando ficha de "+isin+"…");
+    switchToScreen("screen1");
+    await new Promise(r=>setTimeout(r, 400));
+
+    const parsed = await repoParsedForFund(dpFund, "screen1", "fund");
+    const STATE = window.STATE;
+    const fi = document.getElementById("file");
+    if (fi) try{ fi.value = ""; }catch(_){}
+    STATE.rawSeries = parsed.series;
+    STATE.dailyIdx = parsed.dailyIdx;
+    STATE.dailySeries = parsed.dailySeries;
+    STATE.monthlySeries = parsed.monthlySeries;
+    STATE.freqSegs = parsed.freqSegs;
+    STATE.sourceName = parsed.name || dpFund.name || "";
+    STATE.sourceKey = "repo|"+isin;
+    STATE.sourceMeta = {
+      provider: "Datapack",
+      name: dpFund.name || parsed.name || "",
+      isin: isin,
+      currency: (dpFund.attrs && dpFund.attrs.divisa) || "",
+      category: (dpFund.attrs && dpFund.attrs.categoria) || ""
+    };
+
+    if (typeof renderQuality === "function") renderQuality();
+    if (typeof computeAndRender === "function") await computeAndRender();
+    return { funds:[parsed], screenId:"screen1" };
+  }
+
+  // ----- Action: compare (multiple funds, screen2) -----
+  async function actionCompare(isins){
+    if (!isins || isins.length<2) throw new Error("action=compare requiere al menos 2 ISINs");
+    if (!window.CMP) throw new Error("CMP no inicializado");
+    if (typeof repoParsedForFund !== "function") throw new Error("repoParsedForFund no disponible");
+    if (typeof cmpHandleInputs !== "function") throw new Error("cmpHandleInputs no disponible");
+
+    showStatus("Cargando "+isins.length+" fondos para comparar…");
+    switchToScreen("screen2");
+    await new Promise(r=>setTimeout(r, 400));
+
+    window.CMP.repoFunds = Array(10).fill(null);
+    const loaded = [];
+    for (let i=0; i<isins.length && i<10; i++){
+      const dpFund = findFundInDatapack(isins[i]);
+      if (!dpFund){
+        log("ISIN no encontrado en datapack: "+isins[i]);
+        continue;
+      }
+      const parsed = await repoParsedForFund(dpFund, "screen2", "fund");
+      parsed.meta = parsed.meta || {};
+      parsed.meta.isin = isins[i];
+      parsed.meta.name = dpFund.name || parsed.name || isins[i];
+      window.CMP.repoFunds[i] = parsed;
+      loaded.push(parsed);
+    }
+
+    // Clear file inputs
+    for (let i=1; i<=10; i++){
+      const fi = document.getElementById("cmpFile"+i);
+      if (fi) try{ fi.value = ""; }catch(_){}
+    }
+
+    await cmpHandleInputs();
+    return { funds:loaded, screenId:"screen2" };
+  }
+
+  // ----- Action: backtest (cartera, screen3) -----
+  async function actionBacktest(isins, weights){
+    if (!isins || !isins.length) throw new Error("action=backtest requiere al menos 1 ISIN");
+    if (!window.BT) throw new Error("BT no inicializado");
+    if (typeof repoParsedForFund !== "function") throw new Error("repoParsedForFund no disponible");
+    if (typeof btRun !== "function") throw new Error("btRun no disponible");
+
+    showStatus("Cargando "+isins.length+" fondos para backtest…");
+    switchToScreen("screen3");
+    await new Promise(r=>setTimeout(r, 400));
+
+    // Reset BT state COMPLETELY before loading. Two reasons:
+    //   (1) btUpdateSumUI sums ALL weights[], not just active ones, so any
+    //       stale value from a previous load makes Math.abs(sum-100)>0.2 and
+    //       btRun throws "Los pesos no suman 100%".
+    //   (2) btBenchUsed() returns true if ANY benchWeight is >0; this would
+    //       trigger benchmark validation that may also fail.
+    // We reset both main and benchmark slots, plus prior result series so
+    // tabHasData("screen3") doesn't get confused by stale data.
+    const MAX_BT_SLOTS = 5;
+    window.BT.funds = new Array(MAX_BT_SLOTS).fill(null);
+    window.BT.weights = new Array(MAX_BT_SLOTS).fill(0);
+    if (Array.isArray(window.BT.benchFunds)) window.BT.benchFunds = new Array(MAX_BT_SLOTS).fill(null);
+    if (Array.isArray(window.BT.benchWeights)) window.BT.benchWeights = new Array(MAX_BT_SLOTS).fill(0);
+    window.BT.benchReady = false;
+    window.BT.portDaily = null;
+    window.BT.portMonthly = null;
+    window.BT.benchDaily = null;
+    window.BT.benchMonthly = null;
+    window.BT.portOverlapDaily = null;
+    window.BT.benchOverlapDaily = null;
+
+    const loaded = [];
+    const loadedIdxs = [];
+    for (let i=0; i<isins.length; i++){
+      const dpFund = findFundInDatapack(isins[i]);
+      if (!dpFund){
+        log("ISIN no encontrado en datapack: "+isins[i]);
+        continue;
+      }
+      const parsed = await repoParsedForFund(dpFund, "screen3", "fund");
+      parsed.meta = parsed.meta || {};
+      parsed.meta.isin = isins[i];
+      parsed.meta.name = dpFund.name || parsed.name || isins[i];
+      window.BT.funds[i] = parsed;
+      window.BT.weights[i] = (weights && weights[i] != null && !isNaN(weights[i])) ? Number(weights[i]) : (100 / isins.length);
+      loaded.push(parsed);
+      loadedIdxs.push(i);
+    }
+
+    // Critical: btBuildPortfolioSeries uses btSumWeightsLoaded (sums weights of
+    // every slot where funds[i] is truthy) and rejects if |sum-100|>0.2.
+    // To eliminate any drift / rounding / partial-load surprise, we normalize
+    // the loaded slots to sum exactly 100. Slots without a fund stay at 0.
+    {
+      let s = 0;
+      for (const i of loadedIdxs) s += Number(window.BT.weights[i]) || 0;
+      if (s > 0 && Math.abs(s - 100) > 0.001){
+        const factor = 100 / s;
+        for (const i of loadedIdxs){
+          window.BT.weights[i] = Number(window.BT.weights[i]) * factor;
+        }
+      }
+      // Final sanity log
+      const finalSum = loadedIdxs.reduce((a,i)=>a+(Number(window.BT.weights[i])||0), 0);
+      log("Pesos asignados (BT): " + loadedIdxs.map(i=>window.BT.weights[i].toFixed(4)).join(",") + "  suma=" + finalSum.toFixed(4));
+    }
+
+    // Clear file inputs
+    for (let i=1; i<=5; i++){
+      const fi = document.getElementById("btFile"+i);
+      if (fi) try{ fi.value = ""; }catch(_){}
+    }
+
+    // Refresh weights table and period info before running
+    if (typeof btRenderWeightsTable === "function") btRenderWeightsTable();
+    if (typeof btUpdatePeriodInfo === "function") btUpdatePeriodInfo();
+    const stEl = document.getElementById("btStatus");
+    if (stEl) stEl.textContent = "Cargados: " + loaded.length + " archivos";
+
+    showStatus("Calculando backtest…");
+    await btRun();
+
+    // btRun() catches its own errors silently and only writes to #btMsg.
+    // Verify the calculation actually produced a portfolio series, otherwise
+    // the export will alert "Primero pulsa Calcular cartera" because
+    // tabHasData("screen3") tests BT.portDaily.length >= 2.
+    if (!Array.isArray(window.BT.portDaily) || window.BT.portDaily.length < 2){
+      const msgEl = document.getElementById("btMsg");
+      const dashboardMsg = (msgEl && msgEl.textContent) ? msgEl.textContent.trim() : "";
+      const sumLoaded = (typeof btSumWeightsLoaded === "function") ? btSumWeightsLoaded() : null;
+      const detail = [
+        "btRun no produjo serie de cartera",
+        dashboardMsg ? "Mensaje del dashboard: " + dashboardMsg : null,
+        sumLoaded != null ? "Suma de pesos: " + sumLoaded.toFixed(2) + "%" : null
+      ].filter(Boolean).join(" · ");
+      throw new Error(detail);
+    }
+
+    return { funds:loaded, screenId:"screen3" };
+  }
+
+  // -----------------------------------------------------------------------
+  // Compare PDF layout fix.
+  // exportTabToPDF uses collectSections() which iterates sub-cards inside a
+  // parent card and emits each one as a SEPARATE PDF section. That makes
+  // CSS `grid-template-columns: 1fr 1fr` ineffective for the per-fund mini
+  // cards in #cmpSmallMultiples — they end up stacked one per row in the PDF.
+  //
+  // Fix: leave the grid in its original DOM position (inside the
+  // "Rentabilidad & volatilidad por fondo" parent card) and just strip the
+  // .card class from the mini cards so they're not detected as sub-sections.
+  // This way the parent card emits as ONE section that html2canvas captures
+  // whole — respecting the 2-col grid CSS — and the natural document order
+  // is preserved (Resumen+gráfico de línea aparece ANTES de los mini cards).
+  // The mini cards keep their visual style via the .pdfPairCard class
+  // defined in injected CSS.
+  // -----------------------------------------------------------------------
+  let _compareNeutralizedCards = null;
+  function neutralizeMiniCardsForPdf(){
+    const grid = document.getElementById("cmpSmallMultiples");
+    if (!grid) return;
+    const subCards = Array.from(grid.querySelectorAll(".card"));
+    if (!subCards.length) return;
+    subCards.forEach(sc => {
+      sc.classList.remove("card");
+      sc.classList.add("pdfPairCard");
+    });
+    _compareNeutralizedCards = subCards;
+  }
+  function restoreMiniCardsAfterPdf(){
+    const subCards = _compareNeutralizedCards;
+    _compareNeutralizedCards = null;
+    if (!subCards) return;
+    subCards.forEach(sc => {
+      sc.classList.add("card");
+      sc.classList.remove("pdfPairCard");
+    });
+  }
+
+  async function exportPdfFromScreen(screenId, filename){
+    if (typeof exportTabToPDF !== "function") throw new Error("exportTabToPDF no disponible");
+    if (filename) patchPdfSave(filename);
+    let didNeutralize = false;
+    try {
+      if (screenId === "screen2"){
+        neutralizeMiniCardsForPdf();
+        didNeutralize = true;
+      }
+      showStatus("Exportando PDF…");
+      await exportTabToPDF(screenId);
+    } finally {
+      unpatchPdfSave();
+      if (didNeutralize) restoreMiniCardsAfterPdf();
+    }
+  }
+
+  async function run(){
+    const params = getParams();
+    if (!params) return;
+    const action = params.get("action");
+    if (!action) return; // No auto-flow
+
+    const isins = (params.get("isins") || "").split(",").map(s=>s.trim()).filter(Boolean);
+    const weightsRaw = (params.get("weights") || "").split(",").map(s=>s.trim()).filter(Boolean);
+    const weights = weightsRaw.map(Number);
+    const exportPdf = ["1","true","yes"].includes(String(params.get("exportPdf") || "").toLowerCase());
+    const filename = params.get("filename");
+
+    log("action="+action+" isins="+isins.join(",")+" weights="+weights.join(",")+" exportPdf="+exportPdf+" filename="+filename);
+    showStatus("Esperando datapack…");
+
+    try {
+      // Wait for DATAPACK fully populated (loaded flag + funds array non-empty).
+      // gistAutoLoad fetches from Supabase async; "loaded" flag may flip true
+      // before funds[] is repopulated by dpSyncToDatapack on certain code paths.
+      await waitFor(
+        () => window.DATAPACK
+              && window.DATAPACK.loaded === true
+              && Array.isArray(window.DATAPACK.funds)
+              && window.DATAPACK.funds.length > 0,
+        45000,
+        "DATAPACK.loaded + funds.length > 0"
+      );
+      log("datapack listo (" + window.DATAPACK.funds.length + " fondos), ejecutando acción");
+
+      let result;
+      if (action === "fund") result = await actionFund(isins);
+      else if (action === "compare") result = await actionCompare(isins);
+      else if (action === "backtest") result = await actionBacktest(isins, weights);
+      else throw new Error("action desconocido: "+action);
+
+      // Wait for render to settle (Plotly + DOM)
+      showStatus("Esperando render…");
+      await new Promise(r=>setTimeout(r, 2500));
+
+      // Banner with limiting fund
+      const lim = findLimitingFund(result.funds);
+      showLimitingBanner(result.screenId, lim);
+
+      if (exportPdf){
+        await new Promise(r=>setTimeout(r, 300));
+        await exportPdfFromScreen(result.screenId, filename);
+      }
+
+      showStatus("✅ Completado" + (exportPdf ? " y PDF descargado" : ""));
+      setTimeout(hideStatus, 4000);
+    } catch (err){
+      console.error("[autoFlow] error", err);
+      showStatus("❌ Error: " + (err.message || err));
+      setTimeout(hideStatus, 8000);
+    }
+  }
+
+  // Bootstrap: only act if URL has ?action= param
+  function bootstrap(){
+    const params = getParams();
+    if (!params || !params.get("action")) return;
+    if (document.readyState === "complete") setTimeout(run, 800);
+    else window.addEventListener("load", () => setTimeout(run, 800));
+  }
+  bootstrap();
+})();
+
+
 </script></div></div></body></html>
