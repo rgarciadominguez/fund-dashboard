@@ -5,6 +5,9 @@
 <title>Dashboard fondos — Investing CSV (v9)</title>
 <script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script><style id="plotly.js-style-global"></style>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<!-- PDF deliverables: html2canvas + jsPDF -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
     :root{
       --bg:#f6f7fb; --card:#ffffff; --text:#0f172a; --muted:#64748b;
@@ -209,7 +212,63 @@
 #s1AdvBody,span#s1AdvToggle,span#cmpAdvToggle,span#btAdvToggle,span#btBenchAdvToggle,
 #cmpAdvBody input[type="file"],#cmpAdvBody>label,button#cmpRun,
 #btAdvBody input[type="file"],#btBenchAdvBody input[type="file"]{display:none!important}
-#cmpAdvBody,#btAdvBody{display:block!important;padding:4px 0!important;background:none!important;border:none!important}
+#cmpAdvBody,#btAdvBody,#btBenchAdvBody{display:block!important;padding:4px 0!important;background:none!important;border:none!important}
+</style>
+<style>
+/* ===== Mejora 1: saved analyses (Comparación + Backtest) ===== */
+#savedAnCard .hd, #btSavedAnCard .hd{ display:flex; justify-content:space-between; align-items:center; }
+#savedAnCloudStatus, #btSavedAnCloudStatus{ font-size:11px; cursor:help; }
+#savedAnCard .row.savedAnRow, #btSavedAnCard .row.savedAnRow{ gap:8px; align-items:center; flex-wrap:wrap; }
+#savedAnCard select#savedAnSelect, #btSavedAnCard select#btSavedAnSelect{ flex:1; min-width:260px; padding:8px 10px; border-radius:12px; border:1px solid var(--border); background:#fff; color:var(--text); font-size:13px; }
+#savedAnNotes, #btSavedAnNotes{ display:none; margin-top:10px; padding:8px 12px; background:#f8fafc; border-left:3px solid var(--accent); border-radius:6px; font-size:13px; line-height:1.45; white-space:pre-wrap; }
+#savedAnHelp, #btSavedAnHelp{ margin-top:8px; font-size:11px; color:var(--muted); }
+.savedAnModalOverlay{ display:none; position:fixed; inset:0; background:rgba(15,23,42,.5); z-index:9999; align-items:center; justify-content:center; padding:20px; }
+.savedAnModalOverlay.open{ display:flex; }
+.savedAnModal{ background:#fff; border-radius:14px; max-width:520px; width:100%; max-height:90vh; display:flex; flex-direction:column; box-shadow:0 20px 60px rgba(0,0,0,.3); }
+.savedAnModalHeader{ display:flex; justify-content:space-between; align-items:center; padding:14px 18px; border-bottom:1px solid var(--border); font-weight:700; font-size:15px; }
+.savedAnModalBody{ padding:16px 18px; overflow:auto; flex:1; }
+.savedAnModalBody label{ display:block; margin-bottom:4px; font-weight:600; font-size:12px; color:var(--text); }
+.savedAnModalBody input[type="text"], .savedAnModalBody textarea{ width:100%; padding:8px 10px; border-radius:8px; border:1px solid var(--border); box-sizing:border-box; font-family:inherit; font-size:13px; }
+.savedAnModalBody input[type="text"]{ margin-bottom:12px; }
+.savedAnModalBody textarea{ resize:vertical; min-height:90px; }
+.savedAnModalBody input[type="text"]:focus, .savedAnModalBody textarea:focus{ outline:2px solid var(--accent); outline-offset:-1px; }
+.savedAnModalFooter{ display:flex; justify-content:flex-end; gap:8px; padding:12px 18px; border-top:1px solid var(--border); }
+.savedAnModalClose{ border:none; background:none; font-size:18px; cursor:pointer; color:var(--muted); }
+
+/* ===== Mejora 3: Export a PDF =====
+   Mientras se renderiza el PDF, el body lleva la clase .pdfExporting,
+   que oculta los controles interactivos que no aportan información impresa
+   (botones, selects, file inputs, modales overlays, toolbars Plotly, etc.). */
+.pdfBtn{ font-size:12px; padding:6px 12px; }
+body.pdfExporting .pdfHide,
+body.pdfExporting .iconBtn,
+body.pdfExporting button.btn,
+body.pdfExporting input[type="file"],
+body.pdfExporting input[type="date"],
+body.pdfExporting select,
+body.pdfExporting .modalOverlay,
+body.pdfExporting .savedAnModalOverlay,
+body.pdfExporting .repoBar,
+body.pdfExporting #s1AdvBody,
+body.pdfExporting #s1AdvToggle,
+body.pdfExporting .modebar,
+body.pdfExporting .modebar-container,
+body.pdfExporting details > summary { display:none !important; }
+body.pdfExporting details { display:block !important; }
+body.pdfExporting details > *:not(summary) { display:block !important; }
+.pdfSection { page-break-inside: avoid; break-inside: avoid; }
+
+/* Look profesional para exportación: sin bordes ni sombras en cards/headers,
+   pills minimalistas, separación solo por línea fina inferior del header. */
+body.pdfExporting .card,
+body.pdfExporting .grid > .card,
+body.pdfExporting .grid2 > .card,
+body.pdfExporting .plotsGrid2 > .card { border:none !important; box-shadow:none !important; border-radius:0 !important; background:#fff !important; }
+body.pdfExporting .hd { border-bottom:1px solid #e5e7eb !important; background:transparent !important; padding:6px 4px 6px 4px !important; }
+body.pdfExporting .pill { border:none !important; background:transparent !important; padding:0 !important; color:#0f172a !important; font-weight:700 !important; }
+body.pdfExporting .bd { padding:8px 4px !important; }
+body.pdfExporting .split { display:none !important; }
+body.pdfExporting .repoLog { display:none !important; }
 </style>
 </head>
 <body>
@@ -349,7 +408,7 @@ ES0156572002"></textarea>
 </div>
 <div class="wrap">
 <div class="grid">
-<div class="card">
+<div class="card" data-pdf-skip="1">
 <div class="hd"><span class="pill">Entrada</span><span class="pill" id="status">Sin datos</span></div>
 <div class="bd">
 <div class="kpiNote" style="margin-top:0;display:flex;align-items:center;gap:10px">
@@ -404,6 +463,7 @@ ES0156572002"></textarea>
 </div>
 
 <button class="btn" disabled="" id="run">Calcular</button>
+<button class="iconBtn pdfBtn pdfHide" type="button" id="s1ExportPdf" title="Exportar pestaña Fondo a PDF" style="margin-left:6px;">📄 Exportar PDF</button>
 <div style="height:10px"></div>
 <div class="note" id="msg"></div>
 <div class="split"></div>
@@ -426,7 +486,9 @@ ES0156572002"></textarea>
 </div>
 
 <div class="kpiSep"></div>
-<div class="kpiNote">Estilo Finect (última fecha - periodo)</div>
+<details style="margin-top:4px;">
+<summary style="cursor:pointer;font-size:12px;color:var(--muted);font-weight:600;">Ver KPIs por horizontes (estilo Finect)</summary>
+<div class="kpiNote" style="margin-top:8px;">Estilo Finect (última fecha - periodo)</div>
 
 <div class="kpis4">
 <div class="kpi"><div class="t">Rent. anualizada 10 años</div><div class="v" id="kR10">—</div></div>
@@ -434,12 +496,13 @@ ES0156572002"></textarea>
 <div class="kpi"><div class="t">Rent. anualizada 3 años</div><div class="v" id="kR3">—</div></div>
 <div class="kpi"><div class="t">Rent. anualizada 1 año</div><div class="v" id="kR1">—</div></div>
 </div>
-<div class="kpis4" style="margin-top:10px;">
+<div class="kpis4" style="margin-top:10px; margin-bottom:0;">
 <div class="kpi"><div class="t">Vol media 10 años</div><div class="v" id="kV10">—</div></div>
 <div class="kpi"><div class="t">Vol media 5 años</div><div class="v" id="kV5">—</div></div>
 <div class="kpi"><div class="t">Vol media 3 años</div><div class="v" id="kV3">—</div></div>
 <div class="kpi"><div class="t">Vol media 1 año</div><div class="v" id="kV1">—</div></div>
 </div>
+</details>
 
 <div class="kpiSep"></div>
 <div class="kpiNote">Media histórica (rolling) de todos los horizontes disponibles</div>
@@ -455,6 +518,37 @@ ES0156572002"></textarea>
 <div class="kpi"><div class="t">Vol media rolling 5 años</div><div class="v" id="kAvgV5">—</div></div>
 <div class="kpi"><div class="t">Vol media rolling 3 años</div><div class="v" id="kAvgV3">—</div></div>
 <div class="kpi"><div class="t">Vol media rolling 1 año</div><div class="v" id="kAvgV1">—</div></div>
+</div>
+<div style="height:12px"></div>
+<!-- Evolución NAV (Base 100) — homólogo a cmpGrowth (Comparación) y btPlotGrowth (Backtest) -->
+<div class="card" style="border-radius:14px;">
+<div class="hd" style="border-radius:14px 14px 0 0;">
+<span class="pill">Evolución (Base 100)</span>
+<button class="iconBtn" id="dlGrowth">Descargar</button>
+</div>
+<div class="bd">
+<div style="display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap; margin-bottom:8px;">
+<div class="subhd" style="margin:0; min-width:180px;">Periodo (gráfico de línea)</div>
+<div>
+<div class="subhd" style="margin:0 0 4px 0; font-size:12px; color:var(--muted);">Desde</div>
+<input class="dateInput" id="s1GrowthStart" type="date">
+</div>
+<div>
+<div class="subhd" style="margin:0 0 4px 0; font-size:12px; color:var(--muted);">Hasta</div>
+<input class="dateInput" id="s1GrowthEnd" type="date">
+</div>
+<div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+<button class="iconBtn" id="s1GrowthQ1">1a</button>
+<button class="iconBtn" id="s1GrowthQ3">3a</button>
+<button class="iconBtn" id="s1GrowthQ5">5a</button>
+<button class="iconBtn" id="s1GrowthQ10">10a</button>
+<button class="iconBtn" id="s1GrowthQall">Max</button>
+</div>
+</div>
+<div class="note" id="s1GrowthNote" style="margin-top:2px; margin-bottom:6px;"></div>
+<div class="plot" id="plotGrowth"></div>
+<details><summary>Ver / descargar tabla</summary><div id="tblGrowth"></div></details>
+</div>
 </div>
 <div style="height:12px"></div>
 <!-- Row 1 charts -->
@@ -580,8 +674,55 @@ ES0156572002"></textarea>
 <div class="wrap">
 <h2 style="margin:0 0 6px 0;">Comparación de fondos y correlación</h2>
 <p class="sub">Sube hasta 10 fondos de Investing. Verás comparativa anual, crecimiento en base 100 desde inicio común y matrices R²/beta con ventana común.</p>
+
+<!-- ===== Mejora 1: Panel de análisis guardados ===== -->
+<div class="card" id="savedAnCard" style="margin-bottom:14px;">
+  <div class="hd">
+    <span class="pill">💾 Análisis guardados</span>
+    <span class="pill" id="savedAnCloudStatus" title="Estado de sincronización con Supabase">☁️ …</span>
+  </div>
+  <div class="bd">
+    <div class="row savedAnRow">
+      <select id="savedAnSelect">
+        <option value="">— selecciona un análisis —</option>
+      </select>
+      <button class="iconBtn" id="savedAnLoad" title="Cargar el análisis seleccionado">Cargar</button>
+      <button class="iconBtn" id="savedAnSaveNew" title="Guardar el estado actual como análisis nuevo">💾 Guardar actual</button>
+      <button class="iconBtn" id="savedAnSaveOver" title="Sobreescribir el análisis seleccionado con el estado actual">↻ Sobreescribir</button>
+      <button class="iconBtn" id="savedAnDelete" title="Eliminar el análisis seleccionado">🗑️</button>
+      <button class="iconBtn" id="savedAnExport" title="Descargar como JSON (uno si hay seleccionado, o todos)">⬇ Exportar</button>
+      <button class="iconBtn" id="savedAnImport" title="Importar análisis desde un fichero JSON">⬆ Importar</button>
+      <input type="file" id="savedAnImportFile" accept=".json,application/json" style="display:none;">
+    </div>
+    <div id="savedAnNotes"></div>
+    <div id="savedAnHelp">
+      Guarda la combinación actual de fondos + periodo + configuración para volver a enseñársela a un cliente con un clic. Requiere fondos cargados desde el repositorio (📚 Repo), no CSVs manuales.
+    </div>
+  </div>
+</div>
+
+<!-- Modal para nombre + notas -->
+<div id="savedAnModalOverlay" class="savedAnModalOverlay">
+  <div class="savedAnModal" role="dialog" aria-modal="true" aria-labelledby="savedAnModalTitle">
+    <div class="savedAnModalHeader">
+      <span id="savedAnModalTitle">Guardar análisis</span>
+      <button type="button" class="savedAnModalClose" id="savedAnModalCloseBtn" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="savedAnModalBody">
+      <label for="savedAnModalName">Nombre</label>
+      <input type="text" id="savedAnModalName" placeholder="Ej: RV global value vs growth — cliente X">
+      <label for="savedAnModalNotes">Notas (opcional)</label>
+      <textarea id="savedAnModalNotes" rows="5" placeholder="Para qué sirve este análisis, con quién usarlo, qué observaciones…"></textarea>
+    </div>
+    <div class="savedAnModalFooter">
+      <button type="button" class="iconBtn" id="savedAnModalCancel">Cancelar</button>
+      <button type="button" class="btn" id="savedAnModalSave" style="width:auto; padding:8px 16px;">Guardar</button>
+    </div>
+  </div>
+</div>
+
 <div class="grid">
-<div class="card">
+<div class="card" data-pdf-skip="1">
 <div class="hd"><span class="pill">Entrada</span><span class="pill" id="cmpStatus">Sin datos</span></div>
 <div class="bd">
 <span id="cmpAdvToggle" style="font-size:11px;color:var(--muted);cursor:pointer;user-select:none;">► Opciones avanzadas (CSV manual)</span>
@@ -601,6 +742,7 @@ ES0156572002"></textarea>
 </div>
 <div style="height:10px"></div>
 <button class="btn" disabled="" id="cmpRun">Calcular comparación</button>
+<button class="iconBtn pdfBtn pdfHide" type="button" id="s2ExportPdf" title="Exportar pestaña Comparación a PDF" style="margin-left:6px;">📄 Exportar PDF</button>
 </div><!-- /cmpAdvBody -->
 <div style="height:10px"></div>
 <div class="note" id="cmpMsg"></div>
@@ -751,7 +893,54 @@ ES0156572002"></textarea>
 </div>
 <div class="screen hidden" id="screen3">
 <div class="wrap">
-<div class="card">
+
+<!-- ===== Mejora 1: Panel de análisis guardados (Backtest) ===== -->
+<div class="card" id="btSavedAnCard" style="margin-bottom:14px;">
+  <div class="hd">
+    <span class="pill">💾 Carteras guardadas</span>
+    <span class="pill" id="btSavedAnCloudStatus" title="Estado de sincronización con Supabase">☁️ …</span>
+  </div>
+  <div class="bd">
+    <div class="row savedAnRow">
+      <select id="btSavedAnSelect">
+        <option value="">— selecciona una cartera —</option>
+      </select>
+      <button class="iconBtn" id="btSavedAnLoad" title="Cargar la cartera seleccionada">Cargar</button>
+      <button class="iconBtn" id="btSavedAnSaveNew" title="Guardar el estado actual como cartera nueva">💾 Guardar actual</button>
+      <button class="iconBtn" id="btSavedAnSaveOver" title="Sobreescribir la cartera seleccionada con el estado actual">↻ Sobreescribir</button>
+      <button class="iconBtn" id="btSavedAnDelete" title="Eliminar la cartera seleccionada">🗑️</button>
+      <button class="iconBtn" id="btSavedAnExport" title="Descargar como JSON (una si hay seleccionada, o todas)">⬇ Exportar</button>
+      <button class="iconBtn" id="btSavedAnImport" title="Importar carteras desde un fichero JSON">⬆ Importar</button>
+      <input type="file" id="btSavedAnImportFile" accept=".json,application/json" style="display:none;">
+    </div>
+    <div id="btSavedAnNotes"></div>
+    <div id="btSavedAnHelp">
+      Guarda fondos + pesos + benchmark + fechas + rebal para volver a enseñar la cartera a un cliente con un clic. Requiere fondos cargados desde el repositorio (📚 Repo), no CSVs manuales.
+    </div>
+  </div>
+</div>
+
+<!-- Modal para nombre + notas (Backtest) -->
+<div id="btSavedAnModalOverlay" class="savedAnModalOverlay">
+  <div class="savedAnModal" role="dialog" aria-modal="true" aria-labelledby="btSavedAnModalTitle">
+    <div class="savedAnModalHeader">
+      <span id="btSavedAnModalTitle">Guardar cartera</span>
+      <button type="button" class="savedAnModalClose" id="btSavedAnModalCloseBtn" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="savedAnModalBody">
+      <label for="btSavedAnModalName">Nombre</label>
+      <input type="text" id="btSavedAnModalName" placeholder="Ej: Cartera conservadora — cliente X">
+      <label for="btSavedAnModalNotes">Notas (opcional)</label>
+      <textarea id="btSavedAnModalNotes" rows="5" placeholder="Objetivo de la cartera, perfil del cliente, observaciones…"></textarea>
+    </div>
+    <div class="savedAnModalFooter">
+      <button type="button" class="iconBtn" id="btSavedAnModalCancel">Cancelar</button>
+      <button type="button" class="btn" id="btSavedAnModalSave" style="width:auto; padding:8px 16px;">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<div class="card" data-pdf-skip="1">
 <div class="hd">
 <div>
 <div class="subhd">Backtest de cartera</div>
@@ -761,6 +950,8 @@ ES0156572002"></textarea>
 <span class="pill" id="btSumPill">Suma pesos: 0.0%</span>
 <span class="pill" id="btBenchSumPill">Benchmark: —</span>
 <button class="btn" disabled="" id="btCalc">Calcular cartera</button>
+<button class="btn" disabled="" id="btSaveToRepo" title="Guarda la cartera calculada como pseudo-fondo (ISIN sintético C-...) en el repo, para usarla en Comparación o como componente en otro backtest">💾 Guardar al repo</button>
+<button class="iconBtn pdfBtn pdfHide" type="button" id="s3ExportPdf" title="Exportar pestaña Backtest a PDF" style="margin-left:6px;">📄 Exportar PDF</button>
 </div>
 </div>
 <div class="bd">
@@ -815,7 +1006,7 @@ ES0156572002"></textarea>
 <div class="row" style="gap:14px; align-items:flex-start; flex-wrap:wrap; margin-top:10px;">
 <div style="flex:1 1 520px; min-width:330px;">
 <span id="btBenchAdvToggle" style="font-size:11px;color:var(--muted);cursor:pointer;user-select:none;">► CSV benchmark manual (Investing)</span>
-<div id="btBenchAdvBody" style="display:none;margin-top:6px;padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:#fafafa;">
+<div id="btBenchAdvBody" style="margin-top:6px;padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:#fafafa;">
 <div id="btBenchFiles" style="display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:8px;">
 <div><div class="muted" style="font-size:12px; margin-bottom:4px;">B1</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="btBFile1" type="file"></div>
 <div><div class="muted" style="font-size:12px; margin-bottom:4px;">B2</div><input accept=".csv,.txt,.tsv,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" id="btBFile2" type="file"></div>
@@ -904,7 +1095,9 @@ ES0156572002"></textarea>
 </div>
 
 <div class="kpiSep"></div>
-<div class="kpiNote">Estilo Finect (última fecha - periodo)</div>
+<details style="margin-top:4px;">
+<summary style="cursor:pointer;font-size:12px;color:var(--muted);font-weight:600;">Ver KPIs por horizontes (estilo Finect)</summary>
+<div class="kpiNote" style="margin-top:8px;">Estilo Finect (última fecha - periodo)</div>
 
 <div class="kpis4">
 <div class="kpi"><div class="t">Rent. anualizada 10 años</div><div class="v" id="btKR10">—</div></div>
@@ -912,12 +1105,13 @@ ES0156572002"></textarea>
 <div class="kpi"><div class="t">Rent. anualizada 3 años</div><div class="v" id="btKR3">—</div></div>
 <div class="kpi"><div class="t">Rent. anualizada 1 año</div><div class="v" id="btKR1">—</div></div>
 </div>
-<div class="kpis4" style="margin-top:10px;">
+<div class="kpis4" style="margin-top:10px; margin-bottom:0;">
 <div class="kpi"><div class="t">Vol media 10 años</div><div class="v" id="btV10">—</div></div>
 <div class="kpi"><div class="t">Vol media 5 años</div><div class="v" id="btV5">—</div></div>
 <div class="kpi"><div class="t">Vol media 3 años</div><div class="v" id="btV3">—</div></div>
 <div class="kpi"><div class="t">Vol media 1 año</div><div class="v" id="btV1">—</div></div>
 </div>
+</details>
 
 <div class="kpiSep"></div>
 <div class="kpiNote">Media histórica (rolling) de todos los horizontes disponibles</div>
@@ -1792,6 +1986,7 @@ function downloadCSV(filename, text){
 
 /* ---------- STATE ---------- */
 const STATE = { rawSeries:[], series:[], dailyIdx:0, dailySeries:[], monthlySeries:[], meFull:[], freqSegs:[], tables:{} };
+window.STATE = STATE;
 
 /* ---------- quality modal ---------- */
 function renderQuality(){
@@ -1912,6 +2107,25 @@ if (!meFull || meFull.length < 13){
 }
 
 document.getElementById("status").textContent = `${fmtDateES(series[0].date)} → ${fmtDateES(end)}`;
+
+  // ---- Evolución Base 100 (serie activa: daily o monthly según modo) ----
+  // Guardamos la serie para que los controles de periodo (Desde/Hasta/1a/3a/5a/10a/Max)
+  // puedan re-render sin necesidad de recalcular todo el análisis.
+  STATE.growthSeriesFull = Array.isArray(series) ? series.slice() : [];
+  // Inicializar inputs de fechas al rango completo al primer render
+  try {
+    const sdEl = document.getElementById("s1GrowthStart");
+    const edEl = document.getElementById("s1GrowthEnd");
+    if (sdEl && edEl && STATE.growthSeriesFull.length >= 2) {
+      sdEl.value = fmtDate(STATE.growthSeriesFull[0].date);
+      edEl.value = fmtDate(STATE.growthSeriesFull[STATE.growthSeriesFull.length-1].date);
+      sdEl.min = fmtDate(STATE.growthSeriesFull[0].date);
+      sdEl.max = fmtDate(STATE.growthSeriesFull[STATE.growthSeriesFull.length-1].date);
+      edEl.min = fmtDate(STATE.growthSeriesFull[0].date);
+      edEl.max = fmtDate(STATE.growthSeriesFull[STATE.growthSeriesFull.length-1].date);
+    }
+  } catch(_){}
+  try { renderPlotGrowth(); } catch(e) { console.warn("[plotGrowth] error", e); }
 
   // Yearly return bars (calendar year, last obs in year vs last obs prev year)
   const ye = yearEnd(series);
@@ -2513,7 +2727,145 @@ async function onRun(){
   computeAndRender();
 }
 
+/* ---------- plotGrowth (Base 100) — renderizador independiente para el selector de periodo ---------- */
+function renderPlotGrowth(){
+  const g_el = document.getElementById("plotGrowth");
+  const full = Array.isArray(STATE.growthSeriesFull) ? STATE.growthSeriesFull : [];
+  if (!g_el || full.length < 2) return;
+
+  // Recortar por fechas si hay valores en los inputs
+  const sdEl = document.getElementById("s1GrowthStart");
+  const edEl = document.getElementById("s1GrowthEnd");
+  const sd = sdEl && sdEl.value ? new Date(sdEl.value + "T00:00:00Z") : full[0].date;
+  const ed = edEl && edEl.value ? new Date(edEl.value + "T00:00:00Z") : full[full.length-1].date;
+  const series = full.filter(p => p.date >= sd && p.date <= ed);
+  const noteEl = document.getElementById("s1GrowthNote");
+
+  if (series.length < 2) {
+    Plotly.purge("plotGrowth");
+    if (noteEl) noteEl.textContent = "Rango seleccionado sin datos suficientes.";
+    return;
+  }
+
+  const baseNav = series[0].nav;
+  const firstDate = series[0].date;
+  const xs = series.map(p => fmtDate(p.date));
+  const ys = series.map(p => (p.nav / baseNav) * 100);
+  const cagrs = series.map(p => {
+    const days = Math.max(0, (p.date.getTime() - firstDate.getTime())/(24*3600*1000));
+    const years = days / 365.25;
+    if (years <= 0) return NaN;
+    const gross = p.nav / baseNav;
+    if (!Number.isFinite(gross) || gross <= 0) return NaN;
+    return Math.pow(gross, 1/years) - 1;
+  });
+  const rowsPlain = series.map((p,i) => [
+    fmtDate(p.date),
+    Number(((p.nav/baseNav)*100).toFixed(6)),
+    Number.isFinite(cagrs[i]) ? Number((cagrs[i]*100).toFixed(6)) : ""
+  ]);
+
+  // Anotación discreta sobre el último punto con la CAGR total (tono slate coherente con resto UI).
+  const lastP = series[series.length-1];
+  const endY = (lastP.nav / baseNav) * 100;
+  const endCagr = cagrs[cagrs.length-1];
+  const annotations = [{
+    x: fmtDate(lastP.date),
+    y: endY,
+    xref:"x", yref:"y",
+    text: Number.isFinite(endCagr) ? `${(endCagr*100).toFixed(2)}%` : "n.a.",
+    showarrow: false,
+    xanchor:"left", yanchor:"middle",
+    font:{size:11, color:"#0f172a", family:"Trebuchet MS"}
+  }];
+
+  Plotly.newPlot("plotGrowth", [{
+    type:"scatter", mode:"lines",
+    x: xs, y: ys,
+    customdata: cagrs.map(c => Number.isFinite(c) ? c : null),
+    line:{width:1.6, color:"#475569"},
+    hovertemplate:"%{x}<br>Base 100: %{y:.2f}<br>Rent. anualizada desde inicio: %{customdata:.2%}<extra></extra>"
+  }, {
+    type:"scatter", mode:"markers",
+    x:[xs[xs.length-1]], y:[endY],
+    marker:{size:6, color:"#475569", line:{width:1.5, color:"#ffffff"}},
+    hoverinfo:"skip",
+    showlegend:false
+  }], {
+    margin:{l:55, r:70, t:10, b:45},
+    xaxis:{tickformat:"%Y", dtick:"M12", tickfont:{size:11}},
+    yaxis:{title:"Base 100"},
+    annotations: annotations,
+    font:{family:"Trebuchet MS", size:12, color:"#0f172a"},
+    paper_bgcolor:"rgba(0,0,0,0)", plot_bgcolor:"rgba(0,0,0,0)",
+    showlegend:false
+  }, {displayModeBar:false, responsive:true});
+
+  if (noteEl){
+    noteEl.textContent = `Rango: ${fmtDateES(firstDate)} → ${fmtDateES(lastP.date)} · ${series.length} obs · Rent. anualizada: ${Number.isFinite(endCagr) ? (endCagr*100).toFixed(2)+"%" : "n.a."}`;
+  }
+
+  const tblEl = document.getElementById("tblGrowth");
+  if (tblEl) {
+    const bodyRows = rowsPlain.map(r => `<tr><td class="num">${r[0]}</td><td class="num">${Number(r[1]).toFixed(2)}</td><td class="num">${r[2]===""?"":Number(r[2]).toFixed(2)+"%"}</td></tr>`).join("");
+    tblEl.innerHTML = `<table><thead><tr><th class="num">Fecha</th><th class="num">Base 100</th><th class="num">Rent. anualizada desde inicio</th></tr></thead><tbody>${bodyRows}</tbody></table>`;
+  }
+  STATE.tables.growth = { cols:["Date","Base100","AnnualizedReturn_from_start_pct"], rowsPlain };
+}
+
+// Controles del selector de periodo del gráfico Base 100 (screen1)
+(function(){
+  function setLastYears(y){
+    const full = Array.isArray(STATE.growthSeriesFull) ? STATE.growthSeriesFull : [];
+    if (full.length < 2) return;
+    const sdEl = document.getElementById("s1GrowthStart");
+    const edEl = document.getElementById("s1GrowthEnd");
+    if (!sdEl || !edEl) return;
+    const endDate = (edEl.value ? new Date(edEl.value+"T00:00:00Z") : full[full.length-1].date);
+    const s = new Date(Date.UTC(endDate.getUTCFullYear()-y, endDate.getUTCMonth(), endDate.getUTCDate()));
+    const fullStart = full[0].date;
+    const effS = (s < fullStart) ? fullStart : s;
+    sdEl.value = fmtDate(effS);
+    if (!edEl.value) edEl.value = fmtDate(endDate);
+    renderPlotGrowth();
+  }
+  function setMax(){
+    const full = Array.isArray(STATE.growthSeriesFull) ? STATE.growthSeriesFull : [];
+    if (full.length < 2) return;
+    const sdEl = document.getElementById("s1GrowthStart");
+    const edEl = document.getElementById("s1GrowthEnd");
+    if (!sdEl || !edEl) return;
+    sdEl.value = fmtDate(full[0].date);
+    edEl.value = fmtDate(full[full.length-1].date);
+    renderPlotGrowth();
+  }
+  const sdEl = document.getElementById("s1GrowthStart");
+  const edEl = document.getElementById("s1GrowthEnd");
+  if (sdEl) sdEl.addEventListener("change", ()=>{
+    if (edEl && sdEl.value && edEl.value && sdEl.value > edEl.value) edEl.value = sdEl.value;
+    renderPlotGrowth();
+  });
+  if (edEl) edEl.addEventListener("change", ()=>{
+    if (sdEl && sdEl.value && edEl.value && sdEl.value > edEl.value) sdEl.value = edEl.value;
+    renderPlotGrowth();
+  });
+  const q1  = document.getElementById("s1GrowthQ1");
+  const q3  = document.getElementById("s1GrowthQ3");
+  const q5  = document.getElementById("s1GrowthQ5");
+  const q10 = document.getElementById("s1GrowthQ10");
+  const qA  = document.getElementById("s1GrowthQall");
+  if (q1)  q1.addEventListener("click",  ()=>setLastYears(1));
+  if (q3)  q3.addEventListener("click",  ()=>setLastYears(3));
+  if (q5)  q5.addEventListener("click",  ()=>setLastYears(5));
+  if (q10) q10.addEventListener("click", ()=>setLastYears(10));
+  if (qA)  qA.addEventListener("click",  setMax);
+})();
+
 /* ---------- downloads ---------- */
+(function(){
+  const btn = document.getElementById("dlGrowth");
+  if (btn) btn.addEventListener("click", ()=>{ const t=STATE.tables.growth; if(t) downloadCSV("evolucion_base100.csv", toCSV(t.cols,t.rowsPlain)); });
+})();
 document.getElementById("dlYearlyRet").addEventListener("click", ()=>{ const t=STATE.tables.yearlyRet; if(t) downloadCSV("rentabilidad_anual.csv", toCSV(t.cols,t.rowsPlain)); });
 document.getElementById("dlYearlyVol").addEventListener("click", ()=>{ const t=STATE.tables.yearlyVol; if(t) downloadCSV("volatilidad_anual.csv", toCSV(t.cols,t.rowsPlain)); });
 document.getElementById("dlRollRet").addEventListener("click", ()=>{ const t=STATE.tables.rollRet; if(t) downloadCSV("rolling_rentabilidad.csv", toCSV(t.cols,t.rowsPlain)); });
@@ -2723,6 +3075,7 @@ function pairwiseReturns(fA, fB, horizon){
 
 // ===== Screen 2: comparison & correlation =====
 const CMP = { funds: [], range:null, growthCSV:null };
+window.CMP = CMP; // expose for saved-analyses module (needs window.CMP)
 
 function setCmpMsg(kind, html){
   const el=document.getElementById("cmpMsg");
@@ -2734,11 +3087,40 @@ function renderCmpList(){
   if (!CMP.funds.length){ el.textContent="Sube hasta 10 fondos para ver comparación."; return; }
   const items = CMP.funds.map(f=>{
     const a = (f.series[0].date), b = (f.series[f.series.length-1].date);
-    return `<div><b>${escapeHTML(f.name)}</b><br/><span class="muted">${fmtDateES(a)} → ${fmtDateES(b)} · obs: ${f.series.length}</span></div>`;
+    const isin = (f.meta && f.meta.isin) || f.isin || "";
+    const isinHtml = isin
+      ? ` <span class="isinChip" onclick="copyIsinToClipboard('${escapeHTML(isin)}', this)" title="Click para copiar ISIN" style="cursor:pointer;font-family:'Courier New',monospace;font-size:11px;color:#475569;background:#f1f5f9;padding:2px 6px;border-radius:6px;margin-left:8px;user-select:all;">${escapeHTML(isin)}</span>`
+      : "";
+    return `<div><b>${escapeHTML(f.name)}</b>${isinHtml}<br/><span class="muted">${fmtDateES(a)} → ${fmtDateES(b)} · obs: ${f.series.length}</span></div>`;
   }).join("<div class='split' style='margin:10px 0'></div>");
   el.innerHTML = items;
 }
 function escapeHTML(s){ return String(s).replace(/[&<>"']/g, c=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;" }[c])); }
+
+// Copia un ISIN al portapapeles dando feedback visual breve sobre el elemento clicado.
+window.copyIsinToClipboard = function(isin, el){
+  if (!isin) return;
+  const fallbackCopy = (text) => {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position='fixed'; ta.style.left='-9999px';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); } catch(_){}
+    document.body.removeChild(ta);
+  };
+  const showOk = () => {
+    if (!el) return;
+    const orig = el.textContent;
+    const origColor = el.style.color;
+    el.textContent = '✓ ' + isin + ' copiado';
+    el.style.color = '#15803d';
+    setTimeout(() => { el.textContent = orig; el.style.color = origColor; }, 1100);
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(isin).then(showOk).catch(() => { fallbackCopy(isin); showOk(); });
+  } else {
+    fallbackCopy(isin); showOk();
+  }
+};
 
 async function cmpLoadFiles(files){
   CMP.funds = [];
@@ -3810,6 +4192,7 @@ document.getElementById("cmpDlGrowth").addEventListener("click", ()=>{
 
 // ===== Rolling Corr/Beta charts (Screen2) =====
 const CMPROLL = { a:0, b:1, years:3, _bound:false };
+window.CMPROLL = CMPROLL; // expose for saved-analyses module
 
 function rollMonthKey(d){
   // YYYY-MM (UTC)
@@ -4027,6 +4410,7 @@ const BT = {
   portOverlapDaily: null,            // buy&hold portfolio rebuilt from overlap start (for corr/beta)
   benchOverlapDaily: null,           // benchmark rebuilt from overlap start (for corr/beta)
 };
+window.BT = BT; // expose for saved-analyses module (needs window.BT)
 
 function setBtMsg(kind, html){
   const el=document.getElementById("btMsg");
@@ -4185,12 +4569,16 @@ function btRenderWeightsTable(){
   idxs.forEach(i=>{
     const f = BT.funds[i];
     const nm = escapeHTML(f?.name || `F${i+1}`);
+    const isin = (f?.meta && f.meta.isin) || f?.isin || "";
+    const isinHtml = isin
+      ? `<span class="isinChip" onclick="copyIsinToClipboard('${escapeHTML(isin)}', this)" title="Click para copiar ISIN" style="cursor:pointer;font-family:'Courier New',monospace;font-size:11px;color:#475569;background:#f1f5f9;padding:2px 6px;border-radius:6px;margin-left:8px;user-select:all;">${escapeHTML(isin)}</span>`
+      : "";
     const w = (Number(BT.weights[i])||0);
     const d0 = f?.dailySeries?.[0]?.date;
     const d1 = f?.dailySeries?.[f.dailySeries.length-1]?.date;
     html += `<tr>
       <td>
-        <div style="font-weight:650;">${nm}</div>
+        <div style="font-weight:650;">${nm}${isinHtml}</div>
         <div class="muted" style="font-size:12px;">${fmtDateES(d0)} → ${fmtDateES(d1)} · ${f.dailySeries.length} pts</div>
       </td>
       <td style="text-align:right;">
@@ -4242,12 +4630,16 @@ function btRenderBenchWeightsTable(){
   idxs.forEach(i=>{
     const f = BT.benchFunds[i];
     const nm = escapeHTML(f?.name || `F${i+1}`);
+    const isin = (f?.meta && f.meta.isin) || f?.isin || "";
+    const isinHtml = isin
+      ? `<span class="isinChip" onclick="copyIsinToClipboard('${escapeHTML(isin)}', this)" title="Click para copiar ISIN" style="cursor:pointer;font-family:'Courier New',monospace;font-size:11px;color:#475569;background:#f1f5f9;padding:2px 6px;border-radius:6px;margin-left:8px;user-select:all;">${escapeHTML(isin)}</span>`
+      : "";
     const w = (Number(BT.benchWeights[i])||0);
     const d0 = f?.dailySeries?.[0]?.date;
     const d1 = f?.dailySeries?.[f.dailySeries.length-1]?.date;
     html += `<tr>
       <td>
-        <div style="font-weight:650;">${nm}</div>
+        <div style="font-weight:650;">${nm}${isinHtml}</div>
         <div class="muted" style="font-size:12px;">${fmtDateES(d0)} → ${fmtDateES(d1)} · ${f.dailySeries.length} pts</div>
       </td>
       <td style="text-align:right;">
@@ -6236,6 +6628,7 @@ const DATAPACK = {
 
   cache:new Map(), // cacheKey -> parsed bundle per screen role + output
 };;
+window.DATAPACK = DATAPACK; // expose for saved-analyses module
 
 
 const REPO_CTX = { kind:null, slot:null, isBench:false, inputId:null, screenId:null, role:"fund", output:null };
@@ -7208,10 +7601,22 @@ function repoPickerOpen(ctx){
   ctxEl.textContent = label;
 
   repoPickerPopulateFields();
+  // Reset COMPLETO de filtros: cada apertura del picker arranca limpia.
   const s = document.getElementById("repoPickerSearch");
-  s.value = "";
-  document.getElementById("repoPickerClass").value = "all";
-  document.getElementById("repoPickerField").value = "all";
+  if (s) s.value = "";
+  const clsSel = document.getElementById("repoPickerClass");
+  if (clsSel) clsSel.value = "all";
+  const clasifSel = document.getElementById("repoPickerClasif");
+  if (clasifSel) clasifSel.value = "all";
+  const fieldSel = document.getElementById("repoPickerField");
+  if (fieldSel) fieldSel.value = "all";
+  const fieldVal = document.getElementById("repoPickerFieldVal");
+  if (fieldVal) fieldVal.value = "";
+  // Reset quick filters dropdowns (Clase / Categoría / Tipo activo / Geografía / etc.)
+  const quickBox = document.getElementById("repoQuickFilters");
+  if (quickBox){
+    quickBox.querySelectorAll("select[data-field]").forEach(sel => { sel.value = "all"; });
+  }
   repoPickerOnFieldChange(true);
   repoPickerRender();
   setTimeout(()=>{ try{s.focus();}catch(_){} }, 0);
@@ -7459,6 +7864,47 @@ function repoAttachButton(inputId, ctx){
   btn.textContent="📚 Repo";
   btn.addEventListener("click", ()=>repoPickerOpen(ctx));
   wrap.appendChild(btn);
+  // Botón ✕ Quitar — solo aplicable a slots de Comparación y Backtest
+  if (ctx.kind === "cmp" || ctx.kind === "bt"){
+    const clearBtn = document.createElement("button");
+    clearBtn.type = "button";
+    clearBtn.className = "iconBtn";
+    clearBtn.textContent = "✕";
+    clearBtn.title = "Quitar fondo de este slot";
+    clearBtn.style.cssText = "padding:4px 8px;font-size:12px;color:#dc2626;border-color:#fecaca;";
+    clearBtn.addEventListener("click", ()=>repoSlotClear(ctx));
+    wrap.appendChild(clearBtn);
+  }
+}
+
+// Limpia el slot indicado en su pestaña sin afectar a los demás.
+async function repoSlotClear(ctx){
+  if (ctx.kind === "cmp"){
+    if (typeof CMP === "undefined") return;
+    if (CMP.repoFunds) CMP.repoFunds[ctx.slot] = null;
+    const inp = document.getElementById("cmpFile" + (ctx.slot + 1));
+    if (inp) { try { inp.value = ""; } catch(_){} }
+    if (typeof cmpHandleInputs === "function"){
+      try { await cmpHandleInputs(); } catch(_){}
+    }
+  } else if (ctx.kind === "bt"){
+    if (typeof BT === "undefined") return;
+    if (ctx.isBench){
+      if (BT.benchFunds) BT.benchFunds[ctx.slot] = null;
+      if (BT.benchWeights) BT.benchWeights[ctx.slot] = 0;
+      const inp = document.getElementById("btBFile" + (ctx.slot + 1));
+      if (inp) { try { inp.value = ""; } catch(_){} }
+      try { btRenderBenchWeightsTable && btRenderBenchWeightsTable(); } catch(_){}
+    } else {
+      if (BT.funds) BT.funds[ctx.slot] = null;
+      if (BT.weights) BT.weights[ctx.slot] = 0;
+      const inp = document.getElementById("btFile" + (ctx.slot + 1));
+      if (inp) { try { inp.value = ""; } catch(_){} }
+      try { btRenderWeightsTable && btRenderWeightsTable(); } catch(_){}
+    }
+    try { btUpdatePeriodInfo && btUpdatePeriodInfo(); } catch(_){}
+    try { btUpdateSumUI && btUpdateSumUI(); } catch(_){}
+  }
 }
 
 // Bind uploader + inject buttons
@@ -9144,6 +9590,20 @@ if (to<=floor) break;
       btnMs.textContent="⭐ Morningstar";
       btnMs.addEventListener("click", ()=>mstPickerOpen(ctx));
       wrap.appendChild(btnMs);
+
+      // Botón ✕ Quitar fondo — solo aplicable a Comparación y Backtest
+      if (ctx.kind === "cmp" || ctx.kind === "bt"){
+        const clearBtn = document.createElement("button");
+        clearBtn.type = "button";
+        clearBtn.className = "iconBtn";
+        clearBtn.textContent = "✕";
+        clearBtn.title = "Quitar fondo de este slot";
+        clearBtn.style.cssText = "padding:4px 8px;font-size:12px;color:#dc2626;border-color:#fecaca;";
+        clearBtn.addEventListener("click", ()=>{
+          if (typeof repoSlotClear === "function") repoSlotClear(ctx);
+        });
+        wrap.appendChild(clearBtn);
+      }
     };
   }
 
@@ -9218,36 +9678,9 @@ y0.addEventListener("change", ()=>computeAndRender());
       computeAndRender();
     });
 
-    // Insert daily line card after KPI card
-    const kInfo = document.getElementById("kInfo");
-    if (kInfo){
-      const card = kInfo.closest(".card");
-      if (card && !document.getElementById("s1DailyCard")){
-        const div = document.createElement("div");
-        div.className="card";
-        div.id="s1DailyCard";
-        div.innerHTML = `
-          <div class="hd">
-            <span class="pill">Evolución histórica (diaria)</span>
-            <div class="row" style="gap:8px;align-items:center;justify-content:flex-end;">
-              <button class="iconBtn" type="button" id="s1DlCsv">Descargar CSV</button>
-            </div>
-          </div>
-          <div class="bd">
-            <div id="s1DailyLine" style="height:340px;"></div>
-            <div class="note" id="s1DailyNote">—</div>
-          </div>`;
-        card.insertAdjacentElement("afterend", div);
-
-        document.getElementById("s1DlCsv").addEventListener("click", ()=>{
-          const ser = (window.__S1_LAST_DAILY_SERIES || []);
-          if (!ser.length){ setMsg("warn","No hay serie diaria para descargar."); return; }
-          const cols = ["Date","NAV"];
-const rowsPlain = ser.map(p=>[fmtDate(p.date), p.nav]);
-downloadCSV("screen1_daily_series.csv", toCSVSep(cols, rowsPlain, ";", {bom:true}));
-        });
-      }
-    }
+    // Card "Evolución histórica (diaria)" eliminada — redundante con el nuevo gráfico
+    // "Evolución (Base 100)" que está justo debajo de los KPIs y ya tiene selector de
+    // periodo (Desde/Hasta · 1a/3a/5a/10a/Max) + hover con CAGR desde inicio.
   }
 
   function s1YearsFromSeries(series){
@@ -9625,16 +10058,11 @@ downloadCSV("screen1_daily_series.csv", toCSVSep(cols, rowsPlain, ";", {bom:true
           // Run original
           _computeAndRender();
 
-          // Render daily line chart based on filtered daily series
+          // Card "Evolución histórica (diaria)" eliminada — mantenemos solo la asignación
+          // de __S1_LAST_DAILY_SERIES por si algún otro módulo la consume.
           window.__S1_LAST_DAILY_SERIES = STATE.dailySeries || [];
-          s1RenderDailyLine(window.__S1_LAST_DAILY_SERIES);
-          const note = document.getElementById("s1DailyNote");
-          if (note){
-            const a = window.__S1_LAST_DAILY_SERIES;
-            note.innerHTML = a.length ? `Obs: <b>${a.length}</b> · ${fmtDate(a[0].date)} → ${fmtDate(a[a.length-1].date)}` : "—";
-          }
 
-          
+
     // Brokers availability (Tab 1) — only when ISIN is known (repo / Morningstar)
     try{
       const brEl = document.getElementById("s1BrokersRow");
@@ -10097,50 +10525,135 @@ downloadCSV("screen1_daily_series.csv", toCSVSep(cols, rowsPlain, ";", {bom:true
 
   // ── Search via morningstar.es HTML (verified working, no API token needed) ──
   async function mstFetchSearchHtml(url) {
-    // Proxy order tested and verified from file:// (codetabs works, allorigins/corsproxy blocked by morningstar.es):
-    // 1) direct (~500ms, works from https://)
-    // 2) codetabs (~500ms, works from file://, returns full HTML)
-    // 3) jina (backup ~3s, returns reduced HTML)
+    // Proxy primario: Cloudflare Worker propio (estable, no bloqueado por
+    // Morningstar). Resto son proxies públicos como fallback en caso de que
+    // el Worker esté caído o llegue al rate limit (100k req/día).
+    const CF_WORKER = "https://white-grass-7fbd.rafagdominguez96.workers.dev/?url=";
     const attempts = [
-      url,
-      "https://api.codetabs.com/v1/proxy?quest=" + encodeURIComponent(url),
-      "https://r.jina.ai/" + encodeURIComponent(url),
+      { name:"cf-worker",    url: CF_WORKER + encodeURIComponent(url) },
+      { name:"direct",       url: url },
+      { name:"codetabs",     url: "https://api.codetabs.com/v1/proxy?quest=" + encodeURIComponent(url) },
+      { name:"corsproxy.io", url: "https://corsproxy.io/?" + encodeURIComponent(url) },
+      { name:"allorigins",   url: "https://api.allorigins.win/raw?url=" + encodeURIComponent(url) },
+      { name:"jina",         url: "https://r.jina.ai/" + encodeURIComponent(url) },
     ];
-    let lastErr = null;
-    for (const u of attempts) {
+    const failures = [];
+    const log = (msg) => { try { console.log("[Morningstar]", msg); } catch(_){} };
+    for (const { name, url: u } of attempts) {
       try {
         const ctrl = new AbortController();
         const timer = setTimeout(() => ctrl.abort(), 12000);
+        const t0 = performance.now();
         const res = await fetch(u, {credentials:"omit", cache:"default", signal: ctrl.signal});
         clearTimeout(timer);
-        if (!res.ok) { lastErr = new Error("HTTP "+res.status); continue; }
+        if (!res.ok){
+          const err = `${name}: HTTP ${res.status}`;
+          failures.push(err);
+          log(`${name} → HTTP ${res.status} (${(performance.now()-t0)|0}ms)`);
+          continue;
+        }
         const txt = await res.text();
-        if (!txt || txt.length < 500) { lastErr = new Error("Respuesta vacía"); continue; }
-        if (!txt.includes("snapshot")) { lastErr = new Error("Sin datos de fondos"); continue; }
+        if (!txt || txt.length < 500){
+          const err = `${name}: respuesta vacía (${txt ? txt.length : 0} bytes)`;
+          failures.push(err);
+          log(`${name} → respuesta vacía (${txt ? txt.length : 0} bytes)`);
+          continue;
+        }
+        // Validación laxa: aceptamos si parece HTML con ISIN/tabla/snapshot.
+        const looksValid = txt.includes("snapshot")
+                        || /\bISIN\b/i.test(txt)
+                        || /SecurityIDList|fondosResultsTable|results-table/i.test(txt)
+                        || /<table[^>]*>[\s\S]*<\/table>/i.test(txt);
+        if (!looksValid){
+          const err = `${name}: HTML no reconocido (${txt.length} bytes)`;
+          failures.push(err);
+          log(`${name} → HTML no reconocido (${txt.length} bytes)`);
+          continue;
+        }
+        log(`${name} → OK (${(performance.now()-t0)|0}ms, ${txt.length} bytes)`);
         return txt;
-      } catch(e) { lastErr = e; }
+      } catch(e) {
+        const msg = (e && e.message) || String(e);
+        failures.push(`${name}: ${msg}`);
+        log(`${name} → fail: ${msg}`);
+      }
     }
-    throw lastErr || new Error("No se pudo contactar con Morningstar");
+    const detail = failures.length ? `\nDetalle por proxy:\n  · ${failures.join("\n  · ")}` : "";
+    throw new Error(`No se pudo contactar con Morningstar (todos los proxies fallaron).${detail}`);
   }
 
   function mstParseSearchHtml(html) {
     const funds = [];
+    const seenIsins = new Set();
+    const ISIN_RE = /^[A-Z]{2}[A-Z0-9]{10}$/;
+    const log = (msg) => { try { console.log("[Morningstar/parse]", msg); } catch(_){} };
+
     try {
       const doc = new DOMParser().parseFromString(html, "text/html");
+
+      // 1) Estrategia clásica: filas de tabla con <a> que apunte a snapshot
       doc.querySelectorAll("table tr").forEach(row => {
-        const link = row.querySelector('a[href*="snapshot"]');
+        const link = row.querySelector('a[href*="snapshot"], a[href*="?id="]');
         if (!link) return;
-        const cells = row.querySelectorAll("td");
-        if (cells.length < 2) return;
+        const cells = Array.from(row.querySelectorAll("td"));
+        if (cells.length < 1) return;
         const name = link.textContent.trim();
-        const isin = cells[1]?.textContent.trim() || "";
+        // Buscamos el ISIN en cualquier celda (algunos layouts cambian el orden)
+        let isin = "";
+        for (const cell of cells){
+          const t = cell.textContent.trim();
+          if (ISIN_RE.test(t)) { isin = t; break; }
+        }
         const href = link.getAttribute("href") || "";
         const msId = (href.match(/[?&]id=([A-Z0-9]+)/i)||[])[1] || "";
-        if (name && /^[A-Z]{2}[A-Z0-9]{10}$/.test(isin)) {
+        if (name && ISIN_RE.test(isin) && !seenIsins.has(isin)) {
+          seenIsins.add(isin);
           funds.push({name, isin, msId, type:"fund"});
         }
       });
-    } catch(_) {}
+
+      // 2) Estrategia fallback: por cada <a> de snapshot, intentamos buscar el ISIN
+      //    en su entorno (siguientes celdas / texto adyacente) si la heurística de
+      //    fila no encontró nada para esa fila.
+      if (funds.length === 0){
+        doc.querySelectorAll('a[href*="snapshot"], a[href*="?id="]').forEach(link => {
+          const name = link.textContent.trim();
+          if (!name) return;
+          const href = link.getAttribute("href") || "";
+          const msId = (href.match(/[?&]id=([A-Z0-9]+)/i)||[])[1] || "";
+          // Buscamos un ISIN cerca del enlace (en el padre, en texto siguiente…)
+          const parent = link.closest("tr") || link.parentElement;
+          const blob = parent ? parent.textContent : "";
+          const m = blob.match(/\b[A-Z]{2}[A-Z0-9]{10}\b/);
+          const isin = m ? m[0] : "";
+          if (ISIN_RE.test(isin) && !seenIsins.has(isin)) {
+            seenIsins.add(isin);
+            funds.push({name, isin, msId, type:"fund"});
+          }
+        });
+      }
+
+      // 3) Estrategia última: extraer ISINs sueltos del HTML por regex y, si
+      //    encontramos < 60, devolverlos sin nombre (mejor algo que nada).
+      if (funds.length === 0){
+        const matches = html.match(/\b[A-Z]{2}[A-Z0-9]{10}\b/g) || [];
+        for (const m of matches){
+          if (ISIN_RE.test(m) && !seenIsins.has(m)) {
+            seenIsins.add(m);
+            funds.push({name: m, isin: m, msId: "", type:"fund"});
+          }
+          if (funds.length >= 60) break;
+        }
+        if (funds.length){
+          log(`extracted ${funds.length} ISINs by regex (no names)`);
+        }
+      }
+    } catch(e) {
+      log("parse error: " + (e && e.message || e));
+    }
+    if (funds.length === 0){
+      log("no funds extracted from HTML — Morningstar puede haber cambiado el formato. Tamaño HTML: " + (html ? html.length : 0));
+    }
     return funds;
   }
 
@@ -10152,12 +10665,178 @@ downloadCSV("screen1_daily_series.csv", toCSVSep(cols, rowsPlain, ";", {bom:true
     return mstParseSearchHtml(html).slice(0, Number(limit)||60);
   }
 
+  // -------- Búsqueda vía endpoint legacy-search/securities de global.morningstar.com --------
+  // Este endpoint devuelve JSON estructurado y es el que usa la propia web de
+  // Morningstar. Está protegido por AWS WAF Captcha → necesitamos pasar por
+  // el Cloudflare Worker que añade la cookie aws-waf-token. Si la cookie
+  // caduca, hay que renovarla en el código del Worker (instrucciones dentro).
+  const MST_WORKER_URL = "https://white-grass-7fbd.rafagdominguez96.workers.dev/?url=";
+
+  async function mstSearchLegacyAPI(term, limit){
+    const tRaw = String(term||"").trim();
+    if (!tRaw) return [];
+    // Sanitizar comillas para no romper la query SQL-like de Morningstar.
+    const t = tRaw.replace(/"/g, "");
+    const fields = "name,isin,ticker,baseCurrency,exchangeCountry,companyName,investmentType";
+    // Filtra fondos europeos (FO/FE/FM/FV) + ETFs (XI). companyName + name + isin
+    // como campos de búsqueda con operador LIKE (~=).
+    const query = `((dgsCode ~= "${t}" OR isin ~= "${t}" OR ticker ~= "${t}" OR name ~= "${t}" OR companyName ~= "${t}") AND ((investmentType = "FO") OR (investmentType = "FE") OR (investmentType = "FM") OR (investmentType = "FV") OR (investmentType = "XI")))`;
+    const apiUrl = `https://global.morningstar.com/api/v1/es/legacy-search/securities?fields=${encodeURIComponent(fields)}&limit=${Number(limit)||25}&page=1&query=${encodeURIComponent(query)}&sort=_score`;
+    const proxyUrl = MST_WORKER_URL + encodeURIComponent(apiUrl);
+
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 12000);
+    let txt = "";
+    try {
+      const t0 = performance.now();
+      const res = await fetch(proxyUrl, {credentials:"omit", cache:"no-store", signal: ctrl.signal});
+      clearTimeout(timer);
+      txt = await res.text();
+      if (!res.ok){
+        // HTTP no-2xx
+        if (txt && txt.includes("awsWafCookieDomainList")){
+          throw new Error("La cookie aws-waf-token del Worker ha caducado. Renuévala desde Morningstar y actualiza el Worker.");
+        }
+        throw new Error(`legacy-search HTTP ${res.status}`);
+      }
+      // Detectar challenge HTML (cookie expirada)
+      if (txt.trim().startsWith("<!DOCTYPE") || txt.includes("awsWafCookieDomainList")){
+        throw new Error("La cookie aws-waf-token del Worker ha caducado. Renuévala desde Morningstar y actualiza el Worker.");
+      }
+      let data;
+      try { data = JSON.parse(txt); }
+      catch(e){
+        throw new Error("legacy-search: respuesta no es JSON");
+      }
+      console.log(`[Morningstar/legacy-search] "${tRaw}" → ${(data.results||[]).length}/${data.count||0} resultados (${(performance.now()-t0)|0}ms)`);
+      if (!data || !Array.isArray(data.results)) return [];
+      // Mapear al formato compatible con mstNameCandidate/mstCurrencyCandidate/mstIsinCandidate
+      return data.results.map(r => {
+        const f = r.fields || {};
+        const m = r.meta || {};
+        return {
+          name: (f.name && f.name.value) || "",
+          isin: (f.isin && f.isin.value) || "",
+          msId: m.securityID || m.performanceID || "",
+          type: "fund",
+          score: r.score,
+          fields: f,
+          meta: m
+        };
+      }).slice(0, Number(limit)||25);
+    } catch(e){
+      clearTimeout(timer);
+      throw e;
+    }
+  }
+
+  // ---- Catálogo local: 31k fondos comercializados en España, generado offline ----
+  // (ver scripts en docs). Sirve para búsqueda por nombre sin depender de cookies
+  // WAF de Morningstar. La búsqueda por ISIN sigue usando security_details.
+  let __FUND_CATALOG_PROMISE = null;
+  function mstNormalize(s){
+    return String(s||"").toLowerCase()
+      .normalize("NFD").replace(/[̀-ͯ]/g,"")
+      .replace(/[^a-z0-9]+/g," ").trim();
+  }
+  function mstLoadLocalCatalog(){
+    if (!__FUND_CATALOG_PROMISE){
+      __FUND_CATALOG_PROMISE = (async () => {
+        const t0 = performance.now();
+        const res = await fetch("funds_catalog.json", {cache:"force-cache"});
+        if (!res.ok) throw new Error("No se pudo cargar funds_catalog.json: HTTP "+res.status);
+        const cat = await res.json();
+        const data = (cat.data||[]).map(row => {
+          const [isin, name, cur, tp, flags, tk, co] = row;
+          return {
+            isin, name,
+            cur: cur || "",
+            tp: tp || "",
+            flags: (flags|0),
+            tk: tk || "",
+            co: co || "",
+            n: mstNormalize(name)
+          };
+        });
+        console.log(`[FUND_CATALOG] cargado en ${(performance.now()-t0)|0}ms · ${data.length} fondos`);
+        return { data, flag_bits: cat.flag_bits || {acc:1,dist:2,hedged:4,inst:8,seed:16,esp_fi:32,sicav:64,etf:128} };
+      })();
+    }
+    return __FUND_CATALOG_PROMISE;
+  }
+  async function mstSearchLocalCatalog(term, limit){
+    const cat = await mstLoadLocalCatalog();
+    const q = mstNormalize(term);
+    if (!q) return [];
+    const tokens = q.split(" ").filter(t => t.length >= 1);
+    if (!tokens.length) return [];
+    const FB = cat.flag_bits;
+    const matches = [];
+    for (const f of cat.data){
+      let allMatch = true, score = 0;
+      for (const t of tokens){
+        if (!f.n.includes(t)){ allMatch = false; break; }
+        if (f.n.startsWith(t)) score += 5;
+        score += 1;
+      }
+      if (!allMatch) continue;
+      // Penalizamos hedged y seed/founder/trader (rara vez son la share class buscada)
+      if (f.flags & (FB.hedged||4)) score -= 1;
+      if (f.flags & (FB.seed||16))  score -= 3;
+      // Bonus para Acc + Dist sobre share classes "raras"
+      if (f.flags & (FB.acc||1))  score += 1;
+      if (f.flags & (FB.dist||2)) score += 1;
+      matches.push({ f, score });
+      if (matches.length > 2000) break;
+    }
+    matches.sort((a,b) => b.score - a.score || a.f.name.localeCompare(b.f.name));
+    // Convertir al shape compatible con mstNameCandidate/mstCurrencyCandidate/mstIsinCandidate
+    return matches.slice(0, Number(limit)||25).map(({f}) => ({
+      name: f.name,
+      isin: f.isin,
+      msId: "",
+      type: "fund",
+      score: 0,
+      fields: {
+        name: { value: f.name },
+        isin: { value: f.isin },
+        baseCurrency: { value: f.cur },
+        ticker: { value: f.tk }
+      },
+      meta: {
+        universe: f.tp || "FO",
+        flags: f.flags,
+        local: true
+      }
+    }));
+  }
+
   async function mstSearch(term, limit) {
     const tRaw = String(term||"").trim();
     if (!tRaw) return [];
-    if (mstIsIsin(tRaw)) {
-      // ISIN direct: search by ISIN returns the exact fund row
+    // ISIN: ya teníamos camino directo a security_details (sin proxy), no toca
+    if (mstIsIsin(tRaw)){
+      try {
+        const results = await mstSearchLegacyAPI(tRaw, 5);
+        if (results.length) return results;
+      } catch(e){
+        if (e && e.message && /aws-waf-token/i.test(e.message)) console.warn("[Morningstar] cookie expirada, fallback");
+      }
       return await mstSearchGlobal(tRaw, 5);
+    }
+    // Por nombre: catálogo local primero (offline, sin cookie ni proxy, instant).
+    try {
+      const local = await mstSearchLocalCatalog(tRaw, limit || 25);
+      if (local.length) return local;
+    } catch(e){
+      console.warn("[catálogo local] error:", (e && e.message) || e);
+    }
+    // Fallback: API protegida (en caso de que la cookie esté viva por algún motivo)
+    try {
+      const results = await mstSearchLegacyAPI(tRaw, limit || 25);
+      if (results.length) return results;
+    } catch(e){
+      if (e && e.message && /aws-waf-token/i.test(e.message)) throw e;
     }
     return await mstSearchGlobal(tRaw, limit);
   }
@@ -10449,14 +11128,83 @@ downloadCSV("screen1_daily_series.csv", toCSVSep(cols, rowsPlain, ";", {bom:true
     return next;
   }
 
+  // Endpoint legacy "security_details" (NO protegido por WAF): resuelve ISIN→nombre/Id
+  // sin necesidad de proxy. Funciona directamente desde el browser.
+  // Devuelve {name, currency, msId, isin} o null.
+  async function mstFetchSecurityDetails(isin){
+    const isinUp = String(isin||"").trim().toUpperCase();
+    if (!mstIsIsin(isinUp)) return null;
+    const url = `https://tools.morningstar.es/api/rest.svc/2nhcdckzon/security_details/${encodeURIComponent(isinUp)}?viewId=sustainability&idtype=isin&responseViewFormat=JSON&languageId=es`;
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 10000);
+      const t0 = performance.now();
+      const res = await fetch(url, {credentials:"omit", cache:"default", signal: ctrl.signal});
+      clearTimeout(timer);
+      if (!res.ok) {
+        console.log(`[Morningstar/security_details] ${isinUp} → HTTP ${res.status}`);
+        return null;
+      }
+      const txt = await res.text();
+      let data;
+      try { data = JSON.parse(txt); }
+      catch(_) {
+        console.log(`[Morningstar/security_details] ${isinUp} → respuesta no es JSON`);
+        return null;
+      }
+      // Respuesta es un array con uno o varios items
+      const item = Array.isArray(data) ? data[0] : data;
+      if (!item) return null;
+      const name = item.Name || item.name || "";
+      const msId = item.Id || item.id || "";
+      // La divisa puede estar en distintos campos según el viewId. Probamos varios.
+      const currency = item.BaseCurrency || item.Currency || item.currency || item.baseCurrency || "";
+      console.log(`[Morningstar/security_details] ${isinUp} → "${name}" (${(performance.now()-t0)|0}ms)`);
+      return {
+        name,
+        currency,
+        msId,
+        isin: item.Isin || item.isin || isinUp
+      };
+    } catch(e) {
+      console.log(`[Morningstar/security_details] ${isinUp} → fail: ${(e && e.message) || e}`);
+      return null;
+    }
+  }
+
   async function mstResolveIsinBasics(isin){
-    // Resolve name/divisa (and universe) from Morningstar search, given a full ISIN.
+    // Resolve name/divisa (and universe) from Morningstar given a full ISIN.
     const x = String(isin||"").trim().toUpperCase();
     if (!mstIsIsin(x)) return null;
 
     const cached = MST.metaCache.get(x) || {};
     const hasBasics = (cached.name && cached.name !== "n.a.") || (cached.baseCurrency && cached.baseCurrency !== "n.a.");
-    // Even if we already have some basics, we might still try to complete missing ones.
+
+    // 1) Camino rápido y fiable: endpoint legacy security_details (sin proxy,
+    //    no protegido por WAF). Si funciona, usamos su nombre+divisa.
+    try {
+      const direct = await mstFetchSecurityDetails(x);
+      if (direct && direct.name){
+        mstPatchMetaCache(x, {
+          name: direct.name,
+          baseCurrency: direct.currency || cached.baseCurrency || "n.a.",
+          universe: cached.universe || "FO"
+        });
+        if (MST.selected && MST.selected.isin === x){
+          if ((!MST.selected.name || MST.selected.name === x || MST.selected.name === "n.a.") && direct.name) MST.selected.name = direct.name;
+          if ((!MST.selected.baseCurrency || MST.selected.baseCurrency === "n.a.") && direct.currency) MST.selected.baseCurrency = direct.currency;
+          if (!MST.selected.universe || MST.selected.universe === "—") MST.selected.universe = "FO";
+          mstUpdatePreviewFromCache(x);
+        }
+        try { mstRenderList(); } catch(_){}
+        return MST.metaCache.get(x) || null;
+      }
+    } catch(_){
+      // sigue al fallback
+    }
+
+    // 2) Fallback: búsqueda HTML por proxy (probablemente fallará si Morningstar
+    //    bloquea proxies, pero no perdemos nada por intentarlo).
     try{
       const arr = await mstSearch(x, 25);
       let best = null;
@@ -10470,7 +11218,6 @@ downloadCSV("screen1_daily_series.csv", toCSVSep(cols, rowsPlain, ";", {bom:true
         const uni  = String(best?.meta?.universe||"").toUpperCase() || cached.universe || "—";
         mstPatchMetaCache(x, { name, baseCurrency: ccy, universe: uni });
 
-        // If currently selected, update selection immediately
         if (MST.selected && MST.selected.isin === x){
           if ((!MST.selected.name || MST.selected.name === x || MST.selected.name === "n.a.") && name !== "n.a.") MST.selected.name = name;
           if ((!MST.selected.baseCurrency || MST.selected.baseCurrency === "n.a.") && ccy !== "n.a.") MST.selected.baseCurrency = ccy;
@@ -10588,11 +11335,25 @@ async function mstDoSearch(){
     }catch(e){
       if (!isCurrent()) return;
       const msg = (e && e.message) ? e.message : String(e);
-      if (list) list.innerHTML = `<div class="invItem"><div class="m"><b>Error</b>: ${mstEsc_(msg)}</div></div>`;
+      // Renderizar saltos de línea como <br> para que el detalle por proxy se lea bien
+      const msgHtml = mstEsc_(msg).replace(/\n/g, "<br>");
+      // Si todos los proxies fallaron (es lo común porque Morningstar bloquea
+      // proxies CORS), sugerimos al usuario pegar el ISIN directamente — eso
+      // va por otro endpoint (security_details) que sí funciona sin proxy.
+      const isAllProxiesError = /todos los proxies fallaron|Failed to fetch|all proxies/i.test(msg);
+      const tip = isAllProxiesError
+        ? `<div style="margin-top:10px; padding:10px; background:#fef3c7; border-left:3px solid #f59e0b; border-radius:6px; color:#78350f; line-height:1.5;">
+             <b>💡 Alternativa:</b> Morningstar bloquea la búsqueda por nombre desde proxies públicos.
+             <b>Pega el ISIN directamente</b> (ej: <code>FR0012599645</code>) en el cuadro de búsqueda — eso usa otro endpoint que sí funciona y te resolverá el nombre y los datos.
+           </div>`
+        : "";
+      if (list) list.innerHTML = `<div class="invItem"><div class="m" style="white-space:pre-wrap"><b>Error</b>: ${msgHtml}${tip}</div></div>`;
       if (info) info.textContent = "";
       MST.lastResults = [];
       MST.lastFetchKey = null;
       mstSetSelected(null);
+      // También logueamos el error completo para debugging desde DevTools
+      try { console.error("[Morningstar/search]", e); } catch(_){}
     }
   }
 
@@ -11533,8 +12294,28 @@ async function mstDoSearch(){
     getFund:  (isin) => store[isin] || null,
     listIsins: ()   => Object.keys(store),
     getStore:  ()   => store,
-    count:     ()   => Object.keys(store).length
+    count:     ()   => Object.keys(store).length,
+    // Upsert a fund (meta + rows) into the in-memory repo and sync to datapack + Supabase.
+    // Used by "Guardar cartera al repo" (Backtest) to insert synthetic portfolio funds.
+    // Returns a Promise that resolves when the fund is persisted to Supabase.
+    upsertFund: async (isin, fund) => {
+      if (!isin || !fund || !fund.meta || !Array.isArray(fund.rows)) {
+        console.warn("[DP.upsertFund] invalid payload", {isin, fund});
+        return false;
+      }
+      store[isin] = { meta: fund.meta, rows: fund.rows, updatedAt: Date.now() };
+      try { dpUpdateStats(); } catch(_) {}
+      try { dpRenderFundsList && dpRenderFundsList(); } catch(_) {}
+      try { dpSyncToDatapack(); } catch(_) {}
+      // Immediate upsert to Supabase (sbAutoSave is debounced 1.5s — a refresh
+      // before that would lose the fund). Wait for the POST so callers know it's persisted.
+      try {
+        if (typeof sbSaveFund === "function"){ await sbSaveFund(isin); }
+      } catch(e){ console.warn("[DP.upsertFund] sbSaveFund failed", e); }
+      return true;
+    }
   };
+  // (DP.META_OPTS is exposed later, right after DP_META_OPTS is declared.)
 
   // ── UI helpers ──
   const $ = id => document.getElementById(id);
@@ -11601,14 +12382,16 @@ async function mstDoSearch(){
   };
 
   const DP_META_OPTS = {
-    clase:["Limpia","Retail","Institucional","Otro"],
+    clase:["Limpia","Retail","Institucional","Cartera","Otro"],
     categoria:["Indexado","Activo","Smart Beta","Mixto"],
     tipoActivo:["RV","RF MP","RF LP","Mixto","Alternativo","Monetario"],
     geografia:["Global","Europa","USA","España","Asia","Emergentes","Latam"],
     divisa:["Euro","EuroHedge","USD","GBP","JPY","Otra"],
     issuer:["Gubernamental","Corporativa","Mixto","High Yield","Inflación"],
-    clasificacion:["Top","Bueno","Medio","Malo","Clase similar","Clase sucia"]
+    clasificacion:["Top","Bueno","Medio","Malo","Clase similar","Clase sucia","N.A."]
   };
+  // Expose for external modules (e.g. "Guardar cartera al repo") to render the same select lists.
+  if (window.DP) window.DP.META_OPTS = DP_META_OPTS;
 
   function dpMakeSelect(id,opts,current){
     const isCustom = current && !opts.includes(current);
@@ -12597,5 +13380,1924 @@ async function mstDoSearch(){
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",dpInit);
   else dpInit();
 
+})();
+
+/* ===== Mejora 1: Saved Analyses (Comparación) =====
+   Guarda/carga estado completo de la tab Comparación:
+   - Fondos (por ISIN, recargados desde DATAPACK)
+   - Periodo, mini-mode, matrices (years/agg), rolling, horizon, freq
+   - Notas libres
+   Persistencia: localStorage + tabla Supabase `analyses` (merge por id, más reciente gana).
+*/
+(function(){
+  const LS_KEY = 'fundDashboard.savedAnalyses.v1';
+  const ANALYSIS_TYPE = 'comparacion';
+  const SUPA_URL_BASE = 'https://dcnvdaaexyuhqvyrrkob.supabase.co';
+  const SUPA_KEY_FALLBACK = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRjbnZkYWFleHl1aHF2eXJya29iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxOTQ1MDUsImV4cCI6MjA4OTc3MDUwNX0.MXp-zIRWIMfKfprSbzvIe3Z52o4swdNW2RK77SZHL-o';
+
+  function supaUrl(path){ return (window.SB_URL || SUPA_URL_BASE) + path; }
+  function supaHeaders(extra){
+    const key = window.SB_KEY || SUPA_KEY_FALLBACK;
+    return Object.assign({
+      'apikey': key,
+      'Authorization': 'Bearer ' + key,
+      'Content-Type': 'application/json',
+      'Prefer': 'resolution=merge-duplicates,return=representation'
+    }, extra || {});
+  }
+
+  // ---- utilidades ----
+  function esc(s){
+    return String(s||'').replace(/[&<>"']/g, c=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;" }[c]));
+  }
+  function slugify(s){
+    return (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,30);
+  }
+  function fundIsin(f){
+    if (!f) return '';
+    if (f.meta && f.meta.isin) return f.meta.isin;
+    if (f.fileName && f.fileName.indexOf('repo:')===0) return f.fileName.slice(5);
+    return '';
+  }
+  function notify(kind, html){
+    if (typeof setCmpMsg === 'function'){ try{ setCmpMsg(kind, html); return; }catch(_){ } }
+    console.log('[SavedAnalyses]', kind, html);
+  }
+
+  // ---- captura / aplicación del estado ----
+  function captureState(){
+    const $ = id => document.getElementById(id);
+    // Preferimos CMP.funds (estado final tras calcular), pero si aún no se ha
+    // procesado, caemos a CMP.repoFunds (slots cargados desde 📚 Repo)
+    let fundsSource = (window.CMP && Array.isArray(window.CMP.funds) && window.CMP.funds.length)
+      ? window.CMP.funds
+      : (window.CMP && Array.isArray(window.CMP.repoFunds) ? window.CMP.repoFunds.filter(Boolean) : []);
+    const funds = fundsSource.map(f => ({
+      isin: fundIsin(f),
+      nombre: f.name || ''
+    }));
+    const rollA = (window.CMPROLL && typeof window.CMPROLL.a === 'number') ? window.CMPROLL.a : 0;
+    const rollB = (window.CMPROLL && typeof window.CMPROLL.b === 'number') ? window.CMPROLL.b : 1;
+    return {
+      funds,
+      settings: {
+        startDate: ($('cmpStartDate')||{}).value || '',
+        endDate:   ($('cmpEndDate')||{}).value || '',
+        cmpMiniMode: ($('cmpMiniMode')||{}).value || 'bars7',
+        matYears: ($('cmpMatYears')||{}).value || '3',
+        matAgg:   ($('cmpMatAgg')||{}).value || 'trailing',
+        matStart: ($('cmpMatStart')||{}).value || '',
+        matEnd:   ($('cmpMatEnd')||{}).value || '',
+        rollingA: rollA,
+        rollingB: rollB,
+        cmpHorizon: ($('cmpHorizon')||{}).value || '3',
+        cmpFreq:    ($('cmpFreq')||{}).value || 'daily'
+      }
+    };
+  }
+
+  async function applyState(analysis){
+    const data = analysis.data || { funds: analysis.funds, settings: analysis.settings };
+    const funds = data.funds || [];
+    const settings = data.settings || {};
+
+    if (!window.DATAPACK || !window.DATAPACK.loaded){
+      alert('Primero carga el datapack del repositorio desde la pestaña Fondo.');
+      return false;
+    }
+    if (typeof repoParsedForFund !== 'function'){
+      alert('La función interna repoParsedForFund no está disponible. Recarga la página.');
+      return false;
+    }
+    if (!window.CMP){ alert('CMP no inicializado.'); return false; }
+
+    window.CMP.repoFunds = Array(10).fill(null);
+    const missing = [];
+
+    for (let i=0; i<funds.length && i<10; i++){
+      const isin = funds[i].isin;
+      if (!isin){ missing.push(funds[i].nombre || '(sin ISIN)'); continue; }
+      const dpFund = (window.DATAPACK.funds||[]).find(f => f.isin === isin);
+      if (!dpFund){ missing.push(funds[i].nombre || isin); continue; }
+      try{
+        const parsed = await repoParsedForFund(dpFund, 'screen2', 'fund');
+        parsed.meta = parsed.meta || {};
+        parsed.meta.isin = isin;
+        window.CMP.repoFunds[i] = parsed;
+      }catch(e){
+        console.warn('[SavedAnalyses] load fail', isin, e);
+        missing.push(funds[i].nombre || isin);
+      }
+    }
+
+    // Limpia los inputs de fichero (los slots repo mandan)
+    for (let i=1; i<=10; i++){
+      const fi = document.getElementById('cmpFile'+i);
+      if (fi) { try{ fi.value = ''; }catch(_){ } }
+    }
+
+    if (typeof cmpHandleInputs !== 'function'){
+      alert('cmpHandleInputs no disponible. Recarga la página.');
+      return false;
+    }
+    await cmpHandleInputs();
+
+    // Aplica settings tras un pequeño delay para que los renders hayan corrido
+    setTimeout(() => {
+      const $ = id => document.getElementById(id);
+      const fireChange = el => { try{ el.dispatchEvent(new Event('change', {bubbles:true})); }catch(_){ } };
+      function setVal(id, v){
+        if (v === undefined || v === null || v === '') return;
+        const el = $(id); if (!el) return;
+        if (el.value !== v){ el.value = v; fireChange(el); }
+      }
+      setVal('cmpStartDate', settings.startDate);
+      setVal('cmpEndDate',   settings.endDate);
+      setVal('cmpMiniMode',  settings.cmpMiniMode);
+      setVal('cmpMatYears',  settings.matYears);
+      setVal('cmpMatAgg',    settings.matAgg);
+      setVal('cmpMatStart',  settings.matStart);
+      setVal('cmpMatEnd',    settings.matEnd);
+      setVal('cmpHorizon',   settings.cmpHorizon);
+      setVal('cmpFreq',      settings.cmpFreq);
+      // rolling
+      if (window.CMPROLL && window.CMP && window.CMP.funds){
+        const n = window.CMP.funds.length;
+        window.CMPROLL.a = Math.max(0, Math.min(settings.rollingA ?? 0, n-1));
+        window.CMPROLL.b = Math.max(0, Math.min(settings.rollingB ?? 1, n-1));
+        const rA = $('cmpRollA'), rB = $('cmpRollB');
+        if (rA) rA.selectedIndex = window.CMPROLL.a;
+        if (rB) rB.selectedIndex = window.CMPROLL.b;
+        if (typeof cmpRenderRollingCharts === 'function') cmpRenderRollingCharts();
+      }
+    }, 150);
+
+    if (missing.length){
+      notify('warn', `Análisis cargado, pero estos fondos no están en el repositorio actual: <b>${esc(missing.join(', '))}</b>.`);
+    } else {
+      notify('ok', `Análisis <b>${esc(analysis.nombre)}</b> cargado (${funds.length} fondos).`);
+    }
+    return true;
+  }
+
+  // ---- localStorage ----
+  function lsGetAll(){
+    try{ return JSON.parse(localStorage.getItem(LS_KEY) || '[]'); }
+    catch(e){ console.warn('[SavedAnalyses] lsGetAll', e); return []; }
+  }
+  function lsSetAll(arr){
+    try{ localStorage.setItem(LS_KEY, JSON.stringify(arr)); }
+    catch(e){ console.warn('[SavedAnalyses] lsSetAll', e); }
+  }
+  function lsUpsert(a){
+    const arr = lsGetAll();
+    const i = arr.findIndex(x => x.id === a.id);
+    if (i >= 0) arr[i] = a; else arr.unshift(a);
+    lsSetAll(arr);
+  }
+  function lsDelete(id){
+    lsSetAll(lsGetAll().filter(x => x.id !== id));
+  }
+
+  // ---- Supabase ----
+  let cloudStatus = 'unknown';
+  async function supaList(){
+    try{
+      const url = supaUrl('/rest/v1/analyses?tipo=eq.' + encodeURIComponent(ANALYSIS_TYPE) + '&select=*&order=fecha_guardado.desc&limit=200');
+      const res = await fetch(url, { headers: supaHeaders(), credentials:'omit' });
+      if (!res.ok) throw new Error('status ' + res.status);
+      const rows = await res.json();
+      cloudStatus = 'ok';
+      return (rows||[]).map(r => ({
+        id: r.id,
+        nombre: r.nombre,
+        tipo: r.tipo || ANALYSIS_TYPE,
+        fecha_guardado: r.fecha_guardado,
+        fecha_modificacion: r.updated_at || r.fecha_guardado,
+        notas: r.notas || '',
+        data: r.data || {}
+      }));
+    }catch(e){
+      console.warn('[SavedAnalyses] supaList', e);
+      cloudStatus = 'offline';
+      return [];
+    }
+  }
+  async function supaUpsert(a){
+    try{
+      const body = {
+        id: a.id,
+        nombre: a.nombre,
+        tipo: a.tipo || ANALYSIS_TYPE,
+        fecha_guardado: a.fecha_guardado,
+        notas: a.notas || '',
+        data: { funds: a.funds || (a.data||{}).funds || [], settings: a.settings || (a.data||{}).settings || {} },
+        updated_at: new Date().toISOString()
+      };
+      const res = await fetch(supaUrl('/rest/v1/analyses'), {
+        method: 'POST',
+        headers: supaHeaders(),
+        credentials:'omit',
+        body: JSON.stringify(body)
+      });
+      if (!res.ok) throw new Error('status ' + res.status);
+      cloudStatus = 'ok';
+      return true;
+    }catch(e){
+      console.warn('[SavedAnalyses] supaUpsert', e);
+      cloudStatus = 'offline';
+      return false;
+    }
+  }
+  async function supaDelete(id){
+    try{
+      const res = await fetch(supaUrl('/rest/v1/analyses?id=eq.' + encodeURIComponent(id)), {
+        method: 'DELETE', headers: supaHeaders(), credentials:'omit'
+      });
+      if (!res.ok) throw new Error('status ' + res.status);
+      return true;
+    }catch(e){ console.warn('[SavedAnalyses] supaDelete', e); return false; }
+  }
+
+  // ---- merge + render ----
+  let cached = [];
+  async function refresh(){
+    const local = lsGetAll();
+    const supa = await supaList();
+    const byId = {};
+    [...local, ...supa].forEach(a => {
+      const cur = byId[a.id];
+      if (!cur){ byId[a.id] = a; return; }
+      const tCur = cur.fecha_modificacion || cur.fecha_guardado || '';
+      const tNew = a.fecha_modificacion || a.fecha_guardado || '';
+      if (tNew > tCur) byId[a.id] = a;
+    });
+    cached = Object.values(byId).sort((a,b) =>
+      (b.fecha_guardado || '').localeCompare(a.fecha_guardado || '')
+    );
+    renderDropdown();
+    renderCloudStatus();
+  }
+
+  function renderDropdown(){
+    const sel = document.getElementById('savedAnSelect');
+    if (!sel) return;
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">— selecciona un análisis —</option>';
+    cached.forEach(a => {
+      const opt = document.createElement('option');
+      opt.value = a.id;
+      const d = a.fecha_guardado ? ' · ' + new Date(a.fecha_guardado).toLocaleDateString('es-ES') : '';
+      const nf = (a.data && a.data.funds) ? a.data.funds.length : (a.funds ? a.funds.length : 0);
+      opt.textContent = `${a.nombre} (${nf} fondos)${d}`;
+      sel.appendChild(opt);
+    });
+    sel.value = cur;
+    updateNotes();
+  }
+  function renderCloudStatus(){
+    const el = document.getElementById('savedAnCloudStatus');
+    if (!el) return;
+    if (cloudStatus === 'ok'){ el.textContent = '☁️ sync'; el.style.background = '#ecfdf5'; el.style.borderColor = '#a7f3d0'; el.style.color = '#059669'; el.title = 'Sincronizado con Supabase'; }
+    else if (cloudStatus === 'offline'){ el.textContent = '☁️ offline'; el.style.background = '#fef3c7'; el.style.borderColor = '#fcd34d'; el.style.color = '#b45309'; el.title = 'No se pudo conectar con Supabase. Los análisis solo se guardan en este navegador.'; }
+    else { el.textContent = '☁️ …'; el.title = 'Comprobando conexión'; }
+  }
+  function updateNotes(){
+    const sel = document.getElementById('savedAnSelect');
+    const notesEl = document.getElementById('savedAnNotes');
+    if (!sel || !notesEl) return;
+    const id = sel.value;
+    if (!id){ notesEl.style.display = 'none'; notesEl.textContent = ''; return; }
+    const a = cached.find(x => x.id === id);
+    if (a && a.notas && a.notas.trim()){
+      notesEl.style.display = 'block';
+      notesEl.innerHTML = '<b>Notas:</b> ' + esc(a.notas);
+    } else {
+      notesEl.style.display = 'none';
+      notesEl.textContent = '';
+    }
+  }
+
+  // ---- modal ----
+  function openModal(existing){
+    const ov = document.getElementById('savedAnModalOverlay');
+    const title = document.getElementById('savedAnModalTitle');
+    const nameEl = document.getElementById('savedAnModalName');
+    const notesEl = document.getElementById('savedAnModalNotes');
+    if (!ov || !nameEl || !notesEl) return;
+    if (existing){
+      title.textContent = 'Sobreescribir análisis';
+      nameEl.value = existing.nombre || '';
+      notesEl.value = existing.notas || '';
+      ov.dataset.editingId = existing.id;
+    } else {
+      title.textContent = 'Guardar análisis';
+      nameEl.value = '';
+      notesEl.value = '';
+      ov.dataset.editingId = '';
+    }
+    ov.classList.add('open');
+    setTimeout(() => { try{ nameEl.focus(); nameEl.select(); }catch(_){ } }, 10);
+  }
+  function closeModal(){
+    const ov = document.getElementById('savedAnModalOverlay');
+    if (ov){ ov.classList.remove('open'); delete ov.dataset.editingId; }
+  }
+
+  // ---- handlers ----
+  async function onSaveConfirm(){
+    const ov = document.getElementById('savedAnModalOverlay');
+    const nameEl = document.getElementById('savedAnModalName');
+    const notesEl = document.getElementById('savedAnModalNotes');
+    const nombre = (nameEl.value || '').trim();
+    if (!nombre){ alert('Pon un nombre al análisis.'); nameEl.focus(); return; }
+    if (!window.CMP){
+      alert('CMP no inicializado. Recarga la página.');
+      return;
+    }
+    const hasFunds  = Array.isArray(window.CMP.funds)     && window.CMP.funds.length > 0;
+    const hasRepoFn = Array.isArray(window.CMP.repoFunds) && window.CMP.repoFunds.some(Boolean);
+    if (!hasFunds && !hasRepoFn){
+      alert('No hay fondos cargados. Carga fondos en la tab Comparación antes de guardar.');
+      return;
+    }
+    const captured = captureState();
+    const fundsWithIsin = captured.funds.filter(f => f.isin);
+    if (!fundsWithIsin.length){
+      alert('Los fondos actuales no vienen del repositorio (parecen CSVs manuales). Solo se pueden guardar análisis basados en fondos del Repo. Carga los fondos desde "📚 Repo" primero.');
+      return;
+    }
+    if (fundsWithIsin.length < captured.funds.length){
+      const skipped = captured.funds.length - fundsWithIsin.length;
+      if (!confirm(`${skipped} fondo(s) no vienen del repositorio y no se guardarán. ¿Continuar?`)) return;
+    }
+    const editingId = ov.dataset.editingId || '';
+    const now = new Date().toISOString();
+    const fechaG = editingId
+      ? ((cached.find(x => x.id === editingId) || {}).fecha_guardado || now)
+      : now;
+    const analysis = {
+      id: editingId || ('cmp_' + Math.floor(Date.now()/1000) + '_' + (slugify(nombre) || 'sin-nombre')),
+      nombre,
+      tipo: ANALYSIS_TYPE,
+      fecha_guardado: fechaG,
+      fecha_modificacion: now,
+      notas: (notesEl.value || '').trim(),
+      funds: fundsWithIsin,
+      settings: captured.settings,
+      data: { funds: fundsWithIsin, settings: captured.settings }
+    };
+    lsUpsert(analysis);
+    await supaUpsert(analysis);
+    closeModal();
+    await refresh();
+    const sel = document.getElementById('savedAnSelect');
+    if (sel){ sel.value = analysis.id; updateNotes(); }
+    notify('ok', `Análisis <b>${esc(nombre)}</b> guardado (${fundsWithIsin.length} fondos)${cloudStatus==='offline'?' · solo local (Supabase offline)':''}.`);
+  }
+
+  async function onLoadClick(){
+    const sel = document.getElementById('savedAnSelect');
+    const id = sel && sel.value;
+    if (!id){ alert('Selecciona un análisis primero.'); return; }
+    const a = cached.find(x => x.id === id);
+    if (!a){ alert('Análisis no encontrado.'); return; }
+    const btn = document.getElementById('savedAnLoad');
+    const prev = btn ? btn.textContent : null;
+    if (btn){ btn.disabled = true; btn.textContent = 'Cargando…'; }
+    try{ await applyState(a); }
+    finally { if (btn){ btn.disabled = false; btn.textContent = prev || 'Cargar'; } }
+  }
+
+  async function onDeleteClick(){
+    const sel = document.getElementById('savedAnSelect');
+    const id = sel && sel.value;
+    if (!id){ alert('Selecciona un análisis para eliminar.'); return; }
+    const a = cached.find(x => x.id === id);
+    if (!a) return;
+    if (!confirm(`¿Eliminar el análisis "${a.nombre}"? No se puede deshacer.`)) return;
+    lsDelete(id);
+    await supaDelete(id);
+    await refresh();
+    notify('ok', `Análisis eliminado.`);
+  }
+
+  function onExportClick(){
+    const sel = document.getElementById('savedAnSelect');
+    const id = sel && sel.value;
+    let payload, fname;
+    if (id){
+      const a = cached.find(x => x.id === id);
+      if (!a) return;
+      payload = a;
+      fname = `analysis_${a.id}.json`;
+    } else {
+      if (!cached.length){ alert('No hay análisis para exportar.'); return; }
+      payload = { version: 1, tipo: ANALYSIS_TYPE, exported_at: new Date().toISOString(), analyses: cached };
+      fname = `analyses_all_${new Date().toISOString().slice(0,10)}.json`;
+    }
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = fname;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+  }
+  function onImportClick(){
+    const inp = document.getElementById('savedAnImportFile');
+    if (!inp) return;
+    inp.value = '';
+    inp.click();
+  }
+  async function onImportFile(e){
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    try{
+      const text = await f.text();
+      const parsed = JSON.parse(text);
+      const items = Array.isArray(parsed.analyses) ? parsed.analyses
+                  : (parsed.id ? [parsed] : []);
+      if (!items.length){ alert('Fichero JSON no reconocido.'); return; }
+      let added = 0;
+      for (const a of items){
+        if (!a.id || !a.nombre) continue;
+        lsUpsert(a);
+        await supaUpsert(a);
+        added++;
+      }
+      await refresh();
+      notify('ok', `Importados <b>${added}</b> análisis.`);
+    }catch(err){
+      alert('Error al importar: ' + err.message);
+    }
+  }
+
+  // ---- init ----
+  function wire(){
+    const sel = document.getElementById('savedAnSelect');
+    if (!sel){ console.warn('[SavedAnalyses] UI no encontrada'); return; }
+    sel.addEventListener('change', updateNotes);
+    const $ = id => document.getElementById(id);
+    $('savedAnLoad')      && $('savedAnLoad').addEventListener('click', onLoadClick);
+    $('savedAnSaveNew')   && $('savedAnSaveNew').addEventListener('click', () => openModal(null));
+    $('savedAnSaveOver')  && $('savedAnSaveOver').addEventListener('click', () => {
+      const id = sel.value;
+      if (!id){ alert('Selecciona un análisis para sobreescribir.'); return; }
+      const a = cached.find(x => x.id === id);
+      if (!a) return;
+      if (!confirm(`Sobreescribir "${a.nombre}" con el estado actual?`)) return;
+      openModal(a);
+    });
+    $('savedAnDelete')    && $('savedAnDelete').addEventListener('click', onDeleteClick);
+    $('savedAnExport')    && $('savedAnExport').addEventListener('click', onExportClick);
+    $('savedAnImport')    && $('savedAnImport').addEventListener('click', onImportClick);
+    $('savedAnImportFile')&& $('savedAnImportFile').addEventListener('change', onImportFile);
+    $('savedAnModalSave') && $('savedAnModalSave').addEventListener('click', onSaveConfirm);
+    $('savedAnModalCancel')  && $('savedAnModalCancel').addEventListener('click', closeModal);
+    $('savedAnModalCloseBtn')&& $('savedAnModalCloseBtn').addEventListener('click', closeModal);
+    const ov = document.getElementById('savedAnModalOverlay');
+    if (ov) ov.addEventListener('click', e => { if (e.target === ov) closeModal(); });
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape'){
+        const ov2 = document.getElementById('savedAnModalOverlay');
+        if (ov2 && ov2.classList.contains('open')) closeModal();
+      }
+    });
+    refresh();
+  }
+
+  // API pública (debug / uso externo)
+  window.SavedAnalyses = {
+    capture: captureState,
+    apply: applyState,
+    refresh,
+    list: () => cached.slice(),
+    save: (nombre, notas) => { openModal(null); setTimeout(()=>{
+      const n=document.getElementById('savedAnModalName'); const t=document.getElementById('savedAnModalNotes');
+      if (n) n.value = nombre||''; if (t) t.value = notas||'';
+    },20); }
+  };
+
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', () => setTimeout(wire, 300));
+  } else {
+    setTimeout(wire, 300);
+  }
+})();
+
+/* ===== Mejora 1: Saved Analyses (Backtest) =====
+   Guarda/carga el estado completo de la tab Backtest:
+   - Fondos principales (ISIN + peso) y benchmark (ISIN + peso)
+   - Periodo, rebal mode/bands (principal + benchmark), showBench, outliers
+   - Notas libres
+   Persistencia: localStorage + tabla Supabase `analyses` (tipo='backtest').
+*/
+(function(){
+  const LS_KEY = 'fundDashboard.savedAnalyses.backtest.v1';
+  const ANALYSIS_TYPE = 'backtest';
+  const SUPA_URL_BASE = 'https://dcnvdaaexyuhqvyrrkob.supabase.co';
+  const SUPA_KEY_FALLBACK = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRjbnZkYWFleHl1aHF2eXJya29iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxOTQ1MDUsImV4cCI6MjA4OTc3MDUwNX0.MXp-zIRWIMfKfprSbzvIe3Z52o4swdNW2RK77SZHL-o';
+
+  function supaUrl(path){ return (window.SB_URL || SUPA_URL_BASE) + path; }
+  function supaHeaders(extra){
+    const key = window.SB_KEY || SUPA_KEY_FALLBACK;
+    return Object.assign({
+      'apikey': key,
+      'Authorization': 'Bearer ' + key,
+      'Content-Type': 'application/json',
+      'Prefer': 'resolution=merge-duplicates,return=representation'
+    }, extra || {});
+  }
+
+  function esc(s){
+    return String(s||'').replace(/[&<>"']/g, c=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;" }[c]));
+  }
+  function slugify(s){
+    return (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,30);
+  }
+  function fundIsin(f){
+    if (!f) return '';
+    if (f.meta && f.meta.isin) return f.meta.isin;
+    if (f.fileName && f.fileName.indexOf('repo:')===0) return f.fileName.slice(5);
+    return '';
+  }
+  function notify(kind, html){
+    if (typeof setBtMsg === 'function'){ try{ setBtMsg(kind, html); return; }catch(_){ } }
+    console.log('[SavedBacktests]', kind, html);
+  }
+
+  // ---- captura / aplicación del estado ----
+  function captureState(){
+    const $ = id => document.getElementById(id);
+    const BTref = window.BT || {};
+    const funds = [];
+    const benchFunds = [];
+
+    const fArr = BTref.funds || [];
+    const wArr = BTref.weights || [];
+    for (let i=0; i<fArr.length; i++){
+      if (!fArr[i]) continue;
+      funds.push({
+        slot: i,
+        isin: fundIsin(fArr[i]),
+        nombre: fArr[i].name || '',
+        weight: Number(wArr[i]) || 0
+      });
+    }
+    const bfArr = BTref.benchFunds || [];
+    const bwArr = BTref.benchWeights || [];
+    for (let i=0; i<bfArr.length; i++){
+      if (!bfArr[i]) continue;
+      benchFunds.push({
+        slot: i,
+        isin: fundIsin(bfArr[i]),
+        nombre: bfArr[i].name || '',
+        weight: Number(bwArr[i]) || 0
+      });
+    }
+
+    const showBenchEl = $('btShowBench');
+    return {
+      funds,
+      benchFunds,
+      settings: {
+        startDate: ($('btStart')||{}).value || '',
+        endDate:   ($('btEnd')||{}).value || '',
+        showBench: showBenchEl ? !!showBenchEl.checked : true,
+        outliers:  ($('btOutliers')||{}).value || 'on',
+        rebalMode:     (($('btRebalMode')||{}).value) || (BTref.rebalMode || 'none'),
+        bandX:         Number(($('btBandX')||{}).value || BTref.bandX || 5),
+        benchRebalMode:(($('btBenchRebalMode')||{}).value) || (BTref.benchRebalMode || 'none'),
+        benchBandX:    Number(($('btBenchBandX')||{}).value || BTref.benchBandX || 5)
+      }
+    };
+  }
+
+  async function applyState(analysis){
+    const data = analysis.data || { funds: analysis.funds, benchFunds: analysis.benchFunds, settings: analysis.settings };
+    const funds = data.funds || [];
+    const benchFunds = data.benchFunds || [];
+    const settings = data.settings || {};
+
+    if (!window.DATAPACK || !window.DATAPACK.loaded){
+      alert('Primero carga el datapack del repositorio desde la pestaña Fondo.');
+      return false;
+    }
+    if (typeof repoParsedForFund !== 'function'){
+      alert('La función interna repoParsedForFund no está disponible. Recarga la página.');
+      return false;
+    }
+    if (!window.BT){ alert('BT no inicializado.'); return false; }
+
+    // Reset BT slots
+    window.BT.funds = Array(10).fill(null);
+    window.BT.weights = Array(10).fill(0);
+    window.BT.benchFunds = Array(10).fill(null);
+    window.BT.benchWeights = Array(10).fill(0);
+
+    const missing = [];
+
+    // Load main funds
+    for (const it of funds){
+      const slot = Number(it.slot);
+      if (!(slot>=0 && slot<10)) continue;
+      if (!it.isin){ missing.push(it.nombre || '(sin ISIN)'); continue; }
+      const dpFund = (window.DATAPACK.funds||[]).find(f => f.isin === it.isin);
+      if (!dpFund){ missing.push(it.nombre || it.isin); continue; }
+      try{
+        const parsed = await repoParsedForFund(dpFund, 'screen3', 'fund');
+        parsed.meta = parsed.meta || {};
+        parsed.meta.isin = it.isin;
+        window.BT.funds[slot] = parsed;
+        window.BT.weights[slot] = Number(it.weight)||0;
+      }catch(e){
+        console.warn('[SavedBacktests] main load fail', it.isin, e);
+        missing.push(it.nombre || it.isin);
+      }
+    }
+
+    // Load benchmark funds
+    for (const it of benchFunds){
+      const slot = Number(it.slot);
+      if (!(slot>=0 && slot<10)) continue;
+      if (!it.isin){ missing.push(it.nombre || '(sin ISIN benchmark)'); continue; }
+      const dpFund = (window.DATAPACK.funds||[]).find(f => f.isin === it.isin);
+      if (!dpFund){ missing.push(it.nombre || it.isin); continue; }
+      try{
+        const parsed = await repoParsedForFund(dpFund, 'screen3', 'bench');
+        parsed.meta = parsed.meta || {};
+        parsed.meta.isin = it.isin;
+        window.BT.benchFunds[slot] = parsed;
+        window.BT.benchWeights[slot] = Number(it.weight)||0;
+      }catch(e){
+        console.warn('[SavedBacktests] bench load fail', it.isin, e);
+        missing.push(it.nombre || it.isin);
+      }
+    }
+
+    // Clear all file inputs (repo slots win)
+    for (let i=1; i<=10; i++){
+      const fi = document.getElementById('btFile'+i);  if (fi) { try{ fi.value=''; }catch(_){ } }
+      const bf = document.getElementById('btBFile'+i); if (bf) { try{ bf.value=''; }catch(_){ } }
+    }
+
+    // Re-render weights tables + status
+    try{ if (typeof btRenderWeightsTable === 'function') btRenderWeightsTable(); }catch(_){ }
+    try{ if (typeof btRenderBenchWeightsTable === 'function') btRenderBenchWeightsTable(); }catch(_){ }
+    try{ if (typeof btUpdatePeriodInfo === 'function') btUpdatePeriodInfo(); }catch(_){ }
+    try{
+      const n = (window.BT.funds||[]).filter(Boolean).length;
+      const st = document.getElementById('btStatus'); if (st) st.textContent = `Cargados: ${n} archivos`;
+      const nb = (window.BT.benchFunds||[]).filter(Boolean).length;
+      const bst = document.getElementById('btBenchStatus'); if (bst) bst.textContent = `Cargados: ${nb} archivos`;
+    }catch(_){ }
+
+    // Apply settings after a short delay
+    setTimeout(() => {
+      const $ = id => document.getElementById(id);
+      const fireChange = el => { try{ el.dispatchEvent(new Event('change', {bubbles:true})); }catch(_){ } };
+      function setVal(id, v){
+        if (v === undefined || v === null || v === '') return;
+        const el = $(id); if (!el) return;
+        if (el.value !== String(v)){ el.value = v; fireChange(el); }
+      }
+      setVal('btStart', settings.startDate);
+      setVal('btEnd',   settings.endDate);
+      setVal('btOutliers', settings.outliers);
+      setVal('btRebalMode', settings.rebalMode);
+      setVal('btBandX', settings.bandX);
+      setVal('btBenchRebalMode', settings.benchRebalMode);
+      setVal('btBenchBandX', settings.benchBandX);
+      const sb = $('btShowBench');
+      if (sb && typeof settings.showBench === 'boolean' && sb.checked !== settings.showBench){
+        sb.checked = settings.showBench; fireChange(sb);
+      }
+      // Sync BT internal rebal state
+      if (window.BT){
+        window.BT.rebalMode = settings.rebalMode || 'none';
+        window.BT.bandX = Number(settings.bandX) || 5;
+        window.BT.benchRebalMode = settings.benchRebalMode || 'none';
+        window.BT.benchBandX = Number(settings.benchBandX) || 5;
+      }
+      // Attempt to enable/update calc button
+      try{ if (typeof btEnforceRebalAvailability === 'function') btEnforceRebalAvailability(); }catch(_){ }
+    }, 150);
+
+    if (missing.length){
+      notify('warn', `Cartera cargada, pero estos fondos no están en el repositorio actual: <b>${esc(missing.join(', '))}</b>.`);
+    } else {
+      notify('ok', `Cartera <b>${esc(analysis.nombre)}</b> cargada (${funds.length} fondos${benchFunds.length?` + ${benchFunds.length} benchmark`:''}). Pulsa <b>Calcular cartera</b> para ver resultados.`);
+    }
+    return true;
+  }
+
+  // ---- localStorage ----
+  function lsGetAll(){
+    try{ return JSON.parse(localStorage.getItem(LS_KEY) || '[]'); }
+    catch(e){ console.warn('[SavedBacktests] lsGetAll', e); return []; }
+  }
+  function lsSetAll(arr){
+    try{ localStorage.setItem(LS_KEY, JSON.stringify(arr)); }
+    catch(e){ console.warn('[SavedBacktests] lsSetAll', e); }
+  }
+  function lsUpsert(a){
+    const arr = lsGetAll();
+    const i = arr.findIndex(x => x.id === a.id);
+    if (i >= 0) arr[i] = a; else arr.unshift(a);
+    lsSetAll(arr);
+  }
+  function lsDelete(id){
+    lsSetAll(lsGetAll().filter(x => x.id !== id));
+  }
+
+  // ---- Supabase ----
+  let cloudStatus = 'unknown';
+  async function supaList(){
+    try{
+      const url = supaUrl('/rest/v1/analyses?tipo=eq.' + encodeURIComponent(ANALYSIS_TYPE) + '&select=*&order=fecha_guardado.desc&limit=200');
+      const res = await fetch(url, { headers: supaHeaders(), credentials:'omit' });
+      if (!res.ok) throw new Error('status ' + res.status);
+      const rows = await res.json();
+      cloudStatus = 'ok';
+      return (rows||[]).map(r => ({
+        id: r.id,
+        nombre: r.nombre,
+        tipo: r.tipo || ANALYSIS_TYPE,
+        fecha_guardado: r.fecha_guardado,
+        fecha_modificacion: r.updated_at || r.fecha_guardado,
+        notas: r.notas || '',
+        data: r.data || {}
+      }));
+    }catch(e){
+      console.warn('[SavedBacktests] supaList', e);
+      cloudStatus = 'offline';
+      return [];
+    }
+  }
+  async function supaUpsert(a){
+    try{
+      const body = {
+        id: a.id,
+        nombre: a.nombre,
+        tipo: a.tipo || ANALYSIS_TYPE,
+        fecha_guardado: a.fecha_guardado,
+        notas: a.notas || '',
+        data: {
+          funds: a.funds || (a.data||{}).funds || [],
+          benchFunds: a.benchFunds || (a.data||{}).benchFunds || [],
+          settings: a.settings || (a.data||{}).settings || {}
+        },
+        updated_at: new Date().toISOString()
+      };
+      const res = await fetch(supaUrl('/rest/v1/analyses'), {
+        method: 'POST',
+        headers: supaHeaders(),
+        credentials:'omit',
+        body: JSON.stringify(body)
+      });
+      if (!res.ok) throw new Error('status ' + res.status);
+      cloudStatus = 'ok';
+      return true;
+    }catch(e){
+      console.warn('[SavedBacktests] supaUpsert', e);
+      cloudStatus = 'offline';
+      return false;
+    }
+  }
+  async function supaDelete(id){
+    try{
+      const res = await fetch(supaUrl('/rest/v1/analyses?id=eq.' + encodeURIComponent(id)), {
+        method: 'DELETE', headers: supaHeaders(), credentials:'omit'
+      });
+      if (!res.ok) throw new Error('status ' + res.status);
+      return true;
+    }catch(e){ console.warn('[SavedBacktests] supaDelete', e); return false; }
+  }
+
+  // ---- merge + render ----
+  let cached = [];
+  async function refresh(){
+    const local = lsGetAll();
+    const supa = await supaList();
+    const byId = {};
+    [...local, ...supa].forEach(a => {
+      const cur = byId[a.id];
+      if (!cur){ byId[a.id] = a; return; }
+      const tCur = cur.fecha_modificacion || cur.fecha_guardado || '';
+      const tNew = a.fecha_modificacion || a.fecha_guardado || '';
+      if (tNew > tCur) byId[a.id] = a;
+    });
+    cached = Object.values(byId).sort((a,b) =>
+      (b.fecha_guardado || '').localeCompare(a.fecha_guardado || '')
+    );
+    renderDropdown();
+    renderCloudStatus();
+  }
+
+  function renderDropdown(){
+    const sel = document.getElementById('btSavedAnSelect');
+    if (!sel) return;
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">— selecciona una cartera —</option>';
+    cached.forEach(a => {
+      const opt = document.createElement('option');
+      opt.value = a.id;
+      const d = a.fecha_guardado ? ' · ' + new Date(a.fecha_guardado).toLocaleDateString('es-ES') : '';
+      const nf = (a.data && a.data.funds) ? a.data.funds.length : (a.funds ? a.funds.length : 0);
+      const nb = (a.data && a.data.benchFunds) ? a.data.benchFunds.length : (a.benchFunds ? a.benchFunds.length : 0);
+      opt.textContent = `${a.nombre} (${nf}${nb?`+${nb}bench`:''} fondos)${d}`;
+      sel.appendChild(opt);
+    });
+    sel.value = cur;
+    updateNotes();
+  }
+  function renderCloudStatus(){
+    const el = document.getElementById('btSavedAnCloudStatus');
+    if (!el) return;
+    if (cloudStatus === 'ok'){ el.textContent = '☁️ sync'; el.style.background = '#ecfdf5'; el.style.borderColor = '#a7f3d0'; el.style.color = '#059669'; el.title = 'Sincronizado con Supabase'; }
+    else if (cloudStatus === 'offline'){ el.textContent = '☁️ offline'; el.style.background = '#fef3c7'; el.style.borderColor = '#fcd34d'; el.style.color = '#b45309'; el.title = 'No se pudo conectar con Supabase. Las carteras solo se guardan en este navegador.'; }
+    else { el.textContent = '☁️ …'; el.title = 'Comprobando conexión'; }
+  }
+  function updateNotes(){
+    const sel = document.getElementById('btSavedAnSelect');
+    const notesEl = document.getElementById('btSavedAnNotes');
+    if (!sel || !notesEl) return;
+    const id = sel.value;
+    if (!id){ notesEl.style.display = 'none'; notesEl.textContent = ''; return; }
+    const a = cached.find(x => x.id === id);
+    if (a && a.notas && a.notas.trim()){
+      notesEl.style.display = 'block';
+      notesEl.innerHTML = '<b>Notas:</b> ' + esc(a.notas);
+    } else {
+      notesEl.style.display = 'none';
+      notesEl.textContent = '';
+    }
+  }
+
+  // ---- modal ----
+  function openModal(existing){
+    const ov = document.getElementById('btSavedAnModalOverlay');
+    const title = document.getElementById('btSavedAnModalTitle');
+    const nameEl = document.getElementById('btSavedAnModalName');
+    const notesEl = document.getElementById('btSavedAnModalNotes');
+    if (!ov || !nameEl || !notesEl) return;
+    if (existing){
+      title.textContent = 'Sobreescribir cartera';
+      nameEl.value = existing.nombre || '';
+      notesEl.value = existing.notas || '';
+      ov.dataset.editingId = existing.id;
+    } else {
+      title.textContent = 'Guardar cartera';
+      nameEl.value = '';
+      notesEl.value = '';
+      ov.dataset.editingId = '';
+    }
+    ov.classList.add('open');
+    setTimeout(() => { try{ nameEl.focus(); nameEl.select(); }catch(_){ } }, 10);
+  }
+  function closeModal(){
+    const ov = document.getElementById('btSavedAnModalOverlay');
+    if (ov){ ov.classList.remove('open'); delete ov.dataset.editingId; }
+  }
+
+  // ---- handlers ----
+  async function onSaveConfirm(){
+    const ov = document.getElementById('btSavedAnModalOverlay');
+    const nameEl = document.getElementById('btSavedAnModalName');
+    const notesEl = document.getElementById('btSavedAnModalNotes');
+    const nombre = (nameEl.value || '').trim();
+    if (!nombre){ alert('Pon un nombre a la cartera.'); nameEl.focus(); return; }
+    if (!window.BT || !(window.BT.funds||[]).filter(Boolean).length){
+      alert('No hay fondos cargados. Carga fondos en la tab Backtest antes de guardar.');
+      return;
+    }
+    const captured = captureState();
+    const fundsWithIsin = captured.funds.filter(f => f.isin);
+    const benchWithIsin = captured.benchFunds.filter(f => f.isin);
+    if (!fundsWithIsin.length){
+      alert('Los fondos actuales no vienen del repositorio (parecen CSVs manuales). Solo se pueden guardar carteras basadas en fondos del Repo. Carga los fondos desde "📚 Repo" primero.');
+      return;
+    }
+    const skippedMain = captured.funds.length - fundsWithIsin.length;
+    const skippedBench = captured.benchFunds.length - benchWithIsin.length;
+    if (skippedMain + skippedBench > 0){
+      if (!confirm(`${skippedMain+skippedBench} fondo(s) no vienen del repositorio y no se guardarán. ¿Continuar?`)) return;
+    }
+    const editingId = ov.dataset.editingId || '';
+    const now = new Date().toISOString();
+    const fechaG = editingId
+      ? ((cached.find(x => x.id === editingId) || {}).fecha_guardado || now)
+      : now;
+    const analysis = {
+      id: editingId || ('bt_' + Math.floor(Date.now()/1000) + '_' + (slugify(nombre) || 'sin-nombre')),
+      nombre,
+      tipo: ANALYSIS_TYPE,
+      fecha_guardado: fechaG,
+      fecha_modificacion: now,
+      notas: (notesEl.value || '').trim(),
+      funds: fundsWithIsin,
+      benchFunds: benchWithIsin,
+      settings: captured.settings,
+      data: { funds: fundsWithIsin, benchFunds: benchWithIsin, settings: captured.settings }
+    };
+    lsUpsert(analysis);
+    await supaUpsert(analysis);
+    closeModal();
+    await refresh();
+    const sel = document.getElementById('btSavedAnSelect');
+    if (sel){ sel.value = analysis.id; updateNotes(); }
+    notify('ok', `Cartera <b>${esc(nombre)}</b> guardada (${fundsWithIsin.length} fondos${benchWithIsin.length?` + ${benchWithIsin.length} benchmark`:''})${cloudStatus==='offline'?' · solo local (Supabase offline)':''}.`);
+  }
+
+  async function onLoadClick(){
+    const sel = document.getElementById('btSavedAnSelect');
+    const id = sel && sel.value;
+    if (!id){ alert('Selecciona una cartera primero.'); return; }
+    const a = cached.find(x => x.id === id);
+    if (!a){ alert('Cartera no encontrada.'); return; }
+    const btn = document.getElementById('btSavedAnLoad');
+    const prev = btn ? btn.textContent : null;
+    if (btn){ btn.disabled = true; btn.textContent = 'Cargando…'; }
+    try{ await applyState(a); }
+    finally { if (btn){ btn.disabled = false; btn.textContent = prev || 'Cargar'; } }
+  }
+
+  async function onDeleteClick(){
+    const sel = document.getElementById('btSavedAnSelect');
+    const id = sel && sel.value;
+    if (!id){ alert('Selecciona una cartera para eliminar.'); return; }
+    const a = cached.find(x => x.id === id);
+    if (!a) return;
+    if (!confirm(`¿Eliminar la cartera "${a.nombre}"? No se puede deshacer.`)) return;
+    lsDelete(id);
+    await supaDelete(id);
+    await refresh();
+    notify('ok', `Cartera eliminada.`);
+  }
+
+  function onExportClick(){
+    const sel = document.getElementById('btSavedAnSelect');
+    const id = sel && sel.value;
+    let payload, fname;
+    if (id){
+      const a = cached.find(x => x.id === id);
+      if (!a) return;
+      payload = a;
+      fname = `backtest_${a.id}.json`;
+    } else {
+      if (!cached.length){ alert('No hay carteras para exportar.'); return; }
+      payload = { version: 1, tipo: ANALYSIS_TYPE, exported_at: new Date().toISOString(), analyses: cached };
+      fname = `backtests_all_${new Date().toISOString().slice(0,10)}.json`;
+    }
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = fname;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+  }
+  function onImportClick(){
+    const inp = document.getElementById('btSavedAnImportFile');
+    if (!inp) return;
+    inp.value = '';
+    inp.click();
+  }
+  async function onImportFile(e){
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    try{
+      const text = await f.text();
+      const parsed = JSON.parse(text);
+      const items = Array.isArray(parsed.analyses) ? parsed.analyses
+                  : (parsed.id ? [parsed] : []);
+      if (!items.length){ alert('Fichero JSON no reconocido.'); return; }
+      let added = 0;
+      for (const a of items){
+        if (!a.id || !a.nombre) continue;
+        // Only import backtest entries
+        if (a.tipo && a.tipo !== ANALYSIS_TYPE) continue;
+        lsUpsert(a);
+        await supaUpsert(a);
+        added++;
+      }
+      await refresh();
+      notify('ok', `Importadas <b>${added}</b> carteras.`);
+    }catch(err){
+      alert('Error al importar: ' + err.message);
+    }
+  }
+
+  // ---- init ----
+  function wire(){
+    const sel = document.getElementById('btSavedAnSelect');
+    if (!sel){ console.warn('[SavedBacktests] UI no encontrada'); return; }
+    sel.addEventListener('change', updateNotes);
+    const $ = id => document.getElementById(id);
+    $('btSavedAnLoad')      && $('btSavedAnLoad').addEventListener('click', onLoadClick);
+    $('btSavedAnSaveNew')   && $('btSavedAnSaveNew').addEventListener('click', () => openModal(null));
+    $('btSavedAnSaveOver')  && $('btSavedAnSaveOver').addEventListener('click', () => {
+      const id = sel.value;
+      if (!id){ alert('Selecciona una cartera para sobreescribir.'); return; }
+      const a = cached.find(x => x.id === id);
+      if (!a) return;
+      if (!confirm(`Sobreescribir "${a.nombre}" con el estado actual?`)) return;
+      openModal(a);
+    });
+    $('btSavedAnDelete')    && $('btSavedAnDelete').addEventListener('click', onDeleteClick);
+    $('btSavedAnExport')    && $('btSavedAnExport').addEventListener('click', onExportClick);
+    $('btSavedAnImport')    && $('btSavedAnImport').addEventListener('click', onImportClick);
+    $('btSavedAnImportFile')&& $('btSavedAnImportFile').addEventListener('change', onImportFile);
+    $('btSavedAnModalSave') && $('btSavedAnModalSave').addEventListener('click', onSaveConfirm);
+    $('btSavedAnModalCancel')  && $('btSavedAnModalCancel').addEventListener('click', closeModal);
+    $('btSavedAnModalCloseBtn')&& $('btSavedAnModalCloseBtn').addEventListener('click', closeModal);
+    const ov = document.getElementById('btSavedAnModalOverlay');
+    if (ov) ov.addEventListener('click', e => { if (e.target === ov) closeModal(); });
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape'){
+        const ov2 = document.getElementById('btSavedAnModalOverlay');
+        if (ov2 && ov2.classList.contains('open')) closeModal();
+      }
+    });
+    refresh();
+  }
+
+  window.SavedBacktests = {
+    capture: captureState,
+    apply: applyState,
+    refresh,
+    list: () => cached.slice(),
+    save: (nombre, notas) => { openModal(null); setTimeout(()=>{
+      const n=document.getElementById('btSavedAnModalName'); const t=document.getElementById('btSavedAnModalNotes');
+      if (n) n.value = nombre||''; if (t) t.value = notas||'';
+    },20); }
+  };
+
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', () => setTimeout(wire, 400));
+  } else {
+    setTimeout(wire, 400);
+  }
+})();
+
+/* =========================================================================
+   MEJORA 2 · Guardar cartera del Backtest al repo como pseudo-fondo
+   ========================================================================= */
+(function(){
+  "use strict";
+
+  // ---------- Utilidades ----------
+  function slugify(s){
+    return String(s||"").toLowerCase()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 40) || "cartera";
+  }
+  function esc(s){ return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+  function fmtDateISO(d){
+    try { return new Date(d).toISOString().slice(0,10); } catch(_){ return ""; }
+  }
+  function fmtDateES(d){
+    try {
+      const x = new Date(d);
+      return ("0"+x.getUTCDate()).slice(-2)+"/"+("0"+(x.getUTCMonth()+1)).slice(-2)+"/"+x.getUTCFullYear();
+    } catch(_){ return ""; }
+  }
+  // Toast genérico — reutiliza notify si existe; si no, fallback a alert breve.
+  function notifyOk(msg){
+    try { if (typeof notify === "function") return notify("ok", msg); } catch(_){}
+    // fallback silencioso (mensaje breve)
+    const el = document.getElementById("btStatus");
+    if (el){ el.textContent = msg.replace(/<[^>]+>/g,""); }
+  }
+  function notifyWarn(msg){
+    try { if (typeof notify === "function") return notify("warn", msg); } catch(_){}
+    alert(msg.replace(/<[^>]+>/g,""));
+  }
+
+  // ---------- Habilitar/deshabilitar el botón ----------
+  function isPortReady(){
+    return !!(window.BT && Array.isArray(window.BT.portDaily) && window.BT.portDaily.length >= 2);
+  }
+  function refreshButtonState(){
+    const btn = document.getElementById("btSaveToRepo");
+    if (!btn) return;
+    btn.disabled = !isPortReady();
+  }
+
+  // ---------- Captura de la cartera actual ----------
+  function captureActivePortfolio(){
+    const BT = window.BT;
+    if (!BT) return null;
+    const funds = Array.isArray(BT.funds) ? BT.funds : [];
+    const weights = Array.isArray(BT.weights) ? BT.weights : [];
+    const composicion = [];
+    for (let i=0; i<funds.length; i++){
+      const f = funds[i];
+      const w = Number(weights[i]||0);
+      if (!f || !w) continue;
+      const isin = (f.meta && f.meta.isin) || f.isin || null;
+      composicion.push({
+        isin: isin || null,
+        nombre: f.name || f.fileName || "(sin nombre)",
+        peso: w
+      });
+    }
+    return {
+      composicion,
+      rebalMode: BT.rebalMode || "none",
+      bandX: BT.bandX != null ? BT.bandX : null,
+      portDaily: BT.portDaily || []
+    };
+  }
+
+  // Devuelve una divisa si todos los componentes comparten la misma, si no "".
+  function guessCurrency(composicion){
+    const BT = window.BT;
+    if (!BT) return "";
+    const currs = new Set();
+    for (const c of composicion){
+      const f = (BT.funds||[]).find(x => x && x.meta && x.meta.isin === c.isin);
+      const cur = f && f.meta && (f.meta.currency || f.meta.divisa);
+      if (cur) currs.add(String(cur).toUpperCase());
+    }
+    return currs.size === 1 ? [...currs][0] : "";
+  }
+
+  // ---------- Helpers para los selects de metadata (réplica del patrón dpMakeSelect) ----------
+  // Cada select se acompaña de un input "Nueva opción..." que aparece si el usuario
+  // elige "__new__". Devuelve el valor final leyendo getSelectVal(id).
+  function buildSelect(id, opts, current){
+    const safe = (s)=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+    const isCustom = current && !opts.includes(current);
+    return `<select id="${id}_sel" data-brepo-sel="1" style="flex:1;padding:6px 8px;border:1px solid #cbd5e1;border-radius:8px;font-size:12px;background:#fff">
+      <option value="">— sin especificar —</option>
+      ${opts.map(o=>`<option value="${safe(o)}" ${o===current?'selected':''}>${safe(o)}</option>`).join('')}
+      <option value="__new__" ${isCustom?'selected':''}>Nueva opción...</option>
+    </select>
+    <input id="${id}_inp" type="text" placeholder="Escribe nueva opción" value="${isCustom?safe(current):''}"
+      style="display:${isCustom?'block':'none'};flex:1;padding:6px 8px;border:1px solid #7c3aed;border-radius:8px;font-size:12px"/>`;
+  }
+  function getSelectVal(id){
+    const sel = document.getElementById(id+"_sel");
+    const inp = document.getElementById(id+"_inp");
+    if (!sel) return "";
+    return sel.value === "__new__" ? (inp?.value||"").trim() : sel.value;
+  }
+  // Handler genérico para mostrar/ocultar el input de "nueva opción" cuando
+  // el usuario cambia el select. Se delega a nivel de modal para no recargar listeners.
+  function onSelectChange(ev){
+    const t = ev.target;
+    if (!t || t.tagName !== "SELECT" || t.dataset.brepoSel !== "1") return;
+    const id = t.id.replace(/_sel$/, "");
+    const inp = document.getElementById(id+"_inp");
+    if (!inp) return;
+    inp.style.display = t.value === "__new__" ? "block" : "none";
+    if (t.value !== "__new__") inp.value = "";
+  }
+
+  // ---------- Modal ----------
+  function ensureModal(){
+    if (document.getElementById("btRepoSaveModalOverlay")) return;
+    const opts = (window.DP && window.DP.META_OPTS) || {};
+    const row = (label, selHtml) => `
+      <div style="margin-bottom:10px;">
+        <label style="display:block;font-size:11px;color:#64748b;margin-bottom:4px;font-weight:600">${label}</label>
+        <div style="display:flex;gap:6px">${selHtml}</div>
+      </div>`;
+    const html = `
+    <div id="btRepoSaveModalOverlay" class="savedAnModalOverlay">
+      <div class="savedAnModal" role="dialog" aria-modal="true" aria-labelledby="btRepoSaveModalTitle" style="max-width:560px;">
+        <div class="savedAnModalHeader">
+          <span id="btRepoSaveModalTitle">Guardar cartera al repo</span>
+          <button type="button" class="savedAnModalClose" id="btRepoSaveModalCloseBtn" aria-label="Cerrar">✕</button>
+        </div>
+        <div class="savedAnModalBody">
+          <label for="btRepoSaveName">Nombre de la cartera</label>
+          <input type="text" id="btRepoSaveName" placeholder="Ej: 60/40 Mixta Conservadora" autocomplete="off" />
+          <div id="btRepoSaveIsinPreview" style="font-size:11px;color:#666;margin-top:-8px;margin-bottom:10px;"></div>
+
+          <div style="border-top:1px solid #e5e7eb;margin:8px 0 10px;padding-top:8px;">
+            <div style="font-size:11px;color:#64748b;margin-bottom:6px;font-weight:700;letter-spacing:.02em;">CLASIFICACIÓN (igual que cualquier fondo del repo)</div>
+            ${row("Clase",              buildSelect("brepo_clase",   opts.clase||[],         "Cartera"))}
+            ${row("Categoría",          buildSelect("brepo_cat",     opts.categoria||[],     ""))}
+            ${row("Tipo activo",        buildSelect("brepo_tipo",    opts.tipoActivo||[],    "Mixto"))}
+            ${row("Geografía",          buildSelect("brepo_geo",     opts.geografia||[],     ""))}
+            ${row("Divisa",             buildSelect("brepo_div",     opts.divisa||[],        "Euro"))}
+            ${row("Subcategoría/Issuer",buildSelect("brepo_issuer",  opts.issuer||[],        ""))}
+            ${row("Clasificación",      buildSelect("brepo_clasif",  opts.clasificacion||[], "N.A."))}
+          </div>
+
+          <label for="brepo_opinion">Opinión (texto libre)</label>
+          <input type="text" id="brepo_opinion" placeholder="Ej: para clientes con perfil 50 que..." />
+
+          <label for="btRepoSaveNotes">Notas internas (opcional)</label>
+          <textarea id="btRepoSaveNotes" rows="2" placeholder="Contexto libre — propuesta cliente X, motivo de creación, etc."></textarea>
+
+          <div id="btRepoSaveSummary" style="font-size:12px;color:#444;margin-top:10px;padding:8px 10px;background:#f6f8fb;border-radius:8px;"></div>
+
+          <div id="btRepoSaveWarning" style="display:none;font-size:12px;color:#a15c00;margin-top:8px;padding:8px 10px;background:#fff3cd;border-radius:8px;"></div>
+        </div>
+        <div class="savedAnModalFooter">
+          <button type="button" class="iconBtn" id="btRepoSaveCancel">Cancelar</button>
+          <button type="button" class="btn" id="btRepoSaveConfirm">Guardar al repo</button>
+        </div>
+      </div>
+    </div>`;
+    const wrapper = document.createElement("div");
+    wrapper.innerHTML = html;
+    const node = wrapper.firstElementChild;
+    document.body.appendChild(node);
+    // Listener delegado para los selects "nueva opción"
+    node.addEventListener("change", onSelectChange);
+  }
+
+  function openModal(snap){
+    ensureModal();
+    const ov       = document.getElementById("btRepoSaveModalOverlay");
+    const nameEl   = document.getElementById("btRepoSaveName");
+    const notesEl  = document.getElementById("btRepoSaveNotes");
+    const opinEl   = document.getElementById("brepo_opinion");
+    const isinPrev = document.getElementById("btRepoSaveIsinPreview");
+    const summary  = document.getElementById("btRepoSaveSummary");
+    const warnEl   = document.getElementById("btRepoSaveWarning");
+
+    nameEl.value = "";
+    notesEl.value = "";
+    if (opinEl) opinEl.value = "";
+    isinPrev.textContent = "ISIN sintético: C-<slug>";
+    warnEl.style.display = "none";
+    warnEl.textContent = "";
+
+    // Resetear selects a sus defaults razonables. La divisa se auto-rellena
+    // con la detectada de los componentes (si todos coinciden) o Euro.
+    const guessed = guessCurrency(snap.composicion);
+    const setSel = (id, val) => {
+      const sel = document.getElementById(id+"_sel");
+      const inp = document.getElementById(id+"_inp");
+      if (!sel) return;
+      // Intenta seleccionar el valor; si no existe entre las opciones estándar, queda en blanco.
+      let found = false;
+      for (const opt of sel.options){
+        if (opt.value === val){ sel.value = val; found = true; break; }
+      }
+      if (!found){ sel.value = ""; }
+      if (inp) inp.style.display = "none";
+      if (inp) inp.value = "";
+    };
+    setSel("brepo_clase",  "Cartera");
+    setSel("brepo_cat",    "");
+    setSel("brepo_tipo",   "Mixto");
+    setSel("brepo_geo",    "");
+    setSel("brepo_div",    guessed === "EUR" || guessed === "EURO" ? "Euro" : (guessed || "Euro"));
+    setSel("brepo_issuer", "");
+    setSel("brepo_clasif", "N.A.");
+
+    const firstD = snap.portDaily[0] && snap.portDaily[0].date;
+    const lastD  = snap.portDaily[snap.portDaily.length-1] && snap.portDaily[snap.portDaily.length-1].date;
+    const nComp  = snap.composicion.length;
+    const sumW   = snap.composicion.reduce((s,c)=>s+Number(c.peso||0),0);
+    const noIsinCount = snap.composicion.filter(c=>!c.isin).length;
+
+    summary.innerHTML = `
+      <b>Resumen</b><br>
+      Componentes: ${nComp} (suma pesos ${sumW.toFixed(2)}%)<br>
+      Periodo de la serie: ${firstD?fmtDateES(firstD):"—"} → ${lastD?fmtDateES(lastD):"—"} (${snap.portDaily.length} obs. diarias)<br>
+      Rebal: <code>${esc(snap.rebalMode)}</code>${snap.bandX!=null?` · banda ${snap.bandX}%`:""}`;
+
+    if (noIsinCount){
+      warnEl.style.display = "block";
+      warnEl.innerHTML = `⚠ ${noIsinCount} componente(s) no vienen del repositorio (CSV manual). Se guardará la serie de la cartera, pero la composición no tendrá ISIN para esos fondos.`;
+    }
+
+    // Live preview of synthetic ISIN as user types the name
+    nameEl.oninput = () => {
+      const name = nameEl.value.trim();
+      isinPrev.textContent = name ? `ISIN sintético: C-${slugify(name)}` : "ISIN sintético: C-<slug>";
+    };
+
+    ov.classList.add("open");
+    setTimeout(()=>{ try{ nameEl.focus(); }catch(_){} }, 10);
+  }
+
+  function closeModal(){
+    const ov = document.getElementById("btRepoSaveModalOverlay");
+    if (ov) ov.classList.remove("open");
+  }
+
+  // ---------- Guardado ----------
+  async function doSaveToRepo(snap){
+    const nameEl  = document.getElementById("btRepoSaveName");
+    const notesEl = document.getElementById("btRepoSaveNotes");
+    const opinEl  = document.getElementById("brepo_opinion");
+    const confirmBtn = document.getElementById("btRepoSaveConfirm");
+    const nombre  = (nameEl.value || "").trim();
+    if (!nombre){ alert("Pon un nombre a la cartera."); nameEl.focus(); return; }
+
+    // Recoge campos de clasificación
+    const clase         = getSelectVal("brepo_clase");
+    const categoria     = getSelectVal("brepo_cat");
+    const tipoActivo    = getSelectVal("brepo_tipo");
+    const geografia     = getSelectVal("brepo_geo");
+    const divisa        = getSelectVal("brepo_div");
+    const issuer        = getSelectVal("brepo_issuer");
+    const clasificacion = getSelectVal("brepo_clasif");
+    const opinion       = (opinEl?.value || "").trim();
+
+    // Obligamos clasificación para evitar que se guarde sin clasificar.
+    if (!clasificacion){
+      alert('La "Clasificación" es obligatoria para no dejar el fondo sin clasificar. Elige una opción (Top/Bueno/Medio/Malo/...).');
+      const sel = document.getElementById("brepo_clasif_sel");
+      if (sel) sel.focus();
+      return;
+    }
+
+    const isin = "C-" + slugify(nombre);
+    const notas = (notesEl.value || "").trim();
+
+    // Colisión: confirmar sobreescribir
+    const dp = window.DP;
+    if (!dp || typeof dp.upsertFund !== "function"){
+      alert("El módulo del repo (window.DP.upsertFund) no está disponible. Recarga la página.");
+      return;
+    }
+    if (dp.hasFund(isin)){
+      if (!confirm(`Ya existe un fondo con ISIN "${isin}" en el repo. ¿Sobreescribir?`)) return;
+    }
+
+    const rows = snap.portDaily
+      .map(p => ({ date: fmtDateISO(p.date), value: Number(p.nav) }))
+      .filter(r => r.date && Number.isFinite(r.value) && r.value > 0);
+
+    if (rows.length < 2){
+      alert("La serie de la cartera no tiene datos suficientes para guardar.");
+      return;
+    }
+
+    // Meta con el mismo shape que cualquier fondo del repo (compat con dpEditFund,
+    // dpSyncToDatapack, repoBuildStacked, etc.) + campos extra específicos de cartera.
+    const meta = {
+      name: nombre,
+      isin,
+      // Campos estándar de clasificación (mismos que dpEditFund)
+      clase,
+      categoria,
+      tipoActivo,
+      geografia,
+      divisa,
+      issuer,
+      clasificacion,
+      opinion,
+      // Compat: algunos módulos leen meta.currency / meta.category / ...
+      currency:  divisa || "",
+      category:  categoria || "",
+      assetType: tipoActivo || "",
+      geography: geografia || "",
+      className: clase || "",
+      // Campos específicos de cartera (para auditoría + futura regeneración)
+      notas,
+      composicion: snap.composicion,          // [{isin, nombre, peso}]
+      origen: {
+        tipo: "backtest-portfolio",
+        rebalMode: snap.rebalMode,
+        bandX: snap.bandX,
+        fecha_guardado: new Date().toISOString()
+      }
+    };
+
+    // Feedback visual durante el POST a Supabase (upsertFund es async ahora)
+    if (confirmBtn){ confirmBtn.disabled = true; confirmBtn.textContent = "Guardando…"; }
+    try{
+      const ok = await dp.upsertFund(isin, { meta, rows });
+      if (!ok){
+        alert("No se pudo guardar la cartera. Revisa la consola.");
+        return;
+      }
+      closeModal();
+      notifyOk(`Cartera <b>${esc(nombre)}</b> guardada en el repo como <code>${esc(isin)}</code> (${rows.length} obs.) · clasificación: <b>${esc(clasificacion)}</b>. Ya disponible en 📚 Repo y persistida en la nube.`);
+    } catch(e){
+      console.error("[btSaveToRepo] error", e);
+      alert("Error al guardar la cartera: " + (e && e.message || e));
+    } finally {
+      if (confirmBtn){ confirmBtn.disabled = false; confirmBtn.textContent = "Guardar al repo"; }
+    }
+  }
+
+  // ---------- Wire-up ----------
+  function wire(){
+    const btn = document.getElementById("btSaveToRepo");
+    if (btn){
+      btn.addEventListener("click", () => {
+        if (!isPortReady()){
+          alert('Primero pulsa "Calcular cartera" para generar la serie.');
+          return;
+        }
+        const snap = captureActivePortfolio();
+        if (!snap || !snap.composicion.length){
+          alert("La cartera actual no tiene componentes con peso > 0.");
+          return;
+        }
+        openModal(snap);
+      });
+    }
+
+    // Delegación para los botones del modal (se crea dinámicamente)
+    document.addEventListener("click", (ev) => {
+      const t = ev.target;
+      if (!t || !t.id) return;
+      if (t.id === "btRepoSaveCancel" || t.id === "btRepoSaveModalCloseBtn"){
+        closeModal();
+      } else if (t.id === "btRepoSaveConfirm"){
+        const snap = captureActivePortfolio();
+        if (!snap){ closeModal(); return; }
+        doSaveToRepo(snap);
+      } else if (t.id === "btRepoSaveModalOverlay"){
+        // click en el overlay (fuera del modal) cierra
+        closeModal();
+      }
+    });
+
+    // Refresca el estado del botón cada vez que el usuario interactúa
+    // (evita tener que hookear btRun directamente — el polling es barato)
+    setInterval(refreshButtonState, 500);
+
+    refreshButtonState();
+  }
+
+  if (document.readyState === "loading"){
+    document.addEventListener("DOMContentLoaded", () => setTimeout(wire, 500));
+  } else {
+    setTimeout(wire, 500);
+  }
+})();
+
+/* =========================================================================
+   MEJORA 3 · Export PDF por pestaña (html2canvas + jsPDF)
+   - A4 portrait, márgenes 12mm, ancho ajustado a la página.
+   - Cada "card" del screen se trata como sección atómica → si no cabe en lo
+     que queda de la página actual, salto de página antes de pintarla.
+   - Footer en cada página: fecha de generación · disclaimer · nº página.
+   - Excluye encabezado de la pestaña y controles interactivos (botones,
+     selects, modales, inputs file, modebar Plotly) vía body.pdfExporting.
+   ========================================================================= */
+(function(){
+  "use strict";
+
+  const PDF_DISCLAIMER = "Documento informativo. Rentabilidades pasadas no garantizan rendimientos futuros. Consulte con su asesor antes de tomar decisiones de inversión.";
+
+  // Configuración por pestaña
+  const TABS = {
+    screen1: { label:"Fondo",        filename:"fondo" },
+    screen2: { label:"Comparación",  filename:"comparacion" },
+    screen3: { label:"Backtest",     filename:"backtest" }
+  };
+
+  // ---------- utilidades ----------
+  function todayISO(){
+    const d = new Date();
+    return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+  }
+  function todayES(){
+    const d = new Date();
+    return String(d.getDate()).padStart(2,"0")+"/"+String(d.getMonth()+1).padStart(2,"0")+"/"+d.getFullYear();
+  }
+
+  // Devuelve la lista de "secciones" a exportar de una pestaña.
+  // Estrategia: recorrer las cards "top-level" del screen (donde top-level
+  // significa hijo directo del screen, hijo directo de un .wrap, o hijo de
+  // un .grid/.grid2/.plotsGrid2 que está bajo screen o wrap). Si una card
+  // contiene a su vez sub-cards (leaf), se descompone:
+  //   - Sus sub-cards se incluyen como secciones independientes.
+  //   - El card padre NO se exporta entero; solo su "intro" (header + KPI
+  //     rows) se inyecta como card temporal.
+  // Esto evita un canvas gigante para el card "KPIs" de Backtest/Fondo y
+  // permite saltos de página por cada gráfico.
+  function collectSections(screenId){
+    const screen = document.getElementById(screenId);
+    if (!screen) return [];
+    const skipIds = new Set(["savedAnCard","btSavedAnCard","savedAnList","btRepoSaveModalOverlay"]);
+    const isSkip = c => skipIds.has(c.id) || c.getAttribute("data-pdf-skip") === "1";
+
+    const out = [];
+    const seen = new Set();
+    const push = el => { if (el && !seen.has(el)) { seen.add(el); out.push(el); } };
+
+    // Reúne contenedores de los que recolectar cards top-level: el screen
+    // mismo y todos los .wrap hijos directos.
+    const containers = [screen, ...Array.from(screen.querySelectorAll(":scope > .wrap"))];
+
+    // Devuelve los .card "top-level" para un contenedor: hijos directos +
+    // los que estén dentro de .grid/.grid2/.plotsGrid2 hijos directos.
+    function topLevelCardsOf(container){
+      const list = [];
+      Array.from(container.children).forEach(ch => {
+        if (!ch.classList) return;
+        if (ch.classList.contains("card")) {
+          list.push(ch);
+        } else if (ch.classList.contains("grid") || ch.classList.contains("grid2") || ch.classList.contains("plotsGrid2")){
+          Array.from(ch.children).forEach(sc => {
+            if (sc.classList && sc.classList.contains("card")) list.push(sc);
+          });
+        }
+      });
+      return list;
+    }
+
+    for (const cont of containers){
+      const cards = topLevelCardsOf(cont);
+      cards.forEach(c => {
+        if (isSkip(c)) return;
+        // Sub-cards leaf: todos los .card descendientes que NO contengan a
+        // su vez otro .card.
+        const allDescendant = Array.from(c.querySelectorAll(".card"));
+        const subCards = allDescendant.filter(sc => !sc.querySelector(".card"));
+        if (subCards.length){
+          const intro = pickIntroOfParentCard(c);
+          if (intro) push(intro);
+          subCards.forEach(sc => { if (!isSkip(sc)) push(sc); });
+        } else {
+          push(c);
+        }
+      });
+    }
+    return out;
+  }
+
+  // Para un card "contenedor" que tiene subcards anidados, busca su contenido
+  // "propio" (header + KPI rows + tablas que vengan ANTES del primer .grid /
+  // .plotsGrid2 anidado). Si encuentra contenido propio, lo envuelve en un
+  // contenedor temporal que html2canvas pueda capturar.
+  function pickIntroOfParentCard(parentCard){
+    if (!parentCard) return null;
+    const bd = parentCard.querySelector(":scope > .bd");
+    if (!bd) return null;
+    // Buscamos el primer hijo de .bd que sea un .grid / .plotsGrid2 / .grid2
+    // O directamente un .card (caso screen3 con drawdown/rolling correlación).
+    const children = Array.from(bd.children);
+    let firstSubGridIdx = -1;
+    for (let i=0; i<children.length; i++){
+      const ch = children[i];
+      if (!ch.classList) continue;
+      const isGrid = ch.classList.contains("plotsGrid2")
+                  || ch.classList.contains("grid2")
+                  || (ch.classList.contains("grid") && ch.querySelector(":scope > .card"));
+      const isDirectCard = ch.classList.contains("card");
+      if (isGrid || isDirectCard) { firstSubGridIdx = i; break; }
+    }
+    if (firstSubGridIdx <= 0) {
+      // No hay contenido propio antes de subcards; el header + KPI rows siempre
+      // tienen valor → si firstSubGridIdx === 0 directamente clonamos el .hd.
+      if (firstSubGridIdx === 0){
+        const hd = parentCard.querySelector(":scope > .hd");
+        if (hd){
+          const wrap = document.createElement("div");
+          wrap.className = "card";
+          wrap.setAttribute("data-pdf-temp", "1");
+          wrap.style.marginBottom = "8px";
+          wrap.appendChild(hd.cloneNode(true));
+          // Insertarlo justo antes del card padre para que esté en el DOM
+          parentCard.parentNode.insertBefore(wrap, parentCard);
+          return wrap;
+        }
+      }
+      return null;
+    }
+    // Construir un pseudo-card con .hd + slice(0, firstSubGridIdx) de bd
+    const wrap = document.createElement("div");
+    wrap.className = "card";
+    wrap.setAttribute("data-pdf-temp", "1");
+    wrap.style.marginBottom = "8px";
+    const hd = parentCard.querySelector(":scope > .hd");
+    if (hd) wrap.appendChild(hd.cloneNode(true));
+    const newBd = document.createElement("div");
+    newBd.className = "bd";
+    children.slice(0, firstSubGridIdx).forEach(ch => newBd.appendChild(ch.cloneNode(true)));
+    wrap.appendChild(newBd);
+    parentCard.parentNode.insertBefore(wrap, parentCard);
+    return wrap;
+  }
+
+  // Render una sección al canvas con html2canvas.
+  async function renderSectionToCanvas(el){
+    // Esperar un frame para que Plotly relayout/resize si fue forzado
+    await new Promise(r => requestAnimationFrame(r));
+    const canvas = await window.html2canvas(el, {
+      backgroundColor: "#ffffff",
+      scale: 2,                // alta resolución
+      useCORS: true,
+      logging: false,
+      windowWidth: document.documentElement.scrollWidth,
+      windowHeight: document.documentElement.scrollHeight
+    });
+    return canvas;
+  }
+
+  // Encaja un canvas (sección) en una página A4. Si no cabe en lo que queda,
+  // salta a página nueva. Si la sección ENTERA es más alta que una página,
+  // la trocea en cachos verticales.
+  function placeCanvasOnPdf(pdf, canvas, state){
+    const pageW = pdf.internal.pageSize.getWidth();
+    const pageH = pdf.internal.pageSize.getHeight();
+    const margin = state.margin;
+    const usableW = pageW - margin*2;
+    const footerH = 10; // mm reservados al footer
+    const usableH = pageH - margin*2 - footerH;
+
+    // Conversión: canvas px → mm manteniendo proporción usableW
+    const pxPerMm = canvas.width / usableW;
+    const sectionMmH = canvas.height / pxPerMm;
+
+    // Si cabe entera en una página y queda hueco suficiente: pintar tal cual.
+    // Si no cabe en lo que queda, saltar de página.
+    let remainMmH = (pageH - margin - footerH) - state.cursorY;
+    if (sectionMmH <= usableH){
+      if (sectionMmH > remainMmH){
+        // salto de página
+        addFooter(pdf, state);
+        pdf.addPage();
+        state.page += 1;
+        state.cursorY = margin;
+      }
+      const dataUrl = canvas.toDataURL("image/png");
+      pdf.addImage(dataUrl, "PNG", margin, state.cursorY, usableW, sectionMmH, undefined, "FAST");
+      state.cursorY += sectionMmH + 4; // 4mm gap entre secciones
+      return;
+    }
+
+    // Sección más alta que una página: trocear verticalmente
+    let yOffsetPx = 0;
+    while (yOffsetPx < canvas.height){
+      // Si no cabe nada, saltar de página
+      remainMmH = (pageH - margin - footerH) - state.cursorY;
+      if (remainMmH < 30){
+        addFooter(pdf, state);
+        pdf.addPage();
+        state.page += 1;
+        state.cursorY = margin;
+        remainMmH = (pageH - margin - footerH) - state.cursorY;
+      }
+      const sliceMmH = Math.min(remainMmH, sectionMmH - (yOffsetPx / pxPerMm));
+      const slicePxH = Math.round(sliceMmH * pxPerMm);
+
+      // Crear un canvas temporal con la franja
+      const tmp = document.createElement("canvas");
+      tmp.width = canvas.width;
+      tmp.height = slicePxH;
+      const ctx = tmp.getContext("2d");
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0,0,tmp.width,tmp.height);
+      ctx.drawImage(canvas, 0, yOffsetPx, canvas.width, slicePxH, 0, 0, canvas.width, slicePxH);
+      const dataUrl = tmp.toDataURL("image/png");
+      pdf.addImage(dataUrl, "PNG", margin, state.cursorY, usableW, sliceMmH, undefined, "FAST");
+
+      yOffsetPx += slicePxH;
+      state.cursorY += sliceMmH;
+      if (yOffsetPx < canvas.height){
+        addFooter(pdf, state);
+        pdf.addPage();
+        state.page += 1;
+        state.cursorY = margin;
+      }
+    }
+    state.cursorY += 4;
+  }
+
+  function addFooter(pdf, state){
+    const pageW = pdf.internal.pageSize.getWidth();
+    const pageH = pdf.internal.pageSize.getHeight();
+    pdf.setFontSize(8);
+    pdf.setTextColor(120,120,120);
+    const left  = `${state.fechaES} · ${state.tabLabel}`;
+    const right = `Página ${state.page}`;
+    pdf.text(left,  state.margin,           pageH - 6);
+    pdf.text(right, pageW - state.margin,   pageH - 6, { align:"right" });
+    // Disclaimer en la línea de arriba (pequeño, gris muy claro)
+    const maxW = pageW - state.margin*2;
+    const disclaimerLines = pdf.splitTextToSize(PDF_DISCLAIMER, maxW);
+    pdf.setFontSize(7);
+    pdf.setTextColor(150,150,150);
+    pdf.text(disclaimerLines, state.margin, pageH - 11);
+    pdf.setTextColor(0,0,0);
+  }
+
+  function ensureScreenVisibleSync(screenId){
+    // Si el screen está oculto (display:none por la tab), html2canvas captura
+    // las dimensiones erróneamente. Lo mostramos temporalmente y al final
+    // restauramos.
+    const el = document.getElementById(screenId);
+    if (!el) return ()=>{};
+    const wasHidden = el.classList.contains("hidden");
+    if (wasHidden) el.classList.remove("hidden");
+    return ()=>{ if (wasHidden) el.classList.add("hidden"); };
+  }
+
+  function tabHasData(screenId){
+    if (screenId === "screen1") return !!(window.STATE && window.STATE.dailySeries && window.STATE.dailySeries.length);
+    if (screenId === "screen2") return !!(window.CMP && Array.isArray(window.CMP.funds) && window.CMP.funds.length >= 1);
+    if (screenId === "screen3") return !!(window.BT && Array.isArray(window.BT.portDaily) && window.BT.portDaily.length >= 2);
+    return false;
+  }
+
+  // ---- Backtest: construye un card con la composición de la cartera + benchmark
+  // que se inyecta al principio del PDF de screen3.
+  function buildBacktestSummaryCard(){
+    const BT = window.BT;
+    if (!BT) return null;
+    const escHtml = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+    const collect = (funds, weights) => {
+      const out = [];
+      for (let i=0; i<funds.length; i++){
+        const f = funds[i]; const w = Number(weights[i] || 0);
+        if (!f || w <= 0) continue;
+        const name = f.name || f.fileName || `Fondo ${i+1}`;
+        const isin = (f.meta && f.meta.isin) ? f.meta.isin : "";
+        out.push({ name, isin, w });
+      }
+      return out;
+    };
+    const fundRows = collect(BT.funds || [], BT.weights || []);
+    const benchRows = collect(BT.benchFunds || [], BT.benchWeights || []);
+    if (!fundRows.length) return null;
+
+    const rebalLabel = (mode, x) => mode === "yearly" ? "Anual"
+                                  : mode === "bands"  ? `Bandas ±${x}pp`
+                                  : "Buy &amp; hold";
+    const sumW = arr => arr.reduce((s,r)=>s + r.w, 0);
+    const tableHTML = rows => `
+      <table style="width:100%; border-collapse:collapse; font-size:12px;">
+        <thead><tr style="border-bottom:1px solid #cbd5e1;">
+          <th style="text-align:left; padding:6px 8px; font-weight:700;">Fondo</th>
+          <th style="text-align:left; padding:6px 8px; font-weight:700;">ISIN</th>
+          <th style="text-align:right; padding:6px 8px; font-weight:700;">Peso</th>
+        </tr></thead>
+        <tbody>${rows.map(r => `<tr style="border-bottom:1px solid #f1f5f9;">
+          <td style="padding:5px 8px;">${escHtml(r.name)}</td>
+          <td style="padding:5px 8px; font-family:'Courier New',monospace; font-size:11px; color:#475569;">${escHtml(r.isin)}</td>
+          <td style="padding:5px 8px; text-align:right; font-variant-numeric:tabular-nums;">${r.w.toFixed(2)}%</td>
+        </tr>`).join("")}
+        <tr style="font-weight:700; border-top:1px solid #cbd5e1;">
+          <td style="padding:6px 8px;">Total</td><td></td>
+          <td style="padding:6px 8px; text-align:right; font-variant-numeric:tabular-nums;">${sumW(rows).toFixed(2)}%</td>
+        </tr></tbody>
+      </table>`;
+
+    const card = document.createElement("div");
+    card.className = "card";
+    card.setAttribute("data-pdf-temp", "1");
+    card.style.marginBottom = "12px";
+
+    let html = `
+      <div class="hd">
+        <span class="pill">Composición de la cartera</span>
+        <span class="pill" style="font-weight:600;">Rebalanceo: ${rebalLabel(BT.rebalMode, BT.bandX)}</span>
+      </div>
+      <div class="bd">
+        ${tableHTML(fundRows)}
+    `;
+    if (benchRows.length){
+      html += `
+        <div style="margin-top:14px; padding-top:10px; border-top:1px dashed #cbd5e1;">
+          <div style="font-weight:700; font-size:13px; margin-bottom:6px; color:#0f172a;">
+            Benchmark <span style="font-weight:400; color:#475569; font-size:11px;">· Rebalanceo: ${rebalLabel(BT.benchRebalMode, BT.benchBandX)}</span>
+          </div>
+          ${tableHTML(benchRows)}
+        </div>`;
+    }
+    html += `</div>`;
+    card.innerHTML = html;
+    return card;
+  }
+
+  async function exportTabToPDF(screenId){
+    if (!window.html2canvas || !window.jspdf){
+      alert("Las librerías de PDF no se han cargado todavía. Espera unos segundos y reinténtalo.");
+      return;
+    }
+    const tabCfg = TABS[screenId];
+    if (!tabCfg){ alert("Pestaña no soportada para PDF: "+screenId); return; }
+
+    if (!tabHasData(screenId)){
+      const labels = { screen1:"Calcular en la pestaña Fondo", screen2:"Calcular comparación", screen3:"Calcular cartera" };
+      alert(`Primero pulsa "${labels[screenId]}" para tener un análisis que exportar.`);
+      return;
+    }
+
+    // Inyección de card temporal con composición + benchmark (solo Backtest)
+    // Se inserta antes del primer card no-skip que vaya a aparecer en el PDF,
+    // mirando tanto en el screen directamente como en sus wraps.
+    let tempSummaryCard = null;
+    if (screenId === "screen3"){
+      tempSummaryCard = buildBacktestSummaryCard();
+      if (tempSummaryCard){
+        const screen = document.getElementById("screen3");
+        if (screen){
+          // Buscar el primer card no-skip recorriendo screen children y wraps
+          const isSkipForInjection = c =>
+            c.id === "btSavedAnCard" || c.id === "savedAnCard" ||
+            c.getAttribute("data-pdf-skip") === "1";
+          let firstNonSkip = null;
+          const scan = (el) => {
+            for (const ch of el.children){
+              if (!ch.classList) continue;
+              if (ch.classList.contains("card") && !isSkipForInjection(ch)){
+                firstNonSkip = ch; return true;
+              }
+              if (ch.classList.contains("wrap")){
+                if (scan(ch)) return true;
+              }
+            }
+            return false;
+          };
+          scan(screen);
+          if (firstNonSkip && firstNonSkip.parentElement){
+            firstNonSkip.parentElement.insertBefore(tempSummaryCard, firstNonSkip);
+          } else {
+            screen.appendChild(tempSummaryCard);
+          }
+        }
+      }
+    }
+
+    const sections = collectSections(screenId);
+    if (!sections.length){
+      alert("No se han detectado secciones para exportar en esta pestaña.");
+      if (tempSummaryCard && tempSummaryCard.parentElement) tempSummaryCard.parentElement.removeChild(tempSummaryCard);
+      return;
+    }
+
+    const trigger = document.getElementById(screenId.replace("screen","s")+"ExportPdf");
+    if (trigger){ trigger.disabled = true; trigger.textContent = "📄 Generando…"; }
+
+    const restoreScreen = ensureScreenVisibleSync(screenId);
+    document.body.classList.add("pdfExporting");
+
+    // Pequeña espera para que Plotly se redibuje sin botoneras y resize
+    try { if (typeof resizePlotsIn === "function") resizePlotsIn(screenId); } catch(_){}
+    await new Promise(r => setTimeout(r, 250));
+
+    try {
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF({ unit:"mm", format:"a4", orientation:"portrait" });
+      const state = {
+        margin: 12,
+        cursorY: 12,
+        page: 1,
+        fechaES: todayES(),
+        tabLabel: tabCfg.label
+      };
+
+      console.log(`[PDF] ${screenId}: ${sections.length} secciones detectadas`, sections);
+      for (let i=0; i<sections.length; i++){
+        const sec = sections[i];
+        try {
+          const rect = sec.getBoundingClientRect();
+          if (rect.width < 10 || rect.height < 10){
+            console.warn(`[PDF] sección #${i} saltada (dimensiones ${rect.width}x${rect.height}):`, sec);
+            continue;
+          }
+          const canvas = await renderSectionToCanvas(sec);
+          placeCanvasOnPdf(pdf, canvas, state);
+        } catch (sectionErr){
+          console.error(`[PDF] sección #${i} falló:`, sec, sectionErr);
+          // Seguimos con las demás
+        }
+      }
+      // Footer de la última página
+      addFooter(pdf, state);
+
+      const filename = `${tabCfg.filename}_${todayISO()}.pdf`;
+      pdf.save(filename);
+    } catch(err){
+      console.error("[exportTabToPDF] error", err);
+      alert("No se ha podido generar el PDF: "+ (err && err.message || err));
+    } finally {
+      document.body.classList.remove("pdfExporting");
+      restoreScreen();
+      // Eliminar todas las cards temporales (tempSummaryCard + intros generadas
+      // por pickIntroOfParentCard). Marcadas con data-pdf-temp="1".
+      document.querySelectorAll('[data-pdf-temp="1"]').forEach(n => {
+        if (n.parentElement) n.parentElement.removeChild(n);
+      });
+      try { if (typeof resizePlotsIn === "function") resizePlotsIn(screenId); } catch(_){}
+      if (trigger){ trigger.disabled = false; trigger.textContent = "📄 Exportar PDF"; }
+    }
+  }
+
+  function wire(){
+    const bind = (id, screenId) => {
+      const btn = document.getElementById(id);
+      if (!btn) return;
+      btn.addEventListener("click", () => exportTabToPDF(screenId));
+    };
+    bind("s1ExportPdf", "screen1");
+    bind("s2ExportPdf", "screen2");
+    bind("s3ExportPdf", "screen3");
+    // Expose for debugging from the console.
+    window.exportTabToPDF = exportTabToPDF;
+  }
+
+  if (document.readyState === "loading"){
+    document.addEventListener("DOMContentLoaded", () => setTimeout(wire, 600));
+  } else {
+    setTimeout(wire, 600);
+  }
 })();
 </script></div></div></body></html>
