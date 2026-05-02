@@ -1739,6 +1739,25 @@ function getOrCreateDQOverlay(screenId){
 }
 
 function showDQModal(screenId, key, analysis){
+  // [autoflow headless] Si la URL tiene ?action=fund|compare|backtest, NO abrir
+  // modal — Playwright se colgaría hasta timeout. Devolvemos default seguro:
+  // aplicar escalado sugerido si existe, si no continuar sin cambios.
+  try {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("action")){
+      const cfg = {ack:true, excludeYears:[], scale:null};
+      if (analysis && analysis.suggestion){
+        cfg.scale = {
+          cutDate: analysis.suggestion.cutDate,
+          factor: analysis.suggestion.factor,
+          side: analysis.suggestion.side,
+          multiplier: analysis.suggestion.multiplier
+        };
+      }
+      try { console.log(`[autoflow showDQModal] saltado modal para ${key} (autoflow)`); } catch(_){}
+      return Promise.resolve(cfg);
+    }
+  } catch(_){}
   return new Promise(resolve=>{
     const overlay = getOrCreateDQOverlay(screenId);
 
@@ -1849,6 +1868,30 @@ async function ensureDQ(key, series, screenId){
   if (!analysis.events.length){
     return Promise.resolve({ack:true, excludeYears:[], scale:null});
   }
+
+  // [autoflow headless] Si la URL tiene ?action=fund|compare|backtest, estamos
+  // en flujo automatizado (Playwright headless). NO podemos abrir modales que
+  // pidan interacción humana — colgaría hasta timeout. Aplicamos el default
+  // "continue without changes" + escalado sugerido si Morningstar/Datapack
+  // detectó un split (mejor escalar automáticamente que dejar la serie rota).
+  try {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("action")){
+      const cfg = {ack:true, excludeYears:[], scale:null};
+      if (analysis.suggestion){
+        cfg.scale = {
+          cutDate: analysis.suggestion.cutDate,
+          factor: analysis.suggestion.factor,
+          side: analysis.suggestion.side,
+          multiplier: analysis.suggestion.multiplier
+        };
+        try { console.log(`[autoflow ensureDQ] auto-aplico escalado en ${key}: factor=${analysis.suggestion.factor} side=${analysis.suggestion.side} cutDate=${analysis.suggestion.cutDate}`); } catch(_){}
+      } else {
+        try { console.log(`[autoflow ensureDQ] continúo sin cambios para ${key} (${analysis.events.length} eventos)`); } catch(_){}
+      }
+      return cfg;
+    }
+  } catch(_){}
 
   // Serialize modals per screen so multiple files don't open multiple overlays at once.
   const job = (DQ.screenQueues.get(screenId) || Promise.resolve()).then(async ()=>{
