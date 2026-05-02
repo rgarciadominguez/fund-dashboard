@@ -16073,17 +16073,27 @@ body.pdfExporting .pdfPairCard .pill {
     return window.DATAPACK.funds.find(f => String(f.isin||"").toUpperCase() === isinNorm) || null;
   }
 
-  // Carga un fondo por ISIN — primero busca en el DATAPACK local; si no
-  // está, cae a Morningstar (security_details + serie histórica). Devuelve
-  // un objeto `parsed` listo para usar en STATE / CMP.repoFunds / BT.funds.
-  async function loadFundByIsinWithFallback(isin, ctxKind){
+  // Carga un fondo por ISIN. Si está en datapack lo usa directamente; si no,
+  // simula el flujo manual del UI Morningstar (search box → seleccionar →
+  // botón "Cargar en este slot"), que es lógica probada que funciona en el
+  // uso manual del dashboard.
+  //
+  // Args:
+  //   isin    : ISIN del fondo
+  //   ctxKind : "fund" | "cmp" | "bt" — contexto destino
+  //   slot    : índice del slot (necesario para "cmp" 0-9 y "bt" 0-4)
+  //
+  // Devuelve el objeto `parsed` ya aplicado al lugar correspondiente
+  // (STATE para "fund", CMP.repoFunds[slot] para "cmp", BT.funds[slot] para "bt").
+  async function loadFundByIsinWithFallback(isin, ctxKind, slot){
     const isinNorm = String(isin || "").trim().toUpperCase();
     const dpFund = findFundInDatapack(isinNorm);
+
+    // ── Camino rápido: ISIN en datapack ─────────────────────────────────
     if (dpFund){
       const screenId = ctxKind === "fund" ? "screen1" : (ctxKind === "cmp" ? "screen2" : "screen3");
       const role = ctxKind === "bench" ? "bench" : "fund";
       const parsed = await repoParsedForFund(dpFund, screenId, role);
-      // Normalizar metadatos para que el resto del código encuentre nombre/ISIN
       parsed.meta = parsed.meta || {};
       parsed.meta.isin = parsed.meta.isin || isinNorm;
       parsed.meta.name = parsed.meta.name || dpFund.name || parsed.name || isinNorm;
@@ -16091,60 +16101,113 @@ body.pdfExporting .pdfPairCard .pill {
       parsed.meta.provider = "Datapack";
       return parsed;
     }
-    // Fallback Morningstar
-    if (typeof mstFetchSecurityDetails !== "function" || typeof mstFetchAuto !== "function" || typeof mstBuildParsed !== "function"){
-      throw new Error(`ISIN ${isinNorm} no en datapack y Morningstar fallback no disponible`);
+
+    // ── Fallback: simular el flujo UI manual de Morningstar ────────────
+    if (typeof mstFetchSecurityDetails !== "function" ||
+        typeof mstLoadSelectedToCtx !== "function" ||
+        typeof MST === "undefined") {
+      throw new Error(`ISIN ${isinNorm} no en datapack y Morningstar UI no disponible`);
     }
-    log(`[fallback Morningstar] ${isinNorm} no en datapack; descargando…`);
-    const det = await mstFetchSecurityDetails(isinNorm).catch(e => { throw new Error(`Morningstar security_details falló para ${isinNorm}: ${e && e.message ? e.message : e}`); });
+    log(`[Morningstar] ${isinNorm} no en datapack; usando flujo UI (search → load)…`);
+
+    // Paso 1: buscar metadata del ISIN (lo que mstDoSearch hace al teclear el ISIN)
+    const det = await mstFetchSecurityDetails(isinNorm)
+      .catch(e => { throw new Error(`Morningstar security_details falló para ${isinNorm}: ${e && e.message ? e.message : e}`); });
     if (!det) throw new Error(`Morningstar no encuentra ISIN ${isinNorm}`);
-    const fetched = await mstFetchAuto(isinNorm, "", "auto").catch(e => { throw new Error(`Morningstar serie falló para ${isinNorm}: ${e && e.message ? e.message : e}`); });
-    if (!fetched.series || fetched.series.length < 10) throw new Error(`Serie histórica corta (<10 puntos) para ${isinNorm}`);
-    // Pasamos un ctx mínimo a mstBuildParsed (espera ctx.screenId)
+    log(`[Morningstar] ${isinNorm} → "${det.name}" (${det.currency || "?"})`);
+
+    // Paso 2: setear MST.ctx (lo que mstPickerOpen hace al abrir el modal)
     const screenId = ctxKind === "fund" ? "screen1" : (ctxKind === "cmp" ? "screen2" : "screen3");
-    const parsed = await mstBuildParsed(fetched.series, isinNorm, det.name || isinNorm, det.currency || "", "", { screenId }, fetched.frequency);
+    const ctxKindMst = ctxKind === "fund" ? "screen1" : ctxKind;  // "screen1" / "cmp" / "bt"
+    MST.ctx = MST.ctx || {};
+    MST.ctx.kind = ctxKindMst;
+    MST.ctx.slot = (slot != null && slot >= 0) ? slot : 0;
+    MST.ctx.isBench = false;
+    MST.ctx.screenId = screenId;
+    MST.ctx.role = "fund";
+    MST.ctx.inputId = null;
+
+    // Paso 3: setear MST.selected (lo que un click en el resultado hace)
+    MST.selected = {
+      isin: isinNorm,
+      name: det.name || isinNorm,
+      baseCurrency: det.currency || "",
+      universe: "FO",  // "FO" = Fund Open-end
+      item: { isin: isinNorm, name: det.name || isinNorm }
+    };
+
+    // Paso 4: invocar la función real del botón "Cargar en este slot".
+    // Esta función internamente:
+    //   - llama mstFetchAuto (descarga serie con timeout y retries)
+    //   - llama mstBuildParsed (procesa NAVs con DQ — ya blindado en autoflow)
+    //   - llama mstApplyToCtx (aplica al STATE / CMP.repoFunds[slot] / BT.funds[slot])
+    //   - cierra el picker
+    await mstLoadSelectedToCtx();
+
+    // Paso 5: leer el parsed del lugar donde mstApplyToCtx lo dejó
+    let parsed = null;
+    if (ctxKindMst === "screen1"){
+      // STATE no tiene un objeto parsed, lo reconstruimos
+      const STATE = window.STATE || {};
+      if (!STATE.dailySeries || !STATE.dailySeries.length){
+        throw new Error(`Morningstar carga falló para ${isinNorm} (STATE vacío tras mstLoadSelectedToCtx)`);
+      }
+      parsed = {
+        name: STATE.sourceName || det.name || isinNorm,
+        fileName: `mst:${isinNorm}`,
+        series: STATE.rawSeries || [],
+        dailyIdx: STATE.dailyIdx || 0,
+        dailySeries: STATE.dailySeries || [],
+        monthlySeries: STATE.monthlySeries || [],
+        freqSegs: STATE.freqSegs || [],
+        invalid: 0,
+        currency: (STATE.sourceMeta && STATE.sourceMeta.currency) || det.currency || "",
+        firstDate: null,
+        lastDate: null,
+        meta: STATE.sourceMeta || { provider:"Morningstar", isin: isinNorm, name: det.name || isinNorm, currency: det.currency || "" }
+      };
+    } else if (ctxKindMst === "cmp"){
+      parsed = window.CMP && window.CMP.repoFunds ? window.CMP.repoFunds[MST.ctx.slot] : null;
+    } else if (ctxKindMst === "bt"){
+      parsed = window.BT && window.BT.funds ? window.BT.funds[MST.ctx.slot] : null;
+    }
+    if (!parsed) throw new Error(`Morningstar carga ${isinNorm}: no se encontró parsed tras mstLoadSelectedToCtx (ctx=${ctxKindMst})`);
+
+    // Garantizar metadatos uniformes
     parsed.meta = parsed.meta || {};
     parsed.meta.isin = isinNorm;
-    parsed.meta.name = det.name || parsed.name || isinNorm;
-    parsed.meta.currency = det.currency || parsed.currency || "";
+    parsed.meta.name = parsed.meta.name || det.name || isinNorm;
+    parsed.meta.currency = parsed.meta.currency || det.currency || "";
     parsed.meta.provider = "Morningstar";
-    parsed.meta.frequency = fetched.frequency;
-    parsed.meta.url = fetched.url;
-    parsed.fileName = `mst:${isinNorm}`;  // marcar origen
-    log(`[fallback Morningstar] ${isinNorm} cargado · ${parsed.dailySeries ? parsed.dailySeries.length : 0} puntos`);
+    parsed.fileName = parsed.fileName || `mst:${isinNorm}`;
+    parsed.name = parsed.name || det.name || isinNorm;
 
-    // ── Persistir el fondo en el DATAPACK (Supabase) para que la próxima vez
-    // que se pida este ISIN ya esté disponible sin tener que volver a llamar
-    // a Morningstar. La API DP.upsertFund hace upsert a la tabla `funds` de
-    // Supabase; quedará disponible en sesiones futuras vía gistAutoLoad.
+    log(`[Morningstar] ${isinNorm} cargado · ${parsed.dailySeries ? parsed.dailySeries.length : 0} puntos diarios`);
+
+    // ── Persistir en DATAPACK (Supabase) para próximas sesiones ────────
     try {
       if (window.DP && typeof window.DP.upsertFund === "function"){
         const meta = {
-          name: parsed.meta.name || isinNorm,
+          name: parsed.meta.name || det.name || isinNorm,
           isin: isinNorm,
           currency: parsed.meta.currency || "",
-          category: "",
-          assetType: "",
-          geography: "",
-          issuer: "",
-          className: ""
+          category: "", assetType: "", geography: "", issuer: "", className: ""
         };
-        // Construir rows en el formato del datapack: [{date:"YYYY-MM-DD", value:nav}]
         const rows = (parsed.series || []).map(p => ({
           date: (p.date instanceof Date)
                   ? p.date.toISOString().slice(0,10)
                   : String(p.date || "").slice(0,10),
           value: Number(p.nav)
-        })).filter(r => r.date && Number.isFinite(r.value));
+        })).filter(r => r.date && Number.isFinite(r.value) && r.value > 0);
         if (rows.length >= 10){
           await window.DP.upsertFund(isinNorm, { meta, rows });
-          log(`[DATAPACK ←] ${isinNorm} persistido (${rows.length} NAVs) — la próxima vez se carga local`);
+          log(`[DATAPACK ←] ${isinNorm} "${meta.name}" persistido (${rows.length} NAVs) — próxima vez carga local`);
         } else {
-          log(`[DATAPACK skip] ${isinNorm}: solo ${rows.length} rows (<10), no persisto`);
+          log(`[DATAPACK skip] ${isinNorm}: solo ${rows.length} rows válidos, no persisto`);
         }
       }
     } catch(e) {
-      console.warn("[DATAPACK upsert] falló (no bloquea el flujo):", e);
+      console.warn("[DATAPACK upsert] falló (no bloquea):", e);
     }
 
     return parsed;
@@ -16210,7 +16273,7 @@ body.pdfExporting .pdfPairCard .pill {
     switchToScreen("screen1");
     await new Promise(r=>setTimeout(r, 400));
 
-    const parsed = await loadFundByIsinWithFallback(isin, "fund");
+    const parsed = await loadFundByIsinWithFallback(isin, "fund", null);
     const STATE = window.STATE;
     const fi = document.getElementById("file");
     if (fi) try{ fi.value = ""; }catch(_){}
@@ -16258,7 +16321,7 @@ body.pdfExporting .pdfPairCard .pill {
     const loaded = [];
     for (let i=0; i<isins.length && i<10; i++){
       try {
-        const parsed = await loadFundByIsinWithFallback(isins[i], "cmp");
+        const parsed = await loadFundByIsinWithFallback(isins[i], "cmp", i);
         window.CMP.repoFunds[i] = parsed;
         loaded.push(parsed);
       } catch(e){
@@ -16330,7 +16393,7 @@ body.pdfExporting .pdfPairCard .pill {
     const loadedIdxs = [];
     for (let i=0; i<isins.length; i++){
       try {
-        const parsed = await loadFundByIsinWithFallback(isins[i], "bt");
+        const parsed = await loadFundByIsinWithFallback(isins[i], "bt", i);
         window.BT.funds[i] = parsed;
         window.BT.weights[i] = (weights && weights[i] != null && !isNaN(weights[i])) ? Number(weights[i]) : (100 / isins.length);
         loaded.push(parsed);
