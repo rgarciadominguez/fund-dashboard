@@ -16030,6 +16030,83 @@ body.pdfExporting .pdfPairCard .pill {
     return window.DATAPACK.funds.find(f => String(f.isin||"").toUpperCase() === isinNorm) || null;
   }
 
+  // Carga un fondo por ISIN — primero busca en el DATAPACK local; si no
+  // está, cae a Morningstar (security_details + serie histórica). Devuelve
+  // un objeto `parsed` listo para usar en STATE / CMP.repoFunds / BT.funds.
+  async function loadFundByIsinWithFallback(isin, ctxKind){
+    const isinNorm = String(isin || "").trim().toUpperCase();
+    const dpFund = findFundInDatapack(isinNorm);
+    if (dpFund){
+      const screenId = ctxKind === "fund" ? "screen1" : (ctxKind === "cmp" ? "screen2" : "screen3");
+      const role = ctxKind === "bench" ? "bench" : "fund";
+      const parsed = await repoParsedForFund(dpFund, screenId, role);
+      // Normalizar metadatos para que el resto del código encuentre nombre/ISIN
+      parsed.meta = parsed.meta || {};
+      parsed.meta.isin = parsed.meta.isin || isinNorm;
+      parsed.meta.name = parsed.meta.name || dpFund.name || parsed.name || isinNorm;
+      parsed.meta.currency = parsed.meta.currency || (dpFund.attrs && dpFund.attrs.divisa) || "";
+      parsed.meta.provider = "Datapack";
+      return parsed;
+    }
+    // Fallback Morningstar
+    if (typeof mstFetchSecurityDetails !== "function" || typeof mstFetchAuto !== "function" || typeof mstBuildParsed !== "function"){
+      throw new Error(`ISIN ${isinNorm} no en datapack y Morningstar fallback no disponible`);
+    }
+    log(`[fallback Morningstar] ${isinNorm} no en datapack; descargando…`);
+    const det = await mstFetchSecurityDetails(isinNorm).catch(e => { throw new Error(`Morningstar security_details falló para ${isinNorm}: ${e && e.message ? e.message : e}`); });
+    if (!det) throw new Error(`Morningstar no encuentra ISIN ${isinNorm}`);
+    const fetched = await mstFetchAuto(isinNorm, "", "auto").catch(e => { throw new Error(`Morningstar serie falló para ${isinNorm}: ${e && e.message ? e.message : e}`); });
+    if (!fetched.series || fetched.series.length < 10) throw new Error(`Serie histórica corta (<10 puntos) para ${isinNorm}`);
+    // Pasamos un ctx mínimo a mstBuildParsed (espera ctx.screenId)
+    const screenId = ctxKind === "fund" ? "screen1" : (ctxKind === "cmp" ? "screen2" : "screen3");
+    const parsed = await mstBuildParsed(fetched.series, isinNorm, det.name || isinNorm, det.currency || "", "", { screenId }, fetched.frequency);
+    parsed.meta = parsed.meta || {};
+    parsed.meta.isin = isinNorm;
+    parsed.meta.name = det.name || parsed.name || isinNorm;
+    parsed.meta.currency = det.currency || parsed.currency || "";
+    parsed.meta.provider = "Morningstar";
+    parsed.meta.frequency = fetched.frequency;
+    parsed.meta.url = fetched.url;
+    parsed.fileName = `mst:${isinNorm}`;  // marcar origen
+    log(`[fallback Morningstar] ${isinNorm} cargado · ${parsed.dailySeries ? parsed.dailySeries.length : 0} puntos`);
+
+    // ── Persistir el fondo en el DATAPACK (Supabase) para que la próxima vez
+    // que se pida este ISIN ya esté disponible sin tener que volver a llamar
+    // a Morningstar. La API DP.upsertFund hace upsert a la tabla `funds` de
+    // Supabase; quedará disponible en sesiones futuras vía gistAutoLoad.
+    try {
+      if (window.DP && typeof window.DP.upsertFund === "function"){
+        const meta = {
+          name: parsed.meta.name || isinNorm,
+          isin: isinNorm,
+          currency: parsed.meta.currency || "",
+          category: "",
+          assetType: "",
+          geography: "",
+          issuer: "",
+          className: ""
+        };
+        // Construir rows en el formato del datapack: [{date:"YYYY-MM-DD", value:nav}]
+        const rows = (parsed.series || []).map(p => ({
+          date: (p.date instanceof Date)
+                  ? p.date.toISOString().slice(0,10)
+                  : String(p.date || "").slice(0,10),
+          value: Number(p.nav)
+        })).filter(r => r.date && Number.isFinite(r.value));
+        if (rows.length >= 10){
+          await window.DP.upsertFund(isinNorm, { meta, rows });
+          log(`[DATAPACK ←] ${isinNorm} persistido (${rows.length} NAVs) — la próxima vez se carga local`);
+        } else {
+          log(`[DATAPACK skip] ${isinNorm}: solo ${rows.length} rows (<10), no persisto`);
+        }
+      }
+    } catch(e) {
+      console.warn("[DATAPACK upsert] falló (no bloquea el flujo):", e);
+    }
+
+    return parsed;
+  }
+
   // One-shot custom filename override for jsPDF.save
   let _origSave = null;
   function patchPdfSave(filename){
@@ -16085,14 +16162,12 @@ body.pdfExporting .pdfPairCard .pill {
     if (!isins || !isins.length) throw new Error("action=fund requiere un ISIN");
     if (typeof repoParsedForFund !== "function") throw new Error("repoParsedForFund no disponible");
     const isin = isins[0];
-    const dpFund = findFundInDatapack(isin);
-    if (!dpFund) throw new Error("ISIN no encontrado en datapack: "+isin);
 
     showStatus("Cargando ficha de "+isin+"…");
     switchToScreen("screen1");
     await new Promise(r=>setTimeout(r, 400));
 
-    const parsed = await repoParsedForFund(dpFund, "screen1", "fund");
+    const parsed = await loadFundByIsinWithFallback(isin, "fund");
     const STATE = window.STATE;
     const fi = document.getElementById("file");
     if (fi) try{ fi.value = ""; }catch(_){}
@@ -16101,14 +16176,14 @@ body.pdfExporting .pdfPairCard .pill {
     STATE.dailySeries = parsed.dailySeries;
     STATE.monthlySeries = parsed.monthlySeries;
     STATE.freqSegs = parsed.freqSegs;
-    STATE.sourceName = parsed.name || dpFund.name || "";
-    STATE.sourceKey = "repo|"+isin;
+    STATE.sourceName = (parsed.meta && parsed.meta.name) || parsed.name || isin;
+    STATE.sourceKey = ((parsed.meta && parsed.meta.provider) === "Morningstar" ? "mstlegacy|" : "repo|") + isin;
     STATE.sourceMeta = {
-      provider: "Datapack",
-      name: dpFund.name || parsed.name || "",
+      provider: (parsed.meta && parsed.meta.provider) || "Datapack",
+      name: (parsed.meta && parsed.meta.name) || parsed.name || "",
       isin: isin,
-      currency: (dpFund.attrs && dpFund.attrs.divisa) || "",
-      category: (dpFund.attrs && dpFund.attrs.categoria) || ""
+      currency: (parsed.meta && parsed.meta.currency) || "",
+      category: (parsed.meta && parsed.meta.category) || ""
     };
 
     if (typeof renderQuality === "function") renderQuality();
@@ -16139,17 +16214,13 @@ body.pdfExporting .pdfPairCard .pill {
     window.CMP.repoFunds = Array(10).fill(null);
     const loaded = [];
     for (let i=0; i<isins.length && i<10; i++){
-      const dpFund = findFundInDatapack(isins[i]);
-      if (!dpFund){
-        log("ISIN no encontrado en datapack: "+isins[i]);
-        continue;
+      try {
+        const parsed = await loadFundByIsinWithFallback(isins[i], "cmp");
+        window.CMP.repoFunds[i] = parsed;
+        loaded.push(parsed);
+      } catch(e){
+        log("ISIN " + isins[i] + " no se pudo cargar (datapack ni Morningstar): " + (e && e.message ? e.message : e));
       }
-      const parsed = await repoParsedForFund(dpFund, "screen2", "fund");
-      parsed.meta = parsed.meta || {};
-      parsed.meta.isin = isins[i];
-      parsed.meta.name = dpFund.name || parsed.name || isins[i];
-      window.CMP.repoFunds[i] = parsed;
-      loaded.push(parsed);
     }
 
     // Clear file inputs
@@ -16215,19 +16286,15 @@ body.pdfExporting .pdfPairCard .pill {
     const loaded = [];
     const loadedIdxs = [];
     for (let i=0; i<isins.length; i++){
-      const dpFund = findFundInDatapack(isins[i]);
-      if (!dpFund){
-        log("ISIN no encontrado en datapack: "+isins[i]);
-        continue;
+      try {
+        const parsed = await loadFundByIsinWithFallback(isins[i], "bt");
+        window.BT.funds[i] = parsed;
+        window.BT.weights[i] = (weights && weights[i] != null && !isNaN(weights[i])) ? Number(weights[i]) : (100 / isins.length);
+        loaded.push(parsed);
+        loadedIdxs.push(i);
+      } catch(e){
+        log("ISIN " + isins[i] + " no se pudo cargar (datapack ni Morningstar): " + (e && e.message ? e.message : e));
       }
-      const parsed = await repoParsedForFund(dpFund, "screen3", "fund");
-      parsed.meta = parsed.meta || {};
-      parsed.meta.isin = isins[i];
-      parsed.meta.name = dpFund.name || parsed.name || isins[i];
-      window.BT.funds[i] = parsed;
-      window.BT.weights[i] = (weights && weights[i] != null && !isNaN(weights[i])) ? Number(weights[i]) : (100 / isins.length);
-      loaded.push(parsed);
-      loadedIdxs.push(i);
     }
 
     // Critical: btBuildPortfolioSeries uses btSumWeightsLoaded (sums weights of
