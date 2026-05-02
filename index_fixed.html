@@ -11970,6 +11970,12 @@ async function mstDoSearch(){
   }
 
   window.mstPickerOpen = mstPickerOpen;
+  // [autoflow] Exponer funciones necesarias para fallback Morningstar desde
+  // el módulo autoFlowFromUrl (vive en otro IIFE).
+  window.mstFetchSecurityDetails = mstFetchSecurityDetails;
+  window.mstLoadSelectedToCtx = mstLoadSelectedToCtx;
+  window.mstFetchAuto = mstFetchAuto;
+  window.mstBuildParsed = mstBuildParsed;
 })();
 
 
@@ -16103,15 +16109,19 @@ body.pdfExporting .pdfPairCard .pill {
     }
 
     // ── Fallback: simular el flujo UI manual de Morningstar ────────────
-    if (typeof mstFetchSecurityDetails !== "function" ||
-        typeof mstLoadSelectedToCtx !== "function" ||
-        typeof MST === "undefined") {
-      throw new Error(`ISIN ${isinNorm} no en datapack y Morningstar UI no disponible`);
+    // Las funciones mst* viven en un IIFE separado y se exponen a window
+    // al final de su scope. Las leemos vía window para acceder al closure correcto.
+    const mstFetchSecurityDetailsFn = window.mstFetchSecurityDetails;
+    const mstLoadSelectedToCtxFn = window.mstLoadSelectedToCtx;
+    if (typeof mstFetchSecurityDetailsFn !== "function" ||
+        typeof mstLoadSelectedToCtxFn !== "function" ||
+        typeof window.MST === "undefined") {
+      throw new Error(`ISIN ${isinNorm} no en datapack y Morningstar UI no disponible (mstFetchSecurityDetails=${typeof mstFetchSecurityDetailsFn}, mstLoadSelectedToCtx=${typeof mstLoadSelectedToCtxFn}, MST=${typeof window.MST})`);
     }
     log(`[Morningstar] ${isinNorm} no en datapack; usando flujo UI (search → load)…`);
 
-    // Paso 1: buscar metadata del ISIN (lo que mstDoSearch hace al teclear el ISIN)
-    const det = await mstFetchSecurityDetails(isinNorm)
+    // Paso 1: buscar metadata del ISIN
+    const det = await mstFetchSecurityDetailsFn(isinNorm)
       .catch(e => { throw new Error(`Morningstar security_details falló para ${isinNorm}: ${e && e.message ? e.message : e}`); });
     if (!det) throw new Error(`Morningstar no encuentra ISIN ${isinNorm}`);
     log(`[Morningstar] ${isinNorm} → "${det.name}" (${det.currency || "?"})`);
@@ -16119,16 +16129,16 @@ body.pdfExporting .pdfPairCard .pill {
     // Paso 2: setear MST.ctx (lo que mstPickerOpen hace al abrir el modal)
     const screenId = ctxKind === "fund" ? "screen1" : (ctxKind === "cmp" ? "screen2" : "screen3");
     const ctxKindMst = ctxKind === "fund" ? "screen1" : ctxKind;  // "screen1" / "cmp" / "bt"
-    MST.ctx = MST.ctx || {};
-    MST.ctx.kind = ctxKindMst;
-    MST.ctx.slot = (slot != null && slot >= 0) ? slot : 0;
-    MST.ctx.isBench = false;
-    MST.ctx.screenId = screenId;
-    MST.ctx.role = "fund";
-    MST.ctx.inputId = null;
+    window.MST.ctx = window.MST.ctx || {};
+    window.MST.ctx.kind = ctxKindMst;
+    window.MST.ctx.slot = (slot != null && slot >= 0) ? slot : 0;
+    window.MST.ctx.isBench = false;
+    window.MST.ctx.screenId = screenId;
+    window.MST.ctx.role = "fund";
+    window.MST.ctx.inputId = null;
 
     // Paso 3: setear MST.selected (lo que un click en el resultado hace)
-    MST.selected = {
+    window.MST.selected = {
       isin: isinNorm,
       name: det.name || isinNorm,
       baseCurrency: det.currency || "",
@@ -16137,12 +16147,7 @@ body.pdfExporting .pdfPairCard .pill {
     };
 
     // Paso 4: invocar la función real del botón "Cargar en este slot".
-    // Esta función internamente:
-    //   - llama mstFetchAuto (descarga serie con timeout y retries)
-    //   - llama mstBuildParsed (procesa NAVs con DQ — ya blindado en autoflow)
-    //   - llama mstApplyToCtx (aplica al STATE / CMP.repoFunds[slot] / BT.funds[slot])
-    //   - cierra el picker
-    await mstLoadSelectedToCtx();
+    await mstLoadSelectedToCtxFn();
 
     // Paso 5: leer el parsed del lugar donde mstApplyToCtx lo dejó
     let parsed = null;
