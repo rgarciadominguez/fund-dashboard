@@ -1,0 +1,30 @@
+name: Supabase Keep-Alive
+
+on:
+  schedule:
+    - cron: '0 9 */4 * *'
+  workflow_dispatch:
+
+jobs:
+  ping-supabase:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase REST endpoint
+        run: |
+          SUPABASE_URL="https://dcnvdaaexyuhqvyrrkob.supabase.co"
+          API_KEY="${{ secrets.SUPABASE_ANON_KEY }}"
+          if [ -z "$API_KEY" ]; then
+            echo "ERROR: SUPABASE_ANON_KEY secret no configurado."
+            exit 1
+          fi
+          echo "Pinging $SUPABASE_URL/rest/v1/ ..."
+          HTTP_CODE=$(curl -s -o /tmp/sb_response.txt -w "%{http_code}" -H "apikey: $API_KEY" -H "Authorization: Bearer $API_KEY" "$SUPABASE_URL/rest/v1/")
+          echo "HTTP $HTTP_CODE"
+          cat /tmp/sb_response.txt
+          if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "401" ] || [ "$HTTP_CODE" = "404" ]; then
+            echo "OK: proyecto activo"
+            exit 0
+          else
+            echo "ALERTA: respuesta inesperada ($HTTP_CODE)"
+            exit 1
+          fi
