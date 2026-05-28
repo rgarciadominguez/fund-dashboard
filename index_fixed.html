@@ -3,6 +3,9 @@
 <meta charset="utf-8">
 <meta content="width=device-width, initial-scale=1" name="viewport">
 <title>Dashboard fondos — Investing CSV (v9)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Epilogue:wght@400;500;600;700&display=swap">
 <script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script><style id="plotly.js-style-global"></style>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <!-- PDF deliverables: jsPDF + jspdf-autotable (legacy: html2canvas se mantiene por compatibilidad) -->
@@ -11,13 +14,13 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <style>
     :root{
-      --bg:#f6f7fb; --card:#ffffff; --text:#0f172a; --muted:#64748b;
-      --border:#e5e7eb; --accent:#2563eb;
+      --bg:#F4F9FA; --card:#ffffff; --text:#0C1726; --muted:#707070;
+      --border:#E0E7E8; --accent:#0056A7;
       --radius:18px;
     }
     *{ box-sizing:border-box; }
-    body{ margin:0; font-family:'Trebuchet MS', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; background:var(--bg); color:var(--text); }
-    header{ position:sticky; top:0; background:rgba(246,247,251,.92); backdrop-filter: blur(10px); border-bottom:1px solid var(--border); z-index:5;}
+    body{ margin:0; font-family:'Epilogue', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif; background:var(--bg); color:var(--text); -webkit-font-smoothing:antialiased; }
+    header{ position:sticky; top:0; background:rgba(244,249,250,.92); backdrop-filter: blur(10px); border-bottom:1px solid var(--border); z-index:5;}
     .wrap{ max-width:1320px; margin:0 auto; padding:16px; }
     /* Backtest: clamp plot sections to same width as header card */
     #screen3 .plotsGrid2{ max-width:1320px; margin:0 auto; }
@@ -31,7 +34,7 @@
     .hd{ padding:12px 12px 10px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; gap:10px; }
     .bd{ padding:12px; }
     .pill{ font-size:12px; padding:6px 10px; border-radius:999px; border:1px solid var(--border); color:var(--muted); background:#fff; }
-    .btn{ width:100%; padding:10px 12px; border-radius:12px; border:1px solid #1d4ed8; background:var(--accent); color:#fff; font-weight:900; cursor:pointer; }
+    .btn{ width:100%; padding:10px 12px; border-radius:12px; border:1px solid #003A75; background:var(--accent); color:#fff; font-weight:600; cursor:pointer; }
     .btn:disabled{ opacity:.6; cursor:not-allowed; }
     label{ display:block; margin:10px 0 6px; font-size:12px; color:var(--muted); }
     input[type="file"], select{ width:100%; padding:10px; border:1px solid var(--border); border-radius:12px; background:#fff; color:var(--text); }
@@ -106,7 +109,7 @@
 
 /* ===== Data quality modal ===== */
 .dqOverlay{position:absolute;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-start;justify-content:center;z-index:9999;padding:14px 20px;overflow:auto;}
-.dqModal{background:#fff;border:1px solid #ddd;border-radius:14px;width:min(760px,96vw);box-shadow:0 18px 40px rgba(0,0,0,.25);font-family:"Trebuchet MS",system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin-top:6px;}
+.dqModal{background:#fff;border:1px solid #ddd;border-radius:14px;width:min(760px,96vw);box-shadow:0 18px 40px rgba(0,0,0,.25);font-family:"Epilogue",system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin-top:6px;}
 .dqHd{padding:14px 16px;border-bottom:1px solid #eee;display:flex;gap:10px;align-items:center;justify-content:space-between;}
 .dqHd .t{font-weight:700}
 .dqBd{padding:14px 16px;max-height:70vh;overflow:auto;}
@@ -180,7 +183,7 @@
     .msg.ok{border-color:#a7f3d0;background:#ecfdf5;}
     .list{border:1px solid #e5e7eb;border-radius:12px;overflow:auto;max-height:420px;background:#fff;}
     .listItem{padding:10px;border-bottom:1px solid #eef2f7;}
-    .listItem:hover{background:#f6f7fb;}
+    .listItem:hover{background:#F4F9FA;}
     .listItem.active{background:#eef2ff;}
     .listItem:last-child{border-bottom:none;}
 
@@ -189,7 +192,7 @@
 /* --- Brokers availability pills --- */
 .brokerRow{display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:6px 0 2px 0;}
 .brokerRow .brokerLabel{font-size:12px; color:#64748b; margin-right:2px;}
-.brokerPill{display:inline-flex; align-items:center; gap:6px; font-size:12px; padding:4px 8px; border-radius:999px; border:1px solid #cbd5e1; background:#f8fafc; color:#0f172a; user-select:none;}
+.brokerPill{display:inline-flex; align-items:center; gap:6px; font-size:12px; padding:4px 8px; border-radius:999px; border:1px solid #cbd5e1; background:#f8fafc; color:#0C1726; user-select:none;}
 .brokerPill.brYes{background:#ecfdf5; border-color:#86efac; color:#065f46;}
 .brokerPill.brNo{background:#fef2f2; border-color:#fecaca; color:#991b1b;}
 .brokerPill.brUnknown{background:#f1f5f9; border-color:#cbd5e1; color:#334155;}
@@ -266,7 +269,7 @@ body.pdfExporting .grid > .card,
 body.pdfExporting .grid2 > .card,
 body.pdfExporting .plotsGrid2 > .card { border:none !important; box-shadow:none !important; border-radius:0 !important; background:#fff !important; }
 body.pdfExporting .hd { border-bottom:1px solid #e5e7eb !important; background:transparent !important; padding:6px 4px 6px 4px !important; }
-body.pdfExporting .pill { border:none !important; background:transparent !important; padding:0 !important; color:#0f172a !important; font-weight:700 !important; }
+body.pdfExporting .pill { border:none !important; background:transparent !important; padding:0 !important; color:#0C1726 !important; font-weight:700 !important; }
 body.pdfExporting .bd { padding:8px 4px !important; }
 body.pdfExporting .split { display:none !important; }
 body.pdfExporting .repoLog { display:none !important; }
@@ -2238,7 +2241,7 @@ document.getElementById("status").textContent = `${fmtDateES(series[0].date)} �
     margin:{l:55,r:15,t:10,b:45},
     xaxis:{tickmode:"array", tickvals:xsR, tickfont:{size:11}},
     yaxis:{tickformat:".0%"},
-    font:{family:"Trebuchet MS", size:12, color:"#0f172a"},
+    font:{family:"Epilogue", size:12, color:"#0C1726"},
     paper_bgcolor:"rgba(0,0,0,0)", plot_bgcolor:"rgba(0,0,0,0)"
   },{displayModeBar:false, responsive:true});
 
@@ -2285,7 +2288,7 @@ document.getElementById("status").textContent = `${fmtDateES(series[0].date)} �
     {
       type:"bar", x:xsV, y:ysPosVol,
       name:"Volatilidad positiva",
-      marker:{color:"#2563eb"},
+      marker:{color:"#0056A7"},
       text:ysPosVol.map(v=>Number.isFinite(v)?fmtPctLabel(v):""),
       textposition:"outside", cliponaxis:false,
       hovertemplate:"%{x}<br>Vol +: %{y:.2%}<extra></extra>"
@@ -2304,7 +2307,7 @@ document.getElementById("status").textContent = `${fmtDateES(series[0].date)} �
     margin:{l:55,r:15,t:10,b:45},
     xaxis:{tickmode:"array", tickvals:xsV, tickfont:{size:11}},
     yaxis:{tickformat:".0%", zeroline:true, zerolinecolor:"rgba(15,23,42,0.20)"},
-    font:{family:"Trebuchet MS", size:12, color:"#0f172a"},
+    font:{family:"Epilogue", size:12, color:"#0C1726"},
     legend:{orientation:"h", x:0, y:1.2},
     paper_bgcolor:"rgba(0,0,0,0)", plot_bgcolor:"rgba(0,0,0,0)"
   },{displayModeBar:false, responsive:true});
@@ -2338,7 +2341,7 @@ document.getElementById("status").textContent = `${fmtDateES(series[0].date)} �
     x:rollRet.map(r=>r[0]),
     y:rollRet.map(r=>r[1]),
     hovertemplate:"%{x}<br>%{y:.2%}<extra></extra>"
-  }],{margin:{l:55,r:15,t:10,b:45}, xaxis:{tickformat:"%Y", dtick:"M12", tickfont:{size:xTickFont}}, yaxis:{tickformat:".0%"}, font:{family:"Trebuchet MS", size:12, color:"#0f172a"}, paper_bgcolor:"rgba(0,0,0,0)", plot_bgcolor:"rgba(0,0,0,0)"},
+  }],{margin:{l:55,r:15,t:10,b:45}, xaxis:{tickformat:"%Y", dtick:"M12", tickfont:{size:xTickFont}}, yaxis:{tickformat:".0%"}, font:{family:"Epilogue", size:12, color:"#0C1726"}, paper_bgcolor:"rgba(0,0,0,0)", plot_bgcolor:"rgba(0,0,0,0)"},
   {displayModeBar:false, responsive:true});
   document.getElementById("tblRollRet").innerHTML = `<table><thead><tr><th class="num">Fecha</th><th class="num">Rent. anualizada</th></tr></thead><tbody>${
     rollRet.map(r=>`<tr><td class="num">${r[0]}</td><td class="num">${fmtPct(r[1],2)}</td></tr>`).join("")
@@ -2350,7 +2353,7 @@ document.getElementById("status").textContent = `${fmtDateES(series[0].date)} �
     x:rollVol.map(r=>r[0]),
     y:rollVol.map(r=>r[1]),
     hovertemplate:"%{x}<br>%{y:.2%}<extra></extra>"
-  }],{margin:{l:55,r:15,t:10,b:45}, xaxis:{tickformat:"%Y", dtick:"M12", tickfont:{size:xTickFont}}, yaxis:{tickformat:".0%"}, font:{family:"Trebuchet MS", size:12, color:"#0f172a"}, paper_bgcolor:"rgba(0,0,0,0)", plot_bgcolor:"rgba(0,0,0,0)"},
+  }],{margin:{l:55,r:15,t:10,b:45}, xaxis:{tickformat:"%Y", dtick:"M12", tickfont:{size:xTickFont}}, yaxis:{tickformat:".0%"}, font:{family:"Epilogue", size:12, color:"#0C1726"}, paper_bgcolor:"rgba(0,0,0,0)", plot_bgcolor:"rgba(0,0,0,0)"},
   {displayModeBar:false, responsive:true});
   document.getElementById("tblRollVol").innerHTML = `<table><thead><tr><th class="num">Fecha</th><th class="num">Vol</th></tr></thead><tbody>${
     rollVol.map(r=>`<tr><td class="num">${r[0]}</td><td class="num">${fmtPct(r[1],2)}</td></tr>`).join("")
@@ -2571,7 +2574,7 @@ document.getElementById("status").textContent = `${fmtDateES(series[0].date)} �
       tickfont:{size: tickSize}
     },
     yaxis:{tickformat:".1%", title:`Retornos — ${titleMode}`, range:yRange},
-    font:{family:"Trebuchet MS", size:12, color:"#0f172a"},
+    font:{family:"Epilogue", size:12, color:"#0C1726"},
     legend:{orientation:"h", x:0, y:1.15},
     shapes: shapes,
     paper_bgcolor:"rgba(0,0,0,0)",
@@ -2828,7 +2831,7 @@ function renderPlotGrowth(){
     text: Number.isFinite(endCagr) ? `${(endCagr*100).toFixed(2)}%` : "n.a.",
     showarrow: false,
     xanchor:"left", yanchor:"middle",
-    font:{size:11, color:"#0f172a", family:"Trebuchet MS"}
+    font:{size:11, color:"#0C1726", family:"Epilogue"}
   }];
 
   Plotly.newPlot("plotGrowth", [{
@@ -2848,7 +2851,7 @@ function renderPlotGrowth(){
     xaxis:{tickformat:"%Y", dtick:"M12", tickfont:{size:11}},
     yaxis:{title:"Base 100"},
     annotations: annotations,
-    font:{family:"Trebuchet MS", size:12, color:"#0f172a"},
+    font:{family:"Epilogue", size:12, color:"#0C1726"},
     paper_bgcolor:"rgba(0,0,0,0)", plot_bgcolor:"rgba(0,0,0,0)",
     showlegend:false
   }, {displayModeBar:false, responsive:true});
@@ -3536,7 +3539,7 @@ function renderCmpSmallMultiples(){
     ];
 
     const volDataBars = [
-      {type:"bar", x, y:yPos, name:"Vol +", marker:{color:"#2563eb"},
+      {type:"bar", x, y:yPos, name:"Vol +", marker:{color:"#0056A7"},
        text:yPos.map(v=>v==null?"":fmtPctLabel(v)), textposition:"outside", cliponaxis:false,
        hovertemplate:"%{x}<br>Vol +: %{y:.2%}<extra></extra>"},
       {type:"bar", x, y:yNeg, name:"Vol -", marker:{color:"#ef4444"},
@@ -3545,7 +3548,7 @@ function renderCmpSmallMultiples(){
        hovertemplate:"%{x}<br>Vol -: %{customdata:.2%}<extra></extra>"}
     ];
     const volDataLine = [
-      {type:"scatter", mode:"lines+markers", x, y:yPos, name:"Vol +", line:{color:"#2563eb"},
+      {type:"scatter", mode:"lines+markers", x, y:yPos, name:"Vol +", line:{color:"#0056A7"},
        hovertemplate:"%{x}<br>Vol +: %{y:.2%}<extra></extra>"},
       {type:"scatter", mode:"lines+markers", x, y:yNeg.map(v=>v==null?null:-v), name:"Vol -", line:{color:"#ef4444"},
        hovertemplate:"%{x}<br>Vol -: %{y:.2%}<extra></extra>"}
@@ -3555,7 +3558,7 @@ function renderCmpSmallMultiples(){
       margin:{l:45,r:10,t:8,b:35},
       xaxis:{tickmode:"array", tickvals:x, tickfont:{size:tickSize}},
       yaxis:{tickformat:".0%", range:retRange, zeroline:true, zerolinecolor:"rgba(15,23,42,0.20)"},
-      font:{family:"Trebuchet MS", size:12, color:"#0f172a"},
+      font:{family:"Epilogue", size:12, color:"#0C1726"},
       paper_bgcolor:"rgba(0,0,0,0)", plot_bgcolor:"rgba(0,0,0,0)"
     };
     const commonLayoutVol = {
@@ -3563,7 +3566,7 @@ function renderCmpSmallMultiples(){
       margin:{l:45,r:10,t:8,b:35},
       xaxis:{tickmode:"array", tickvals:x, tickfont:{size:tickSize}},
       yaxis:{tickformat:".0%", range:volRange, zeroline:true, zerolinecolor:"rgba(15,23,42,0.20)"},
-      font:{family:"Trebuchet MS", size:12, color:"#0f172a"},
+      font:{family:"Epilogue", size:12, color:"#0C1726"},
       paper_bgcolor:"rgba(0,0,0,0)", plot_bgcolor:"rgba(0,0,0,0)"
     };
 
@@ -3761,7 +3764,7 @@ function renderCmpGrowth(){
     yaxis:{title:"Base 100 (intersección estricta)"},
     legend:{orientation:"h", x:0, y:-0.22},
     annotations: annotations,
-    font:{family:"Trebuchet MS", size:12, color:"#0f172a"},
+    font:{family:"Epilogue", size:12, color:"#0C1726"},
     paper_bgcolor:"rgba(0,0,0,0)", plot_bgcolor:"rgba(0,0,0,0)"
   }, {displayModeBar:false, responsive:true});
 }
@@ -4052,7 +4055,7 @@ function renderCmpMatrices(){
   }
 
   // ---------- Heatmaps ----------
-  const colors = [[0,"#1d4ed8"],[0.5,"#ffffff"],[1,"#dc2626"]];
+  const colors = [[0,"#003A75"],[0.5,"#ffffff"],[1,"#dc2626"]];
 
   const heat = (z, id, title, fmt, kind) => {
     const txt = z.map(row=>row.map(v=> (v==null || !Number.isFinite(v)) ? "" : (kind==="beta" ? v.toFixed(2) : v.toFixed(2))));
@@ -4065,13 +4068,13 @@ function renderCmpMatrices(){
       colorscale: colors,
       text: txt,
       texttemplate: "%{text}",
-      textfont:{size:10, color:"#0f172a"},
+      textfont:{size:10, color:"#0C1726"},
       customdata: covLbl,
       hovertemplate: `%{y} vs %{x}<br><b>${title}</b>: ${fmt}<br>Fechas (∩/∪): %{customdata}<extra></extra>`
     }],{
       margin:{l:120,r:10,t:10,b:90},
       yaxis:{autorange:"reversed"},
-      font:{family:"Trebuchet MS", size:12, color:"#0f172a"},
+      font:{family:"Epilogue", size:12, color:"#0C1726"},
       paper_bgcolor:"rgba(0,0,0,0)",
       plot_bgcolor:"rgba(0,0,0,0)"
     },{displayModeBar:false, responsive:true});
@@ -4418,7 +4421,7 @@ function cmpRenderRollingCharts(){
     hovertemplate:"%{x|%b %Y}<br><b>Corr</b>: %{y:.3f}<extra></extra>"
   }],{
     margin:{l:56,r:16,t:8,b:40},
-    font:{family:"Trebuchet MS", size:12, color:"#0f172a"},
+    font:{family:"Epilogue", size:12, color:"#0C1726"},
     xaxis:{tickformat:"%Y", automargin:true},
     yaxis:{title:"Correlación", range:[-1,1], automargin:true, zeroline:false},
     paper_bgcolor:"rgba(0,0,0,0)", plot_bgcolor:"rgba(0,0,0,0)",
@@ -4430,7 +4433,7 @@ function cmpRenderRollingCharts(){
     hovertemplate:"%{x|%b %Y}<br><b>Beta</b>: %{y:.3f}<extra></extra>"
   }],{
     margin:{l:56,r:16,t:8,b:40},
-    font:{family:"Trebuchet MS", size:12, color:"#0f172a"},
+    font:{family:"Epilogue", size:12, color:"#0C1726"},
     xaxis:{tickformat:"%Y", automargin:true},
     yaxis:{title:"Beta", automargin:true, zeroline:false},
     paper_bgcolor:"rgba(0,0,0,0)", plot_bgcolor:"rgba(0,0,0,0)",
@@ -4520,7 +4523,7 @@ function renderCmpSmallMultiplesDD(){
       const data = [{
         type:"scatter", mode:"lines", fill:"tozeroy",
         x: xs, y: ys,
-        line:{width:1.6, color:"#1d4ed8"},
+        line:{width:1.6, color:"#003A75"},
         fillcolor:"rgba(29,78,216,0.15)",
         hovertemplate:"%{x}<br>%{y:.2%}<extra></extra>"
       }];
@@ -4532,7 +4535,7 @@ function renderCmpSmallMultiplesDD(){
         margin:{l:55, r:15, t:10, b:34},
         xaxis:{tickformat:"%Y", dtick:"M"+xDtickMonths, tickangle:0, automargin:true},
         yaxis:{tickformat:".0%", automargin:true},
-        font:{family:"Trebuchet MS", size:11, color:"#0f172a"},
+        font:{family:"Epilogue", size:11, color:"#0C1726"},
         paper_bgcolor:"rgba(0,0,0,0)", plot_bgcolor:"rgba(0,0,0,0)",
         showlegend:false,
         annotations: worstDate ? [{
@@ -5914,7 +5917,7 @@ function btRenderYearly(meFull){
     margin:{l:55,r:15,t:10,b:45},
     xaxis:{tickmode:"array", tickvals:xsRPlot, tickfont:{size:tickSizeR}},
     yaxis:{tickformat:".0%", zeroline:true, zerolinecolor:"rgba(15,23,42,0.20)"},
-    font:{family:"Trebuchet MS", size:12, color:"#0f172a"},
+    font:{family:"Epilogue", size:12, color:"#0C1726"},
     paper_bgcolor:"rgba(0,0,0,0)", plot_bgcolor:"rgba(0,0,0,0)"
   },{displayModeBar:false, responsive:true});
 
@@ -5977,7 +5980,7 @@ function btRenderYearly(meFull){
       margin:{l:55,r:15,t:10,b:45},
       xaxis:{tickmode:"array", tickvals:xsV, tickfont:{size:tickSizeV}},
       yaxis:{tickformat:".0%", zeroline:true, zerolinecolor:"rgba(15,23,42,0.20)"},
-      font:{family:"Trebuchet MS", size:12, color:"#0f172a"},
+      font:{family:"Epilogue", size:12, color:"#0C1726"},
       legend:{orientation:"h", x:0, y:1.2},
       paper_bgcolor:"rgba(0,0,0,0)", plot_bgcolor:"rgba(0,0,0,0)"
     },{displayModeBar:false, responsive:true});
@@ -6005,7 +6008,7 @@ function btRenderYearly(meFull){
       margin:{l:55,r:15,t:10,b:45},
       xaxis:{tickmode:"array", tickvals:xsV, tickfont:{size:tickSizeV}},
       yaxis:{tickformat:".0%", zeroline:true, zerolinecolor:"rgba(15,23,42,0.20)"},
-      font:{family:"Trebuchet MS", size:12, color:"#0f172a"},
+      font:{family:"Epilogue", size:12, color:"#0C1726"},
       legend:{orientation:"h", x:0, y:1.2},
       paper_bgcolor:"rgba(0,0,0,0)", plot_bgcolor:"rgba(0,0,0,0)"
     },{displayModeBar:false, responsive:true});
@@ -6033,7 +6036,7 @@ function btRenderRolling(monthly){
     margin:{l:55,r:15,t:10,b:45},
     xaxis:{tickformat:"%Y", dtick:"M12"},
     yaxis:{tickformat:".0%"},
-    font:{family:"Trebuchet MS", size:12, color:"#0f172a"},
+    font:{family:"Epilogue", size:12, color:"#0C1726"},
     paper_bgcolor:"rgba(0,0,0,0)", plot_bgcolor:"rgba(0,0,0,0)"
   },{displayModeBar:false, responsive:true});
 
@@ -6052,7 +6055,7 @@ function btRenderRolling(monthly){
     margin:{l:55,r:15,t:10,b:45},
     xaxis:{tickformat:"%Y", dtick:"M12"},
     yaxis:{tickformat:".0%"},
-    font:{family:"Trebuchet MS", size:12, color:"#0f172a"},
+    font:{family:"Epilogue", size:12, color:"#0C1726"},
     paper_bgcolor:"rgba(0,0,0,0)", plot_bgcolor:"rgba(0,0,0,0)"
   },{displayModeBar:false, responsive:true});
 
@@ -6073,7 +6076,7 @@ function btRenderDrawdown(daily){
   }],{
     margin:{l:55,r:15,t:10,b:35},
     yaxis:{tickformat:".0%", title:"Drawdown"},
-    font:{family:"Trebuchet MS", size:12, color:"#0f172a"},
+    font:{family:"Epilogue", size:12, color:"#0C1726"},
     paper_bgcolor:"rgba(0,0,0,0)", plot_bgcolor:"rgba(0,0,0,0)"
   },{displayModeBar:false, responsive:true});
 
@@ -6248,7 +6251,7 @@ function btRenderRollingCorrBeta(){
     hovertemplate:"%{x|%b %Y}<br><b>Corr</b>: %{y:.3f}<extra></extra>"
   }],{
     margin:{l:56,r:16,t:8,b:40},
-    font:{family:"Trebuchet MS", size:12, color:"#0f172a"},
+    font:{family:"Epilogue", size:12, color:"#0C1726"},
     xaxis:{tickformat:"%Y", automargin:true},
     yaxis:{title:"Correlación", range:[-1,1], automargin:true, zeroline:false},
     paper_bgcolor:"rgba(0,0,0,0)", plot_bgcolor:"rgba(0,0,0,0)",
@@ -6260,7 +6263,7 @@ function btRenderRollingCorrBeta(){
     hovertemplate:"%{x|%b %Y}<br><b>Beta</b>: %{y:.3f}<extra></extra>"
   }],{
     margin:{l:56,r:16,t:8,b:40},
-    font:{family:"Trebuchet MS", size:12, color:"#0f172a"},
+    font:{family:"Epilogue", size:12, color:"#0C1726"},
     xaxis:{tickformat:"%Y", automargin:true},
     yaxis:{title:"Beta", automargin:true, zeroline:false},
     paper_bgcolor:"rgba(0,0,0,0)", plot_bgcolor:"rgba(0,0,0,0)",
@@ -10065,7 +10068,7 @@ y0.addEventListener("change", ()=>computeAndRender());
       showlegend:false,
       paper_bgcolor:"rgba(0,0,0,0)",
       plot_bgcolor:"rgba(0,0,0,0)",
-      font:{family:"Trebuchet MS", size:12, color:"#0f172a"},
+      font:{family:"Epilogue", size:12, color:"#0C1726"},
     };
 
     Plotly.newPlot(el, data, layout, {
@@ -12523,7 +12526,7 @@ async function mstDoSearch(){
         <div style="display:flex;justify-content:space-between;align-items:flex-start">
           <div style="font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${dpEsc(m.name||isin)}">${dpEsc(m.name||isin)}</div>
           <div style="display:flex;gap:4px;flex-shrink:0">
-            <button onclick="dpEditFund('${dpEsc(isin)}')" style="background:none;border:none;cursor:pointer;color:#2563eb;font-size:13px;padding:0 2px" title="Editar metadatos">✏️</button>
+            <button onclick="dpEditFund('${dpEsc(isin)}')" style="background:none;border:none;cursor:pointer;color:#0056A7;font-size:13px;padding:0 2px" title="Editar metadatos">✏️</button>
             <button onclick="dpDeleteFund('${dpEsc(isin)}')" style="background:none;border:none;cursor:pointer;color:#c00;font-size:13px;padding:0 0 0 2px" title="Eliminar">✕</button>
           </div>
         </div>
@@ -13350,7 +13353,7 @@ async function mstDoSearch(){
       var info=mk("div","flex:1;overflow:hidden;margin-right:8px");
       info.appendChild(mk("div","font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis",m.name||isin));
       info.appendChild(mk("div","font-size:11px;color:#64748b",isin+" - "+pts+" pts"));
-      var btn=mk("button","background:#2563eb;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer","Clasificar");
+      var btn=mk("button","background:#0056A7;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer","Clasificar");
       (function(i){btn.addEventListener("click",function(){ov.remove();setTimeout(function(){dpEditFund(i);},150);});})(isin);
       row.appendChild(info); row.appendChild(btn); bd.appendChild(row);
     });
@@ -16030,7 +16033,7 @@ body.pdfExporting .pdfPairCard .hd {
 }
 body.pdfExporting .pdfPairCard .pill {
   border: none !important; background: transparent !important;
-  padding: 0 !important; color: #0f172a !important; font-weight: 700 !important;
+  padding: 0 !important; color: #0C1726 !important; font-weight: 700 !important;
 }
 `;
     const style = document.createElement("style");

@@ -1,0 +1,12 @@
+{
+  // Cloudflare Workers — fund-dashboard sirviendo desde la raíz.
+  // index.html hace redirect a index_fixed.html (la app real).
+  // URL: https://fund-dashboard.rafagdominguez96.workers.dev/
+  "name": "fund-dashboard",
+  "compatibility_date": "2025-05-01",
+  "assets": {
+    "directory": "./",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "404-page"
+  }
+}
