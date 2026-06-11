@@ -403,6 +403,7 @@ ES0156572002"></textarea>
         <button class="btnGhost" id="dpExportCsvBtn" style="font-size:12px;padding:6px 12px">CSV</button>
         <button class="btnGhost" id="dpExportJsonBtn" style="font-size:12px;padding:6px 12px">JSON</button>
         <label class="btnGhost" style="cursor:pointer;font-size:12px;padding:6px 12px">Importar <input type="file" id="dpImportFile" accept=".csv,.json" style="display:none"></label>
+        <button class="btnGhost" id="dpCloudSyncBtn" style="font-size:12px;padding:6px 12px;color:#0a7d3a;border-color:#0a7d3a">🔄 Sincronizar nube</button>
         <button class="btnGhost" id="dpClearAllBtn" style="font-size:12px;padding:6px 12px;color:#c00;border-color:#c00">🗑 Borrar todo</button>
       </div>
     </div>
@@ -13481,12 +13482,21 @@ async function mstDoSearch(){
   async function gistDownload(){
     dpSetStatus("info","☁️ Descargando de la nube…");
     try{
-      const r=await fetch(SB_URL+"/rest/v1/funds?select=isin,meta,rows&limit=1000",{headers:SB_HDR()});
-      const data=await r.json();
-      if(!Array.isArray(data)||!data.length){ dpSetStatus("warn","No hay fondos en la nube todavía."); return; }
-      data.forEach(f=>{ if(f.isin) store[f.isin]={meta:f.meta||{},rows:f.rows||[],updatedAt:Date.now()}; });
+      // Paginado (25/pág) para no pedir un único payload gigante (evita 500 por tamaño).
+      let off=0, total=0;
+      while(true){
+        const r=await fetch(SB_URL+"/rest/v1/funds?select=isin,meta,rows&order=isin&limit=25&offset="+off,{headers:SB_HDR()});
+        if(!r.ok) throw new Error("HTTP "+r.status);
+        const data=await r.json();
+        if(!Array.isArray(data)||!data.length) break;
+        data.forEach(f=>{ if(f.isin) store[f.isin]={meta:f.meta||{},rows:f.rows||[],updatedAt:Date.now()}; });
+        total+=data.length; off+=25;
+        dpSetStatus("info","☁️ "+total+" fondos…");
+        if(data.length<25) break;
+      }
+      if(!total){ dpSetStatus("warn","No hay fondos en la nube todavía."); return; }
       dpSyncToDatapack(); dpUpdateStats(); dpRenderFundsList();
-      dpSetStatus("ok","☁️ "+data.length+" fondos cargados de la nube.");
+      dpSetStatus("ok","☁️ "+total+" fondos cargados de la nube.");
     }catch(e){ dpSetStatus("warn","Error: "+e.message); }
   }
 
@@ -13524,6 +13534,7 @@ async function mstDoSearch(){
     
     wire("dpExportCsvBtn",    dpExportCsv);
     wire("dpExportJsonBtn",   dpExportJson);
+    wire("dpCloudSyncBtn",    gistDownload);
     wire("dpClearAllBtn", ()=>{
       if(!confirm("¿Borrar TODOS los fondos del datapack?")) return;
       fetch(SB_URL+"/rest/v1/funds?isin=not.is.null",{method:"DELETE",headers:SB_HDR()}).catch(function(e){console.warn(e);});
