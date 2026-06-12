@@ -13517,6 +13517,34 @@ async function mstDoSearch(){
     }catch(_){}
   }
 
+  // ---- Auto-completar series desde Morningstar (puente fund-analyzer) ----
+  // Para fondos que llegan con meta (categorización) pero sin serie (rows vacías):
+  // baja su histórico de Morningstar por ISIN y lo guarda en el repo.
+  async function dpAutoFillSeries(){
+    const targets = Object.keys(store).filter(isin=>{
+      const f = store[isin];
+      const hasSeries = f && f.rows && f.rows.length >= 10;
+      const realIsin = /^[A-Z]{2}[A-Z0-9]{9}[0-9]$/.test(isin); // ISIN real (no IDX_/C-)
+      return realIsin && !hasSeries;
+    });
+    if(!targets.length) return;
+    dpSetStatus("info","📈 Bajando series de Morningstar: "+targets.length+" fondos…");
+    let done=0;
+    for(const isin of targets){
+      try{
+        const cur=((store[isin].meta&&store[isin].meta.currency)||"").toUpperCase();
+        const ccy = cur==="EURO"?"EUR":(/^[A-Z]{3}$/.test(cur)?cur:"");
+        const r = await mstFetchAuto(isin, ccy, "auto");
+        const rows = (r.series||[]).map(p=>({date: fmtDateISO(p.date), value: Number(p.nav)}))
+                      .filter(x=>x.date && Number.isFinite(x.value) && x.value>0);
+        if(rows.length>=10){ store[isin].rows=rows; await sbSaveFund(isin); done++; dpSetStatus("info","📈 "+done+"/"+targets.length+" series…"); }
+      }catch(_){ /* sin datos Morningstar para este ISIN */ }
+    }
+    if(done){ dpSyncToDatapack(); dpUpdateStats(); dpRenderFundsList(); }
+    dpSetStatus("ok","📈 "+done+"/"+targets.length+" series completadas de Morningstar.");
+  }
+  window.dpAutoFillSeries = dpAutoFillSeries;
+
   // gistAutoSave = alias for sbAutoSave (called from dpSyncToDatapack)
   function gistAutoSave(){ sbAutoSave(); }
 
@@ -13534,7 +13562,7 @@ async function mstDoSearch(){
     
     wire("dpExportCsvBtn",    dpExportCsv);
     wire("dpExportJsonBtn",   dpExportJson);
-    wire("dpCloudSyncBtn",    gistDownload);
+    wire("dpCloudSyncBtn",    async()=>{ await gistDownload(); await dpAutoFillSeries(); });
     wire("dpClearAllBtn", ()=>{
       if(!confirm("¿Borrar TODOS los fondos del datapack?")) return;
       fetch(SB_URL+"/rest/v1/funds?isin=not.is.null",{method:"DELETE",headers:SB_HDR()}).catch(function(e){console.warn(e);});
