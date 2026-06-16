@@ -396,6 +396,23 @@ ES0156572002"></textarea>
     <div style="font-size:11px;color:var(--muted);margin-bottom:6px">Cola: <span id="dpQueueList">—</span></div>
     <div id="dpErrorBox" style="font-size:11px;color:#c00;margin-bottom:12px;display:none"></div>
 
+    <!-- Añadir ÍNDICE (Investing, vía servidor Python) -->
+    <div style="border-top:1px solid var(--border);padding-top:12px;margin-bottom:12px">
+      <label style="font-size:12px;font-weight:600;color:var(--muted);display:block;margin-bottom:6px">➕ AÑADIR ÍNDICE (Investing)</label>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:6px">MSCI, S&amp;P, Nasdaq, oro, bonos… Los índices puros no tienen ISIN; se descargan vía el servidor local de Python.</div>
+      <div style="display:flex;gap:6px;margin-bottom:6px">
+        <input id="idxQuery" placeholder="p.ej. MSCI India" style="flex:1;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:12px" onkeydown="if(event.key==='Enter')idxResolve()">
+        <button class="btn" id="idxSearchBtn" style="font-size:12px;padding:7px 14px" onclick="idxResolve()">Buscar</button>
+      </div>
+      <div id="idxResults" style="display:flex;flex-direction:column;gap:4px;margin-bottom:6px"></div>
+      <div id="idxStatus" style="font-size:11px;margin-bottom:6px"></div>
+      <details style="font-size:11px;color:var(--muted)">
+        <summary style="cursor:pointer">⚙ Servidor (si falla)</summary>
+        <input id="idxApiBase" placeholder="http://127.0.0.1:5000" style="width:100%;box-sizing:border-box;padding:6px 8px;border:1px solid var(--border);border-radius:8px;font-size:11px;margin-top:4px" onchange="localStorage.setItem('idx_api_base', this.value.trim())">
+        <div style="margin-top:3px">Arráncalo con: <code>python -m tools.web_server</code></div>
+      </details>
+    </div>
+
     <!-- Exportar/Importar -->
     <div style="border-top:1px solid var(--border);padding-top:12px;margin-bottom:12px">
       <div style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:8px">EXPORTAR / IMPORTAR</div>
@@ -419,6 +436,53 @@ ES0156572002"></textarea>
 </div>
 <!-- Overlay para cerrar el drawer -->
 <div id="dpOverlay" style="display:none;position:fixed;inset:0;z-index:9998" onclick="dpDrawerClose()"></div>
+<script>
+/* ===== Añadir ÍNDICE de Investing (vía servidor local Python) ===== */
+function idxApiBase(){ return (localStorage.getItem('idx_api_base')||'http://127.0.0.1:5000').replace(/\/+$/,''); }
+function idxStatus(msg,color){ var e=document.getElementById('idxStatus'); if(e){ e.innerHTML=msg; e.style.color=color||'var(--muted)'; } }
+(function(){ try{ var el=document.getElementById('idxApiBase'); if(el) el.value=localStorage.getItem('idx_api_base')||''; }catch(_){} })();
+async function idxResolve(){
+  var q=(document.getElementById('idxQuery').value||'').trim();
+  if(q.length<2){ idxStatus('Escribe al menos 2 caracteres','#c00'); return; }
+  idxStatus('Buscando en Investing…');
+  document.getElementById('idxResults').innerHTML='';
+  try{
+    var r=await fetch(idxApiBase()+'/api/index/resolve?q='+encodeURIComponent(q));
+    var d=await r.json();
+    if(!d.ok){ idxStatus('Error: '+(d.error||'?'),'#c00'); return; }
+    var cands=(d.candidates||[]).filter(function(c){return c.pair_id;});
+    if(!cands.length){ idxStatus('Sin candidatos para "'+q+'"','#c00'); return; }
+    idxStatus(cands.length+' candidatos — elige variante y pulsa Añadir. (Marca ÷EUR/USD si el índice está en USD.)');
+    document.getElementById('idxResults').innerHTML=cands.slice(0,8).map(function(c,i){
+      var isIdx=String(c.exchange||'').toLowerCase().indexOf('index')>=0;
+      var usd=/GUS$|NUS$|PUS$|USD$/i.test(String(c.symbol||''));
+      var sym=String(c.symbol||'').replace(/[^A-Za-z0-9]/g,'');
+      return '<div style="border:1px solid var(--border);border-radius:8px;padding:6px 8px;font-size:11px">'
+        + '<div><b>'+(c.symbol||'?')+'</b> · '+(c.exchange||'')+' · <span style="color:var(--muted)">pid '+c.pair_id+'</span>'+(isIdx?' 📈':'')+'</div>'
+        + '<div style="display:flex;gap:4px;align-items:center;margin-top:4px">'
+        + '<input id="idxName'+i+'" value="'+(c.symbol||q)+'" style="flex:1;padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:11px" placeholder="Nombre a mostrar">'
+        + '<label style="display:flex;align-items:center;gap:3px;white-space:nowrap"><input type="checkbox" id="idxFx'+i+'" '+(usd?'checked':'')+'>÷EUR/USD</label>'
+        + '<button class="btn" style="font-size:11px;padding:4px 10px" onclick="idxAdd('+c.pair_id+','+i+',\''+sym+'\')">Añadir</button>'
+        + '</div></div>';
+    }).join('');
+  }catch(e){ idxStatus('No hay servidor en '+idxApiBase()+'. Arráncalo: <code>python -m tools.web_server</code>','#c00'); }
+}
+async function idxAdd(pairId,i,symbol){
+  var name=(document.getElementById('idxName'+i).value||'').trim();
+  if(!name){ idxStatus('Pon un nombre','#c00'); return; }
+  var fx=document.getElementById('idxFx'+i).checked?1:null;
+  idxStatus('Descargando "'+name+'" de Investing… (~10-30s, no cierres)');
+  try{
+    var r=await fetch(idxApiBase()+'/api/index/add',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({name:name,pair_id:pairId,fx:fx,symbol:symbol})});
+    var d=await r.json();
+    if(!d.ok){ idxStatus('Error: '+(d.error||'?'),'#c00'); return; }
+    var up = d.uploaded ? 'subido al dashboard' : ('NO subido: '+(d.upload_error||'?'));
+    idxStatus('✓ "'+name+'" añadido — '+d.rows+' filas ('+d.from+'→'+d.to+'), '+up+'. Recargando repo…','#166534');
+    if(typeof dpRecargar==='function'){ try{ dpRecargar(); }catch(_){} }
+  }catch(e){ idxStatus('Fallo de red contra el servidor','#c00'); }
+}
+</script>
 <div class="screen" id="screen1">
 <div class="wrap">
 <h1>Dashboard — Rentabilidad, Volatilidad y Drawdown (CSV Investing)</h1>
