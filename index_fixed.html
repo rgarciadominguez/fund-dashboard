@@ -12784,20 +12784,33 @@ async function mstDoSearch(){
   function dpFmtDate(d){ return d.getUTCFullYear()+"-"+String(d.getUTCMonth()+1).padStart(2,"0")+"-"+String(d.getUTCDate()).padStart(2,"0"); }
 
   async function dpFetchMeta(isin){
-    const url = `https://lt.morningstar.com/api/rest.svc/klr5zyak8x/security_details/${encodeURIComponent(isin)}?viewId=sustainability&idtype=isin&responseViewFormat=JSON&languageId=es`;
+    // 2026-08-04: la metadata sale del SCREENER (lt.morningstar.com/klr5zyak8x/security/screener),
+    // NO de security_details?viewId=sustainability (que solo trae Name/ESG/Benchmark → dejaba
+    // name=ISIN y todo vacío en silencio). El screener devuelve rows con claves Capitalizadas.
+    // Probamos varios universos (fondos/ETF/cerrados) y exigimos match EXACTO de ISIN (el
+    // screener es fuzzy: sin validar, devolvería otro fondo).
     let meta = {isin,name:isin,category:"",assetType:"",geography:"",currency:"",issuer:"",className:""};
-    try{
-      const js = dpSafeJson(await dpFetchText(url));
-      meta = { isin,
-        name:     dpFirst([js?.general?.securityName, js?.general?.legalName, js?.general?.name, js?.securityName, js?.name]) || isin,
-        category: dpFirst([js?.general?.categoryName, js?.categoryName, js?.category]),
-        assetType:dpFirst([js?.general?.investmentType, js?.investmentType]),
-        geography:dpFirst([js?.general?.regionName, js?.regionName]),
-        currency: dpFirst([js?.general?.baseCurrency, js?.baseCurrency, js?.priceCurrency, js?.currency]),
-        issuer:   dpFirst([js?.general?.brandName, js?.general?.companyName, js?.issuer, js?.companyName]),
-        className:dpFirst([js?.general?.shareClass, js?.shareClass, js?.className])
-      };
-    }catch(_){}
+    const dp = ["Name","Isin","CategoryName","BrandingCompanyName","Domicile"].join("%7C");
+    for(const uni of ["FOALL%24%24ALL","ETALL%24%24ALL","CEALL%24%24ALL"]){
+      try{
+        const url = `https://lt.morningstar.com/api/rest.svc/klr5zyak8x/security/screener?page=1&pageSize=5&outputType=json&version=1&universeIds=${uni}&securityDataPoints=${dp}&term=${encodeURIComponent(isin)}`;
+        const js = dpSafeJson(await dpFetchText(url));
+        const rows = (js && Array.isArray(js.rows)) ? js.rows : [];
+        const row = rows.find(r => (r && (r.Isin||"").toUpperCase().trim() === isin.toUpperCase().trim()));
+        if(row){
+          meta = { isin,
+            name:     dpFirst([row.Name]) || isin,
+            category: dpFirst([row.CategoryName]),
+            assetType:"",
+            geography: dpFirst([row.Domicile]),
+            currency: "",
+            issuer:   dpFirst([row.BrandingCompanyName]),
+            className:""
+          };
+          break;
+        }
+      }catch(_){}
+    }
     return meta;
   }
 
