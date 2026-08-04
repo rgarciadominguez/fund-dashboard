@@ -10552,7 +10552,11 @@ y0.addEventListener("change", ()=>computeAndRender());
 
   // ---------- Legacy history loader (works in file://) ----------
   function mstLegacyUrl(isin, ccy, freq){
-    const base = "https://tools.morningstar.es/api/rest.svc/timeseries_price/2nhcdckzon";
+    // 2026-08-04: tools.morningstar.es/2nhcdckzon MURIÓ (301→homepage, cuerpo vacío) → congeló
+    // TODAS las series del dashboard en 2026-03-20. Movido a lt.morningstar.com/klr5zyak8x
+    // (misma key que fund-analyzer usa para clases/quant). El fetch perezoso vuelve a funcionar;
+    // el fund-analyzer además empuja rows reales por funddash_sync como red de seguridad.
+    const base = "https://lt.morningstar.com/api/rest.svc/timeseries_price/klr5zyak8x";
     const params = new URLSearchParams();
     params.set("id", isin);
     params.set("idtype", "Isin");
@@ -11377,7 +11381,7 @@ y0.addEventListener("change", ()=>computeAndRender());
   async function mstFetchSecurityDetails(isin){
     const isinUp = String(isin||"").trim().toUpperCase();
     if (!mstIsIsin(isinUp)) return null;
-    const url = `https://tools.morningstar.es/api/rest.svc/2nhcdckzon/security_details/${encodeURIComponent(isinUp)}?viewId=sustainability&idtype=isin&responseViewFormat=JSON&languageId=es`;
+    const url = `https://lt.morningstar.com/api/rest.svc/klr5zyak8x/security_details/${encodeURIComponent(isinUp)}?viewId=sustainability&idtype=isin&responseViewFormat=JSON&languageId=es`;
     try {
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), 10000);
@@ -11954,7 +11958,7 @@ async function mstDoSearch(){
               <div id="mstStatus" class="msg info" style="margin-top:10px;display:none;"></div>
 
               <div class="note" style="margin-top:10px;">
-                Histórico (carga): <code>tools.morningstar.es/api/rest.svc/timeseries_price/2nhcdckzon</code> (output <code>compactJSON</code>).<br/>
+                Histórico (carga): <code>lt.morningstar.com/api/rest.svc/timeseries_price/klr5zyak8x</code> (output <code>compactJSON</code>).<br/>
                 Búsqueda: <code>global.morningstar.com/api/v1/es/tools/screener/_data</code>.
               </div>
             </div>
@@ -12780,7 +12784,7 @@ async function mstDoSearch(){
   function dpFmtDate(d){ return d.getUTCFullYear()+"-"+String(d.getUTCMonth()+1).padStart(2,"0")+"-"+String(d.getUTCDate()).padStart(2,"0"); }
 
   async function dpFetchMeta(isin){
-    const url = `https://tools.morningstar.es/api/rest.svc/2nhcdckzon/security_details/${encodeURIComponent(isin)}?viewId=sustainability&idtype=isin&responseViewFormat=JSON&languageId=es`;
+    const url = `https://lt.morningstar.com/api/rest.svc/klr5zyak8x/security_details/${encodeURIComponent(isin)}?viewId=sustainability&idtype=isin&responseViewFormat=JSON&languageId=es`;
     let meta = {isin,name:isin,category:"",assetType:"",geography:"",currency:"",issuer:"",className:""};
     try{
       const js = dpSafeJson(await dpFetchText(url));
@@ -12818,7 +12822,7 @@ async function mstDoSearch(){
   async function dpFetchSeries(isin, ccy, freq){
     const params = new URLSearchParams({id:isin,idtype:"Isin",frequency:freq,startDate:"1900-01-01",outputType:"compactJSON"});
     if(ccy) params.set("currencyId",ccy);
-    const url = "https://tools.morningstar.es/api/rest.svc/timeseries_price/2nhcdckzon?" + params.toString();
+    const url = "https://lt.morningstar.com/api/rest.svc/timeseries_price/klr5zyak8x?" + params.toString();
     return dpParseCompact(dpSafeJson(await dpFetchText(url)));
   }
 
