@@ -13429,8 +13429,21 @@ async function mstDoSearch(){
 
     // Update repo status indicator
     const statusEl = document.getElementById("repoStatus");
+    // LA DIVISA, A LA VISTA (28-sep-2026). Durante casi dos meses las series se bajaron en
+    // LIBRAS sin que nada lo dijera: el endpoint britanico convierte solo si no le mandas
+    // currencyId. Anos enteros con el signo cambiado y nadie podia verlo mirando la pantalla.
+    // Ya no se pide sin divisa, pero el aviso se queda: si algun dia entra una serie en otra
+    // moneda (un fondo en dolares, una importacion antigua), se lee aqui en vez de descubrirlo
+    // cuadrando numeros con Finect.
+    let divisas = [];
+    try {
+      divisas = [...new Set(isins.map(i => (store[i] && store[i].meta && (store[i].meta.currency || store[i].meta.divisa)) || "EUR")
+        .map(c => String(c).trim().toUpperCase()).filter(c => /^[A-Z]{3}$/.test(c)))];
+    } catch (_) { divisas = []; }
+    const etiquetaDivisa = divisas.length === 1 ? " · " + divisas[0]
+      : (divisas.length > 1 ? " · " + divisas.join("/") : "");
     if (statusEl) statusEl.textContent = isins.length
-      ? "Memoria: " + isins.length + " fondos"
+      ? "Memoria: " + isins.length + " fondos" + etiquetaDivisa
       : "Repo externo: no cargado";
 
     // Invalidate caches so picker reloads fresh
