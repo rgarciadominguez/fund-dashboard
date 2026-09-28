@@ -10570,6 +10570,10 @@ y0.addEventListener("change", ()=>computeAndRender());
     params.set("frequency", freq);
     params.set("startDate", "1900-01-01");
     params.set("outputType", "compactJSON");
+    // Se apunta con QUE divisa se ha pedido de verdad, para poder ensenarlo en pantalla: la
+    // ficha del fondo puede decir USD y la serie venir en EUR (o al reves), y lo que importa
+    // es con que se pidio, no lo que pone en la ficha.
+    try { (window.__hfDivisaSerie = window.__hfDivisaSerie || {})[String(isin).toUpperCase()] = cur; } catch (_) {}
     return base + "?" + params.toString();
   }
 
@@ -12850,6 +12854,10 @@ async function mstDoSearch(){
     const cur = /^[A-Z]{3}$/.test(String(ccy || "").trim().toUpperCase())
       ? String(ccy).trim().toUpperCase() : "EUR";
     params.set("currencyId", cur);
+    // Se apunta con QUE divisa se ha pedido de verdad, para poder ensenarlo en pantalla: la
+    // ficha del fondo puede decir USD y la serie venir en EUR (o al reves), y lo que importa
+    // es con que se pidio, no lo que pone en la ficha.
+    try { (window.__hfDivisaSerie = window.__hfDivisaSerie || {})[String(isin).toUpperCase()] = cur; } catch (_) {}
     const url = "https://lt.morningstar.com/api/rest.svc/timeseries_price/klr5zyak8x?" + params.toString();
     return dpParseCompact(dpSafeJson(await dpFetchText(url)));
   }
@@ -13437,7 +13445,8 @@ async function mstDoSearch(){
     // cuadrando numeros con Finect.
     let divisas = [];
     try {
-      divisas = [...new Set(isins.map(i => (store[i] && store[i].meta && (store[i].meta.currency || store[i].meta.divisa)) || "EUR")
+      const usadas = (window.__hfDivisaSerie || {});
+      divisas = [...new Set(isins.map(i => usadas[String(i).toUpperCase()] || "")
         .map(c => String(c).trim().toUpperCase()).filter(c => /^[A-Z]{3}$/.test(c)))];
     } catch (_) { divisas = []; }
     const etiquetaDivisa = divisas.length === 1 ? " · " + divisas[0]
