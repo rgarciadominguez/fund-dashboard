@@ -10560,7 +10560,13 @@ y0.addEventListener("change", ()=>computeAndRender());
     const params = new URLSearchParams();
     params.set("id", isin);
     params.set("idtype", "Isin");
-    if (ccy) params.set("currencyId", ccy);
+    // MISMO FALLO QUE EN dpFetchSeries, y este es el que usa el buscador de Morningstar
+    // ("Descargar y guardar"): sin currencyId, lt.morningstar.com devuelve LIBRAS. El 28-sep
+    // se arreglo solo la otra funcion y el usuario siguio viendo los mismos numeros malos,
+    // porque este es el camino de verdad. Si no es un codigo de 3 letras valido, EUR.
+    const cur = /^[A-Z]{3}$/.test(String(ccy || "").trim().toUpperCase())
+      ? String(ccy).trim().toUpperCase() : "EUR";
+    params.set("currencyId", cur);
     params.set("frequency", freq);
     params.set("startDate", "1900-01-01");
     params.set("outputType", "compactJSON");
