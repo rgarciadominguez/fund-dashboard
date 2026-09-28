@@ -12834,7 +12834,16 @@ async function mstDoSearch(){
 
   async function dpFetchSeries(isin, ccy, freq){
     const params = new URLSearchParams({id:isin,idtype:"Isin",frequency:freq,startDate:"1900-01-01",outputType:"compactJSON"});
-    if(ccy) params.set("currencyId",ccy);
+    // LA DIVISA NO ES OPCIONAL (28-sep-2026). lt.morningstar.com es britanico: sin currencyId
+    // devuelve la serie convertida a LIBRAS, sin avisar y sin error. En LU1694789535 se veia
+    // clarisimo: sin divisa arranca en 87,719 y con EUR arranca en 100,000 el dia del lanzamiento
+    // (87,719 = 100 x 0,877, el cambio euro/libra de diciembre de 2017). Empezo el 4-ago al
+    // cambiar de host: el espanol devolvia euros. Anos enteros con el signo cambiado y la
+    // volatilidad inflada un tercio. Y no bastaba con "if(ccy)": varias rutas traen la divisa
+    // vacia o literalmente "n.a.", que es verdadero y se colaba igual.
+    const cur = /^[A-Z]{3}$/.test(String(ccy || "").trim().toUpperCase())
+      ? String(ccy).trim().toUpperCase() : "EUR";
+    params.set("currencyId", cur);
     const url = "https://lt.morningstar.com/api/rest.svc/timeseries_price/klr5zyak8x?" + params.toString();
     return dpParseCompact(dpSafeJson(await dpFetchText(url)));
   }
