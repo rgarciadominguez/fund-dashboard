@@ -2,10 +2,10 @@
 <html lang="es"><head>
 <meta charset="utf-8">
 <meta content="width=device-width, initial-scale=1" name="viewport">
-<title>Dashboard fondos — Investing CSV (v9)</title>
+<title>Fund Dashboard · Horizonte Financiero</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Epilogue:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Merriweather:ital,wght@0,400;0,700;1,400&display=swap">
 <script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script><style id="plotly.js-style-global"></style>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <!-- PDF deliverables: jsPDF + jspdf-autotable (legacy: html2canvas se mantiene por compatibilidad) -->
@@ -276,48 +276,27 @@ body.pdfExporting .repoLog { display:none !important; }
 </style>
 </head>
 <body>
-<!-- HF SHARED HEADER (navy + logo HorFin) -->
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Epilogue:wght@400;500;600&display=swap">
-<style>
-.hf-bar{box-sizing:border-box;position:sticky;top:0;z-index:99999;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:11px 22px;background:#003A75;background:linear-gradient(180deg,#003A75,#00305F);border-bottom:1px solid rgba(255,255,255,0.10);font-family:"Epilogue",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;}
-.hf-bar *{box-sizing:border-box;}
-.hf-bar__brand{display:inline-flex;align-items:center;gap:12px;text-decoration:none;min-width:0;}
-.hf-bar__logo{height:26px;width:auto;display:block;flex:0 0 auto;}
-.hf-bar__sub{font-size:12px;font-weight:500;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.72);padding-left:12px;border-left:1px solid rgba(255,255,255,0.22);white-space:nowrap;}
-.hf-bar__back{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:500;text-decoration:none;color:#fff;padding:7px 14px;border-radius:8px;border:1px solid rgba(255,255,255,0.28);background:rgba(255,255,255,0.06);transition:background .15s,border-color .15s;white-space:nowrap;}
-.hf-bar__back:hover{background:rgba(255,255,255,0.16);border-color:rgba(255,255,255,0.5);}
-@media (max-width:560px){.hf-bar{padding:9px 14px;}.hf-bar__sub{display:none;}.hf-bar__back-label{display:none;}.hf-bar__back{padding:7px 10px;}}
-</style>
-<header class="hf-bar">
-<a class="hf-bar__brand" href="https://tool.rafagdominguez96.workers.dev/" aria-label="Horizonte Financiero - Herramientas">
-<img class="hf-bar__logo" src="https://horizontefinancieroasesores.com/wp-content/uploads/2025/03/Logotipo_Horizonte_Financiero-1_White-1024x259.png" alt="Horizonte Financiero">
-<span class="hf-bar__sub">Herramientas</span></a>
-<a class="hf-bar__back" href="https://tool.rafagdominguez96.workers.dev/"><span>&larr;</span> <span class="hf-bar__back-label">Todas las herramientas</span></a>
-</header>
-
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Epilogue:wght@400;500;600&display=swap">
-<header style="position:relative">
-<div class="wrap">
-<div class="row" style="justify-content:space-between; align-items:flex-end;">
-<div>
-<h1>Dashboard de Fondos</h1>
-<p class="sub">Fondo individual · Comparación &amp; correlación · Backtest de cartera</p>
-</div>
-</div>
-<div class="tabs" style="margin-top:12px;">
+<!-- HORFIN: barra superior (marca + navegacion + modo cliente) -->
+<header class="hfTop">
+<div class="hfTop__in">
+<a class="hfTop__brand" href="https://horizontefinancieroasesores.com/" aria-label="Horizonte Financiero">
+<img class="hfTop__logo" src="https://horizontefinancieroasesores.com/wp-content/uploads/2025/03/Logotipo_Horizonte_Financiero-1_White-1024x259.png" alt="Horizonte Financiero" onerror="this.style.display='none';this.nextElementSibling.style.display='inline';">
+<span class="hfTop__wm">Horizonte Financiero</span>
+<span class="hfTop__tool">Análisis de fondos</span>
+</a>
+<nav class="tabs" aria-label="Secciones">
 <button class="tabBtn active" data-screen="screen1">Fondo</button>
-<button class="tabBtn" data-screen="screen2">Comparación &amp; correlación</button>
-<button class="tabBtn" data-screen="screen3">Backtest cartera</button>
+<button class="tabBtn" data-screen="screen2">Comparación</button>
+<button class="tabBtn" data-screen="screen3">Backtest de cartera</button>
+</nav>
+<div class="hfTop__right">
+<span class="hfTop__status" id="hfLoad" role="status"></span>
+<button type="button" class="hfTop__btn" id="hfClienteBtn" aria-pressed="false" title="Oculta fuentes, calidad de datos, descargas y gestión del repositorio"><span class="hfSwitch" aria-hidden="true"></span>Modo cliente</button>
+<button type="button" class="hfTop__btn" id="dpDrawerBtn" title="Memoria de fondos (Datapack)"><b id="dpDrawerBadge">0</b> fondos</button>
+<a class="hfTop__btn hfTop__back" href="https://tool.rafagdominguez96.workers.dev/">Herramientas</a>
 </div>
-</div>
-<!-- Datapack drawer trigger -->
-<div style="position:absolute;top:16px;right:24px">
-  <button id="dpDrawerBtn" title="Memoria de fondos (Datapack)" style="background:none;border:1px solid var(--border);border-radius:20px;padding:5px 14px;cursor:pointer;font-size:13px;color:var(--muted);display:flex;align-items:center;gap:6px">
-    📦 <span id="dpDrawerBadge" style="font-weight:700;color:var(--accent)">0</span> fondos
-  </button>
 </div>
 </header>
-
 <!-- ════════════════════════════════════════════════════════
      DATAPACK DRAWER — panel lateral colapsable
      ════════════════════════════════════════════════════════ -->
@@ -485,12 +464,14 @@ async function idxAdd(pairId,i,symbol){
 </script>
 <div class="screen" id="screen1">
 <div class="wrap">
-<h1>Dashboard — Rentabilidad, Volatilidad y Drawdown (CSV Investing)</h1>
-<p class="sub">
+<p class="hfEyebrow">Fondo</p>
+<h1>Rentabilidad, volatilidad y caídas de un fondo</h1>
+<p class="sub">Histórico completo del fondo: rentabilidad anualizada y por años, volatilidad y caídas desde máximos.</p>
+<p class="sub hfInterno" style="margin-top:6px">
       Carga el CSV descargado desde Investing (columnas típicas: <b>Fecha, Último, Apertura, Máximo, Mínimo, % var.</b>).<br>
       Default: analiza <b>solo el tramo diario</b>. Opción: análisis <b>mensual</b> (fin de mes).
     </p>
-<div class="row" style="margin-top:10px; justify-content:space-between;">
+<div class="row hfInterno" style="margin-top:10px; justify-content:space-between;">
 <div class="pill" id="pillQualityMini" style="cursor:pointer;">Calidad: —</div>
 <button class="pill" id="btnQuality" style="cursor:pointer; border-color:#cbd5e1;">Ver rangos de frecuencia</button>
 </div>
@@ -556,14 +537,16 @@ async function idxAdd(pairId,i,symbol){
 <div style="height:10px"></div>
 <div class="note" id="msg"></div>
 <div class="split"></div>
-<div class="note">
+<div class="note hfInterno">
           Para comparar con Morningstar/Finect: volatilidades desde <b>cierres mensuales</b> (√12). Este dashboard usa cierres mensuales para vol y “max caída” comparable.
         </div>
 </div>
 </div>
-<div class="card">
+<div class="hfEmpty" id="hfEmptyS1"><b>Elige un fondo para empezar</b>Pulsa «Elegir fondo» y selecciónalo del repositorio. Aquí aparecerán su rentabilidad, su volatilidad y sus caídas.</div>
+<div class="card" id="hfS1Results">
+<div class="hfFundTitle" id="hfS1Name"></div>
 <div class="hd">
-<span class="pill">KPIs</span>
+<span class="pill">Cifras clave</span>
 <span class="pill" id="kInfo">—</span>
 </div>
 <div class="bd">
@@ -702,7 +685,7 @@ async function idxAdd(pairId,i,symbol){
 <!-- Drawdown -->
 <div class="card" style="border-radius:14px;">
 <div class="hd" style="border-radius:14px 14px 0 0;">
-<span class="pill">Drawdown (HWM) — diario (modo diario) / mensual (modo mensual)</span>
+<span class="pill">Caídas desde máximos</span>
 <button class="iconBtn" id="dlDD">Descargar</button>
 </div>
 <div class="bd">
@@ -714,7 +697,7 @@ async function idxAdd(pairId,i,symbol){
 <!-- Dispersion -->
 <div class="card" style="border-radius:14px;">
 <div class="hd" style="border-radius:14px 14px 0 0;">
-<span class="pill">Intervalos anuales — Retornos (cierre-cierre)</span>
+<span class="pill">Intervalos anuales de retornos</span>
 <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
 <span class="pill" style="border-color:#cbd5e1;">Modo</span>
 <select id="boxFreq" style="max-width:210px; padding:6px 10px; border-radius:12px; border:1px solid var(--border); background:#fff; color:var(--text);">
@@ -761,8 +744,9 @@ async function idxAdd(pairId,i,symbol){
 </div>
 <div class="screen hidden" id="screen2">
 <div class="wrap">
-<h2 style="margin:0 0 6px 0;">Comparación de fondos y correlación</h2>
-<p class="sub">Sube hasta 10 fondos de Investing. Verás comparativa anual, crecimiento en base 100 desde inicio común y matrices R²/beta con ventana común.</p>
+<p class="hfEyebrow">Comparación</p>
+<h2>Comparación de fondos y correlación</h2>
+<p class="sub">Hasta 10 fondos: evolución en base 100 desde el inicio común, rentabilidad y volatilidad por fondo, caídas y correlaciones.</p>
 
 <!-- ===== Mejora 1: Panel de análisis guardados ===== -->
 <div class="card" id="savedAnCard" style="margin-bottom:14px;">
@@ -857,9 +841,11 @@ async function idxAdd(pairId,i,symbol){
 <div style="display:none"><select id="optTopN"><option value="0">Todos</option></select><div id="optSelFunds"></div></div>
 </div>
 </div>
+<div class="hfEmpty" id="hfEmptyS2"><b>Añade fondos para compararlos</b>Usa «Elegir fondo» en cada hueco o carga un análisis guardado. Después podrás ocultar los fondos con poca historia para ver más años.</div>
 <div class="card">
-<div class="hd"><span class="pill">Resumen</span><span class="pill" id="cmpLimit">—</span></div>
+<div class="hd"><span class="pill">Fondos y periodo</span><span class="pill hfInterno" id="cmpLimit">—</span></div>
 <div class="bd">
+<div id="hfCmpFunds"></div>
 <div class="note" id="cmpList">Sube hasta 10 fondos para ver comparación.</div>
 <div style="height:12px"></div>
 <div style="display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap; margin-bottom:8px;">
@@ -990,6 +976,9 @@ async function idxAdd(pairId,i,symbol){
 </div>
 <div class="screen hidden" id="screen3">
 <div class="wrap">
+<p class="hfEyebrow">Backtest</p>
+<h2>Backtest de cartera</h2>
+<p class="sub" style="margin-bottom:14px">Cómo se habría comportado una cartera con sus pesos y su rebalanceo, frente a un índice de referencia.</p>
 
 <!-- ===== Mejora 1: Panel de análisis guardados (Backtest) ===== -->
 <div class="card" id="btSavedAnCard" style="margin-bottom:14px;">
@@ -8381,20 +8370,24 @@ if (typeof cmpHandleInputs === "function"){
     CMP.funds = [];
     CMP.range = null;
     CMP.growthCSV = null;
+    CMP.fundSlots = [];
+    // [HF] fondos ocultos: siguen cargados en su hueco pero no entran en el calculo
+    try{ if (window.HF && HF.cmpBefore) HF.cmpBefore(); }catch(_){ }
 
     // Build funds from 10 slots: file overrides repo
     for (let i=1;i<=10;i++){
       const el = document.getElementById("cmpFile"+i);
       const file = (el && el.files && el.files[0]) ? el.files[0] : null;
+      if (CMP.hiddenSlots && CMP.hiddenSlots.has(i-1)) continue;
       if (file){
         try{
           const parsed = await parseInvestingFile(file, "screen2");
-          CMP.funds.push(parsed);
+          CMP.funds.push(parsed); CMP.fundSlots.push(i-1);
         }catch(e){
           console.warn("parse fail", file.name, e);
         }
       } else if (CMP.repoFunds && CMP.repoFunds[i-1]){
-        CMP.funds.push(CMP.repoFunds[i-1]);
+        CMP.funds.push(CMP.repoFunds[i-1]); CMP.fundSlots.push(i-1);
       }
     }
 
@@ -8409,6 +8402,7 @@ if (typeof cmpHandleInputs === "function"){
 
     if (!CMP.funds.length){
       if (nEl) nEl.innerHTML = "";
+      try{ if (window.HF && HF.cmpAfter) HF.cmpAfter(); }catch(_){ }
       return;
     }
 
@@ -8447,6 +8441,7 @@ if (typeof cmpHandleInputs === "function"){
     if (CMP.funds.length>=2) renderCmpMatrices();
     renderCmpSmallMultiples();
     try { if (typeof renderCmpSmallMultiplesDD === "function") renderCmpSmallMultiplesDD(); } catch(_){}
+    try{ if (window.HF && HF.cmpAfter) HF.cmpAfter(); }catch(_){ }
   };
 
   // Re-bind change listeners to use the patched handler (repo + archivos)
@@ -13773,6 +13768,8 @@ async function mstDoSearch(){
     let fundsSource = (window.CMP && Array.isArray(window.CMP.funds) && window.CMP.funds.length)
       ? window.CMP.funds
       : (window.CMP && Array.isArray(window.CMP.repoFunds) ? window.CMP.repoFunds.filter(Boolean) : []);
+    // [HF] con fondos ocultos se guardan todos los huecos (visibles y ocultos)
+    if (window.CMP && window.CMP.hiddenSlots && window.CMP.hiddenSlots.size && Array.isArray(window.CMP.repoFunds)) fundsSource = window.CMP.repoFunds.filter(Boolean);
     const funds = fundsSource.map(f => ({
       isin: fundIsin(f),
       nombre: f.name || ''
@@ -13792,7 +13789,8 @@ async function mstDoSearch(){
         rollingA: rollA,
         rollingB: rollB,
         cmpHorizon: ($('cmpHorizon')||{}).value || '3',
-        cmpFreq:    ($('cmpFreq')||{}).value || 'daily'
+        cmpFreq:    ($('cmpFreq')||{}).value || 'daily',
+        hiddenIsins: (window.HF && HF.hiddenIsins) ? HF.hiddenIsins() : []
       }
     };
   }
@@ -13813,6 +13811,8 @@ async function mstDoSearch(){
     if (!window.CMP){ alert('CMP no inicializado.'); return false; }
 
     window.CMP.repoFunds = Array(10).fill(null);
+    window.CMP.hiddenSlots = new Set();
+    const _hfHidden = Array.isArray(settings.hiddenIsins) ? settings.hiddenIsins : [];
     const missing = [];
 
     for (let i=0; i<funds.length && i<10; i++){
@@ -13825,6 +13825,7 @@ async function mstDoSearch(){
         parsed.meta = parsed.meta || {};
         parsed.meta.isin = isin;
         window.CMP.repoFunds[i] = parsed;
+        if (_hfHidden.includes(isin)) window.CMP.hiddenSlots.add(i);
       }catch(e){
         console.warn('[SavedAnalyses] load fail', isin, e);
         missing.push(funds[i].nombre || isin);
@@ -16782,4 +16783,504 @@ body.pdfExporting .pdfPairCard .pill {
 })();
 
 
-</script></div></div></body></html>
+</script></div></div>
+<style id="hf-skin">
+/* ==========================================================================
+   HORFIN SKIN (nov-2026) — capa visual sobre el dashboard. No toca la logica.
+   Tokens = formato Horfin (decks de consultoria): Merriweather + Instrument Sans,
+   fondo #F4F6FA, texto #0B1A33, azul #2C66D1, lineas finas, sin sombras.
+   Layout: barra superior navy con navegacion; tarjetas planas con filete.
+   ========================================================================== */
+:root{
+  --hf-bg:#F4F6FA; --hf-card:#FFFFFF; --hf-ink:#0B1A33; --hf-body:#3A4660; --hf-muted:#5A6680; --hf-note:#8C9FB1;
+  --hf-blue:#2C66D1; --hf-blue-soft:#7FA3E6; --hf-navy:#0B1622; --hf-line:#C9D2E0; --hf-row:#E6EAF0; --hf-sub:#E9EDF3;
+  --hf-serif:'Merriweather', Georgia, serif; --hf-sans:'Instrument Sans', Arial, sans-serif;
+  /* variables antiguas del dashboard, redirigidas */
+  --bg:#F4F6FA; --card:#FFFFFF; --text:#0B1A33; --muted:#5A6680; --border:#E6EAF0; --accent:#2C66D1; --primary:#2C66D1; --radius:8px;
+  color-scheme: light;
+}
+html{ scroll-padding-top:72px; }
+body{ background:var(--hf-bg); color:var(--hf-ink); font-family:var(--hf-sans); font-size:15px; line-height:1.45; font-variant-numeric:tabular-nums; }
+body, button, input, select, textarea{ font-family:var(--hf-sans); }
+.wrap{ max-width:1480px !important; width:min(1480px, 94vw) !important; padding:20px 0 !important; }
+@media (max-width:700px){ .wrap{ width:100% !important; padding:14px 16px !important; } }
+
+/* ---------- Barra superior ---------- */
+.hfTop{ position:sticky; top:0; z-index:9000; background:var(--hf-navy); border-bottom:1px solid rgba(255,255,255,.08); backdrop-filter:none; }
+.hfTop__in{ max-width:1480px; width:min(1480px,94vw); margin:0 auto; display:flex; align-items:center; gap:28px; min-height:60px; flex-wrap:wrap; padding:6px 0; }
+.hfTop__brand{ display:inline-flex; align-items:center; gap:14px; text-decoration:none; color:#EEF2F6; flex:0 0 auto; }
+.hfTop__logo{ height:24px; width:auto; display:block; }
+.hfTop__wm{ display:none; font-family:var(--hf-serif); font-size:17px; font-weight:400; letter-spacing:.2px; color:#EEF2F6; white-space:nowrap; }
+.hfTop__tool{ font-size:12px; font-weight:700; letter-spacing:1.2px; text-transform:uppercase; color:#7FB0FF; padding-left:14px; border-left:1px solid rgba(255,255,255,.22); white-space:nowrap; }
+.hfTop .tabs{ display:flex; gap:4px; padding:0; margin:0 0 0 8px; flex:1 1 auto; flex-wrap:wrap; }
+.hfTop .tabBtn{ border:0; background:none; color:#B4C3D1; padding:10px 14px; border-radius:0; font-size:15px; font-weight:500; cursor:pointer; border-bottom:2px solid transparent; }
+.hfTop .tabBtn:hover{ color:#EEF2F6; }
+.hfTop .tabBtn.active{ background:none; color:#FFFFFF; border-bottom-color:#7FB0FF; font-weight:600; }
+.hfTop .tabBtn:focus-visible, .hfTop button:focus-visible, .hfTop a:focus-visible{ outline:2px solid #7FB0FF; outline-offset:2px; }
+.hfTop__right{ display:flex; align-items:center; gap:10px; margin-left:auto; flex:0 0 auto; flex-wrap:wrap; }
+.hfTop__status{ font-size:13px; color:#B4C3D1; }
+.hfTop__btn{ display:inline-flex; align-items:center; gap:8px; font-size:13px; font-weight:600; color:#EEF2F6; background:transparent; border:1px solid rgba(255,255,255,.28); border-radius:6px; padding:7px 12px; cursor:pointer; text-decoration:none; white-space:nowrap; }
+.hfTop__btn:hover{ border-color:#7FB0FF; }
+.hfTop__btn b{ color:#7FB0FF; font-weight:700; }
+.hfSwitch{ width:30px; height:16px; border-radius:999px; background:rgba(255,255,255,.22); position:relative; flex:0 0 auto; }
+.hfSwitch::after{ content:""; position:absolute; top:2px; left:2px; width:12px; height:12px; border-radius:50%; background:#EEF2F6; transition:left .15s; }
+#hfClienteBtn[aria-pressed="true"]{ border-color:#7FB0FF; }
+#hfClienteBtn[aria-pressed="true"] .hfSwitch{ background:#2C66D1; }
+#hfClienteBtn[aria-pressed="true"] .hfSwitch::after{ left:16px; }
+@media (prefers-reduced-motion:reduce){ .hfSwitch::after{ transition:none; } }
+@media (max-width:900px){ .hfTop__in{ width:100%; padding:8px 16px; gap:12px; } .hfTop__tool{ display:none; } .hfTop .tabs{ order:3; flex-basis:100%; margin:0; } }
+.hfDemo{ background:#E9EDF3; border-bottom:1px solid var(--hf-line); color:var(--hf-body); font-size:13px; padding:8px 16px; text-align:center; }
+
+/* ---------- Titulares ---------- */
+h1, h2{ font-family:var(--hf-serif); font-weight:400; color:var(--hf-ink); letter-spacing:0; line-height:1.3; text-wrap:balance; }
+.screen > .wrap > h1, .screen > .wrap > h2{ font-size:30px; margin:0 0 6px !important; }
+.hfEyebrow{ margin:0 0 8px; font-size:13px; font-weight:700; letter-spacing:1.2px; text-transform:uppercase; color:var(--hf-blue); }
+.sub{ font-size:15px; color:var(--hf-muted); line-height:1.5; max-width:70ch; }
+.subhd{ font-weight:600; color:var(--hf-ink); }
+.note, .kpiNote, .muted{ color:var(--hf-muted); font-size:13px; }
+b, strong{ font-weight:600; }
+
+/* ---------- Tarjetas ---------- */
+.card{ background:var(--hf-card); border:1px solid var(--hf-row); border-radius:8px !important; box-shadow:none !important; }
+.card .card{ border:0; border-top:1px solid var(--hf-line); border-radius:0 !important; }
+.plotsGrid2 > .card{ border:1px solid var(--hf-row); border-radius:8px !important; }
+.hd{ padding:16px 20px 12px; border-bottom:0; border-radius:0 !important; flex-wrap:wrap; }
+.card .card > .hd{ padding:18px 0 8px; }
+.bd{ padding:8px 20px 20px; }
+.card .card > .bd{ padding:4px 0 16px; }
+.plotsGrid2 > .card > .hd{ padding:16px 20px 8px; }
+.plotsGrid2 > .card > .bd{ padding:4px 20px 16px; }
+.plotsGrid2{ gap:16px; }
+.grid > .card{ margin-bottom:16px; }
+.split, .kpiSep{ background:var(--hf-row); }
+
+/* La primera "pill" de cada cabecera es el rotulo de seccion */
+.pill{ font-size:13px; padding:5px 10px; border-radius:6px; border:1px solid var(--hf-row); color:var(--hf-muted); background:transparent; font-family:var(--hf-sans); }
+.hd > .pill:first-child, .hd > div:first-child > .pill:first-child, .hd > .row > .pill:first-child{
+  border:0; padding:0; background:none; color:var(--hf-ink); font-size:13px; font-weight:700; letter-spacing:.6px; text-transform:uppercase; }
+button.pill{ cursor:pointer; }
+
+/* ---------- KPIs: cifra en serif, sin caja ---------- */
+.kpis2,.kpis3,.kpis4,.kpis5{ gap:0 28px; }
+.kpi{ border:0; border-top:1px solid var(--hf-line); border-radius:0; background:none; padding:12px 0 14px; min-height:0; }
+.kpi .t{ font-size:13px; color:var(--hf-muted); }
+.kpi .v{ font-family:var(--hf-serif); font-weight:400; font-size:26px; line-height:1.25; color:var(--hf-ink); margin-top:4px; }
+.kpis3 .kpi .v{ font-size:34px; }
+@media(max-width:720px){ .kpis3 .kpi .v{ font-size:28px; } }
+
+/* ---------- Controles ---------- */
+.btn{ width:auto; padding:9px 16px; border-radius:6px; border:1px solid var(--hf-ink); background:var(--hf-ink); color:#F4F6FA; font-weight:600; font-size:14px; }
+.btn:hover:not(:disabled){ background:#16294A; }
+.btn:disabled{ opacity:.45; }
+.iconBtn, .dqBtn{ border:1px solid var(--hf-line); background:#fff; color:var(--hf-ink); border-radius:6px; padding:7px 12px; font-weight:600; font-size:13px; cursor:pointer; }
+.iconBtn:hover:not(:disabled){ border-color:var(--hf-blue); color:var(--hf-blue); }
+.btnGhost{ border:1px solid var(--hf-line); background:#fff; color:var(--hf-ink); border-radius:6px; font-weight:600; }
+button:focus-visible, select:focus-visible, input:focus-visible, summary:focus-visible, a:focus-visible{ outline:2px solid var(--hf-blue); outline-offset:2px; }
+label{ font-size:13px; color:var(--hf-muted); }
+input[type="file"], select, input[type="date"], .dateInput, input[type="number"], input[type="text"], textarea{
+  border:1px solid var(--hf-line) !important; border-radius:6px !important; background:#fff; color:var(--hf-ink); font-size:14px; }
+select{ padding:8px 10px; }
+details{ border:0; border-top:1px solid var(--hf-row); border-radius:0; background:none; margin-top:8px; }
+summary{ padding:10px 0; background:none; color:var(--hf-muted); font-weight:600; font-size:13px; }
+details[open] > summary{ color:var(--hf-ink); }
+
+/* ---------- Tablas ---------- */
+table{ font-variant-numeric:tabular-nums; }
+th,td{ padding:9px 10px; border-bottom:1px solid var(--hf-row); font-size:14px; }
+th{ background:none; color:var(--hf-muted); font-size:12px; font-weight:700; letter-spacing:.6px; text-transform:uppercase; border-bottom:1px solid var(--hf-line); }
+
+/* ---------- Avisos: sobrios, sin verdes ni amarillos ---------- */
+.ok, .msg.ok, .warn, .msg.warn, .msg, .msg.info{ border-radius:6px; font-size:13px; padding:9px 12px; }
+.ok, .msg.ok, .msg, .msg.info{ background:#EEF3FB; border:1px solid #D5E0F3; color:var(--hf-body); }
+.msg:empty{ display:none; }
+.warn, .msg.warn{ background:#FBF1EA; border:1px solid #EBCDB9; color:#7A3A16; }
+.badge, .badge.ok, .badge.warn, .badge.info{ border-radius:6px; border-color:var(--hf-row); background:#F4F6FA; color:var(--hf-body); }
+.brokerPill, .brokerPill.brYes, .brokerPill.brNo, .brokerPill.brUnknown{ border-radius:6px; background:#F4F6FA; border-color:var(--hf-row); color:var(--hf-body); }
+.brokerPill.brYes{ border-color:var(--hf-blue-soft); color:var(--hf-ink); font-weight:600; }
+.brokerPill.brNo{ color:var(--hf-note); text-decoration:line-through; }
+.isinChip{ border-radius:4px !important; background:#F4F6FA !important; color:var(--hf-muted) !important; }
+
+/* ---------- Modales y paneles ---------- */
+.modal, .dqModal, .repoModal, .savedAnModal{ border-radius:8px; border:1px solid var(--hf-line); box-shadow:0 12px 40px rgba(11,26,51,.18); font-family:var(--hf-sans); }
+.modalOverlay, .repoOverlay, .savedAnModalOverlay, .dqOverlay{ background:rgba(11,22,34,.5); }
+.repoItem:hover, .invItem:hover, .listItem:hover{ background:#F4F6FA; }
+.repoItem .n{ font-weight:600; }
+.list, .repoList, .invList{ border-radius:6px; border-color:var(--hf-row); }
+#dpDrawer{ font-family:var(--hf-sans); }
+
+/* ---------- Graficos ---------- */
+.plot{ height:330px; }
+.js-plotly-plot .plotly .main-svg{ overflow:visible; }
+
+/* ---------- Estados vacio / carga ---------- */
+.hfEmpty{ border:1px dashed var(--hf-line); border-radius:8px; padding:28px 24px; color:var(--hf-muted); background:#fff; font-size:15px; }
+.hfEmpty b{ color:var(--hf-ink); display:block; font-family:var(--hf-serif); font-weight:400; font-size:20px; margin-bottom:4px; }
+body[data-s1="1"] #hfEmptyS1{ display:none; }
+body:not([data-s1="1"]) #hfS1Results{ display:none; }
+body[data-cmp="1"] #hfEmptyS2{ display:none; }
+body:not([data-cmp="1"]) #screen2 .grid > .card:not(:first-child){ display:none; }
+
+/* ---------- Comparacion: fondos visibles / ocultos ---------- */
+.hfFunds{ border-top:1px solid var(--hf-line); padding:14px 0 6px; }
+.hfFunds__hd{ display:flex; align-items:flex-end; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:10px; }
+.hfFunds__lbl{ display:block; font-size:12px; font-weight:700; letter-spacing:.6px; text-transform:uppercase; color:var(--hf-muted); margin-bottom:2px; }
+.hfFunds__per{ font-family:var(--hf-serif); font-size:22px; color:var(--hf-ink); line-height:1.3; }
+.hfFunds__per small{ font-family:var(--hf-sans); font-size:14px; color:var(--hf-muted); margin-left:8px; }
+.hfFunds__act{ display:flex; gap:8px; flex-wrap:wrap; }
+.hfFunds__list{ display:flex; flex-direction:column; }
+.hfFund{ display:grid; grid-template-columns:22px 14px minmax(220px,1.5fr) minmax(160px,1fr) minmax(200px,1.1fr); align-items:center; gap:12px; padding:9px 0; margin:0; border-top:1px solid var(--hf-row); cursor:pointer; font-size:14px; color:var(--hf-ink); }
+.hfFund input{ width:16px; height:16px; margin:0; accent-color:var(--hf-blue); cursor:pointer; }
+.hfFund__sw{ width:14px; height:3px; border-radius:2px; display:block; }
+.hfFund__n{ font-weight:600; min-width:0; overflow-wrap:anywhere; }
+.hfFund__n small{ display:block; font-weight:400; font-size:12px; color:var(--hf-muted); }
+.hfFund__bar{ position:relative; height:6px; background:var(--hf-sub); border-radius:3px; }
+.hfFund__bar i{ position:absolute; top:0; bottom:0; border-radius:3px; background:var(--hf-blue-soft); }
+.hfFund__since{ font-size:13px; color:var(--hf-body); }
+.hfFund__since b{ color:var(--hf-ink); }
+.hfFund__tag{ display:inline-block; margin-left:8px; font-size:11px; font-weight:700; letter-spacing:.5px; text-transform:uppercase; color:#7A3A16; background:#FBF1EA; border:1px solid #EBCDB9; border-radius:4px; padding:2px 6px; }
+.hfFund__gain{ display:block; font-size:12px; color:var(--hf-muted); }
+.hfFund.is-lim .hfFund__bar i{ background:#C8562B; }
+.hfFund.is-off{ color:var(--hf-note); }
+.hfFund.is-off .hfFund__n, .hfFund.is-off .hfFund__since, .hfFund.is-off .hfFund__since b{ color:var(--hf-note); font-weight:400; }
+.hfFund.is-off .hfFund__n{ text-decoration:line-through; }
+.hfFund.is-off .hfFund__bar i{ background:var(--hf-line); }
+.hfFund.is-off .hfFund__sw{ opacity:.25; }
+.hfFunds__hint{ margin:8px 0 0; font-size:13px; color:var(--hf-muted); }
+@media (max-width:900px){ .hfFund{ grid-template-columns:22px 14px 1fr; } .hfFund__bar{ display:none; } .hfFund__since{ grid-column:3; } }
+body:not(.pdfExporting) #hfCmpFunds:not(:empty) + #cmpList{ display:none; }
+body.pdfExporting #hfCmpFunds{ display:none; }
+
+/* ==========================================================================
+   MODO CLIENTE — esconde lo interno (fuentes, calidad de datos, descargas,
+   gestion del repositorio) y deja la vista de presentacion.
+   ========================================================================== */
+body.hf-cliente .hfInterno,
+body.hf-cliente #dpDrawerBtn, body.hf-cliente .hfTop__back, body.hf-cliente #hfLoad,
+body.hf-cliente #pillQualityMini, body.hf-cliente #btnQuality,
+body.hf-cliente .repoBar, body.hf-cliente #dpLegacyRow, body.hf-cliente #repoMsg, body.hf-cliente .repoLog,
+body.hf-cliente #btnAnalyzeDatapack, body.hf-cliente #screen1 .kpiNote:has(#dpInlineCount),
+body.hf-cliente .msPickBtn, body.hf-cliente .invPickBtn,
+body.hf-cliente #msg, body.hf-cliente #cmpMsg, body.hf-cliente #btMsg,
+body.hf-cliente #status, body.hf-cliente #cmpStatus, body.hf-cliente #btStatus,
+body.hf-cliente #run, body.hf-cliente #s1ExportXlsx, body.hf-cliente #btnExportExcel,
+body.hf-cliente .brokerRow,
+body.hf-cliente button[id^="dl"], body.hf-cliente button[id^="btDl"], body.hf-cliente button[id^="cmpDl"],
+body.hf-cliente details:has(> div[id^="tbl"]):not(:has(#tblDD)), body.hf-cliente details:has(#cmpDlGrowth),
+body.hf-cliente #savedAnCloudStatus, body.hf-cliente #btSavedAnCloudStatus,
+body.hf-cliente #savedAnSaveNew, body.hf-cliente #savedAnSaveOver, body.hf-cliente #savedAnDelete, body.hf-cliente #savedAnExport, body.hf-cliente #savedAnImport, body.hf-cliente #savedAnHelp,
+body.hf-cliente #btSavedAnSaveNew, body.hf-cliente #btSavedAnSaveOver, body.hf-cliente #btSavedAnDelete, body.hf-cliente #btSavedAnExport, body.hf-cliente #btSavedAnImport, body.hf-cliente #btSavedAnHelp,
+body.hf-cliente #btSaveToRepo, body.hf-cliente #btOutliers, body.hf-cliente label:has(> #btOutliers),
+body.hf-cliente #cmpMatrixNote, body.hf-cliente #cmpBetaHelp,
+body.hf-cliente .isinChip,
+body.hf-cliente .hfDemo{ display:none !important; }
+body.hf-cliente #screen1 .grid > .card:first-child > .hd{ display:none; }
+body.hf-cliente #screen1 .grid > .card:first-child .split{ display:none; }
+body.hf-cliente .wrap{ max-width:1560px !important; }
+body.hf-cliente{ font-size:16px; }
+body.hf-cliente .kpi .t{ font-size:14px; }
+
+/* ---------- Ajustes finales ---------- */
+#cmpLimit{ display:none !important; }   /* lo sustituye el panel "Fondos y periodo" */
+#cmpSmallMultiples .hd .pill, #cmpSmallMultiplesDD .hd .pill{ text-transform:none; letter-spacing:0; font-size:15px; font-weight:600; }
+#screen3 .card, #screen3 .plotsGrid2{ max-width:min(1480px,94vw); }
+.hfFundTitle{ font-family:var(--hf-serif); font-size:24px; line-height:1.3; color:var(--hf-ink); padding:20px 20px 0; }
+.hfFundTitle:empty{ display:none; }
+.hfFundTitle small{ display:block; font-family:var(--hf-sans); font-size:13px; color:var(--hf-muted); margin-top:2px; }
+</style>
+<script id="hf-layer">
+/* ==========================================================================
+   HORFIN LAYER (nov-2026) — tema de graficos, ocultar fondos en Comparacion,
+   modo cliente, limpieza de rotulos. No cambia calculos.
+   ========================================================================== */
+(function(){
+  "use strict";
+  var FONT = "'Instrument Sans', Arial, sans-serif";
+  // Paleta categorica validada (dataviz/validate_palette.js, modo claro): orden fijo por hueco del fondo.
+  var PAL = ["#2C66D1","#C8562B","#1baf7a","#eda100","#e87ba4","#008300","#6250d6","#e34948"];
+  var MAP = { "#1f77b4":"#2C66D1", "#0056a7":"#2C66D1", "#003a75":"#0B1A33", "#0c1726":"#0B1A33", "#111827":"#0B1A33",
+              "#ff7f0e":"#C8562B", "#dc2626":"#C0392B", "#ef4444":"#C0392B", "#c62828":"#C0392B", "#059669":"#2E9E5B" };
+  var HF = window.HF = { PAL: PAL };
+  function $(id){ return document.getElementById(id); }
+  function esc(s){ return String(s).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]; }); }
+  function fmtES(d){ return String(d.getUTCDate()).padStart(2,"0")+"/"+String(d.getUTCMonth()+1).padStart(2,"0")+"/"+d.getUTCFullYear(); }
+  function yrs(a,b){ return (b.getTime()-a.getTime())/(365.25*24*3600*1000); }
+  function num1(x){ return x.toFixed(1).replace(".",","); }
+
+  /* ---------------- Tema Plotly ---------------- */
+  function mapColor(c){
+    if (typeof c === "string"){ var k=c.toLowerCase(); return MAP[k] || c; }
+    if (Array.isArray(c)) return c.map(mapColor);
+    return c;
+  }
+  function recolor(t){
+    if (!t || typeof t !== "object") return;
+    ["marker","line","textfont"].forEach(function(k){
+      if (t[k] && typeof t[k]==="object"){
+        if (t[k].color!==undefined) t[k].color = mapColor(t[k].color);
+        if (t[k].line && t[k].line.color!==undefined) t[k].line.color = mapColor(t[k].line.color);
+      }
+    });
+    if (t.fillcolor!==undefined) t.fillcolor = mapColor(t.fillcolor);
+    if (t.type==="heatmap" && Array.isArray(t.colorscale) && t.colorscale.length===3){
+      // divergente: dos tonos + punto medio neutro
+      t.colorscale = [[0,"#2C66D1"],[0.5,"#F7F8FA"],[1,"#C0392B"]];
+    }
+  }
+  function axis(a){
+    a.gridcolor = "#E6EAF0"; a.zerolinecolor = "#C9D2E0"; a.linecolor = "#C9D2E0";
+    a.tickfont = Object.assign({}, a.tickfont, { family: FONT, color: "#5A6680" });
+    if (a.title && typeof a.title === "object") a.title.font = Object.assign({}, a.title.font, { family: FONT, color:"#5A6680", size:12 });
+    else if (typeof a.title === "string") a.title = { text:a.title, font:{ family:FONT, color:"#5A6680", size:12 } };
+  }
+  function theme(el, data, layout){
+    try{
+      var id = (typeof el === "string") ? el : ((el && el.id) || "");
+      if (Array.isArray(data)) data.forEach(recolor);
+      if (!layout || typeof layout !== "object") return;
+      layout.font = Object.assign({}, layout.font, { family: FONT, color: "#3A4660" });
+      if (!layout.font.size || layout.font.size < 12) layout.font.size = 12;
+      layout.paper_bgcolor = "rgba(0,0,0,0)"; layout.plot_bgcolor = "rgba(0,0,0,0)";
+      if (!layout.colorway) layout.colorway = PAL;
+      if (layout.barcornerradius === undefined) layout.barcornerradius = 3;
+      layout.hoverlabel = Object.assign({ bgcolor:"#0B1A33", bordercolor:"#0B1A33", font:{ family:FONT, color:"#F4F6FA", size:13 } }, layout.hoverlabel);
+      if (!layout.xaxis) layout.xaxis = {}; if (!layout.yaxis) layout.yaxis = {};
+      Object.keys(layout).forEach(function(k){ if (/^[xy]axis\d*$/.test(k) && layout[k] && typeof layout[k]==="object") axis(layout[k]); });
+      if (layout.legend && typeof layout.legend==="object") layout.legend.font = Object.assign({}, layout.legend.font, { family:FONT, color:"#3A4660", size:13 });
+      if (Array.isArray(layout.annotations)) layout.annotations.forEach(function(a){ if (a && a.font) a.font = Object.assign({}, a.font, { family:FONT }); if (a && a.font && a.font.color) a.font.color = mapColor(a.font.color); });
+      // Comparacion: el color sigue al fondo (hueco), no a su posicion entre los visibles
+      if (id === "cmpGrowth" && window.CMP && Array.isArray(data)){
+        var used = {};
+        data.forEach(function(t){
+          var slot = -1;
+          for (var k=0;k<CMP.funds.length;k++){ if (!used[k] && CMP.funds[k].name === t.name){ used[k]=1; slot = (CMP.fundSlots && CMP.fundSlots[k]!==undefined) ? CMP.fundSlots[k] : k; break; } }
+          if (slot < 0) return;
+          t.line = Object.assign({}, t.line, { color: PAL[slot % PAL.length], width: 2 });
+          if (slot >= PAL.length) t.line.dash = "dash";
+        });
+        if (Array.isArray(layout.annotations)) layout.annotations.forEach(function(a){ a.font = Object.assign({}, a.font, { size:12, color:"#0B1A33", family:FONT }); });
+      }
+    }catch(e){ console.warn("[HF] theme", e); }
+  }
+  function wrapPlotly(){
+    if (typeof Plotly === "undefined" || Plotly.__hf) return;
+    ["newPlot","react"].forEach(function(fn){
+      var orig = Plotly[fn];
+      Plotly[fn] = function(el, data, layout, cfg){ theme(el, data, layout); return orig.call(this, el, data, layout, cfg); };
+    });
+    Plotly.__hf = true;
+  }
+  wrapPlotly();
+  HF.colorForSlot = function(s){ return PAL[s % PAL.length]; };
+
+  /* ---------------- Comparacion: ocultar / mostrar fondos ---------------- */
+  var slotInfo = {};   // slot -> {name, isin, start, end, src}
+  function slotSource(i){
+    var el = $("cmpFile"+(i+1));
+    var file = (el && el.files && el.files[0]) ? el.files[0] : null;
+    return file || (window.CMP && CMP.repoFunds && CMP.repoFunds[i]) || null;
+  }
+  HF.cmpBefore = function(){
+    if (!window.CMP) return;
+    if (!CMP.hiddenSlots) CMP.hiddenSlots = new Set();
+    CMP.fundSlots = [];
+    var any = false;
+    for (var i=0;i<10;i++){
+      var src = slotSource(i);
+      if (src) any = true;
+      if (!src){ delete slotInfo[i]; CMP.hiddenSlots.delete(i); continue; }
+      if (CMP.hiddenSlots.has(i)){
+        // si el hueco oculto ha cambiado de fondo, vuelve a mostrarse; si llega oculto desde un analisis guardado, se anota
+        if (slotInfo[i] && slotInfo[i].src !== src){ CMP.hiddenSlots.delete(i); delete slotInfo[i]; }
+        else if (!slotInfo[i] && src.dailySeries){ slotInfo[i] = infoFrom(src, src); }
+        else if (!slotInfo[i]){ CMP.hiddenSlots.delete(i); }
+      }
+    }
+    // las tarjetas de resultados deben ser visibles antes de dibujar (Plotly mide el ancho real)
+    document.body.dataset.cmp = any ? "1" : "0";
+  };
+  function infoFrom(f, src){
+    var s = (f.dailySeries && f.dailySeries.length>=2) ? f.dailySeries : f.series;
+    return { name: f.name || "", isin: (f.meta && f.meta.isin) || f.isin || "", start: s[0].date, end: s[s.length-1].date, src: src };
+  }
+  HF.hiddenIsins = function(){
+    var out = [];
+    if (window.CMP && CMP.hiddenSlots) CMP.hiddenSlots.forEach(function(i){ if (slotInfo[i] && slotInfo[i].isin) out.push(slotInfo[i].isin); });
+    return out;
+  };
+  HF.cmpAfter = function(){
+    if (!window.CMP) return;
+    var slots = CMP.fundSlots || [];
+    CMP.funds.forEach(function(f, k){ var s = slots[k]; if (s===undefined) return; try{ slotInfo[s] = infoFrom(f, slotSource(s)); }catch(_){} });
+    document.body.dataset.cmp = CMP.funds.length ? "1" : "0";
+    renderFunds();
+  };
+  function renderFunds(){
+    var box = $("hfCmpFunds"); if (!box) return;
+    var hidden = (window.CMP && CMP.hiddenSlots) || new Set();
+    var all = Object.keys(slotInfo).map(Number).sort(function(a,b){return a-b;}).map(function(i){ return Object.assign({ slot:i, off:hidden.has(i) }, slotInfo[i]); });
+    if (!all.length){ box.innerHTML = ""; return; }
+    var vis = all.filter(function(f){ return !f.off; });
+    var t0 = Math.min.apply(null, all.map(function(f){ return f.start.getTime(); }));
+    var t1 = Math.max.apply(null, all.map(function(f){ return f.end.getTime(); }));
+    var span = Math.max(1, t1 - t0);
+    var byStart = vis.slice().sort(function(a,b){ return b.start - a.start; });
+    var lim = byStart[0], second = byStart[1];
+    var cs = (CMP.range && CMP.range.commonStart) || (lim && lim.start), ce = (CMP.range && CMP.range.commonEnd) || null;
+    if (!ce && vis.length) ce = new Date(Math.min.apply(null, vis.map(function(f){ return f.end.getTime(); })));
+    var gain = (lim && second) ? yrs(second.start, lim.start) : 0;
+    var showLim = vis.length >= 2 && gain > 0.25;
+    var rows = all.map(function(f){
+      var isLim = showLim && lim && f.slot === lim.slot;
+      var left = ((f.start.getTime()-t0)/span*100).toFixed(2), width = Math.max(0.8, (f.end.getTime()-f.start.getTime())/span*100).toFixed(2);
+      var color = PAL[f.slot % PAL.length];
+      return '<label class="hfFund'+(f.off?' is-off':'')+(isLim?' is-lim':'')+'">'
+        + '<input type="checkbox" data-slot="'+f.slot+'"'+(f.off?'':' checked')+' aria-label="Mostrar '+esc(f.name)+' en la comparación">'
+        + '<i class="hfFund__sw" style="background:'+color+'"></i>'
+        + '<span class="hfFund__n">'+esc(f.name)+(f.isin?'<small>'+esc(f.isin)+'</small>':'')+'</span>'
+        + '<span class="hfFund__bar" title="Historial disponible"><i style="left:'+left+'%;width:'+width+'%"></i></span>'
+        + '<span class="hfFund__since">Historial desde <b>'+fmtES(f.start)+'</b>'
+          + (f.off ? ' · oculto' : '')
+          + (isLim ? '<span class="hfFund__tag">Limita el periodo</span><span class="hfFund__gain">Sin él, la comparación empezaría el '+fmtES(second.start)+' (+'+num1(gain)+' años)</span>' : '')
+        + '</span></label>';
+    }).join("");
+    var nOff = all.length - vis.length;
+    box.innerHTML = '<div class="hfFunds">'
+      + '<div class="hfFunds__hd"><div><span class="hfFunds__lbl">Periodo común de los fondos visibles</span>'
+      + '<span class="hfFunds__per">'+(cs?fmtES(cs):"")+' a '+(ce?fmtES(ce):"")+'<small>'+((cs&&ce)?num1(yrs(cs,ce))+' años de historia compartida':'')+' · '+vis.length+' de '+all.length+' fondos</small></span></div>'
+      + '<div class="hfFunds__act">'
+      + (showLim ? '<button type="button" class="iconBtn" id="hfHideLim">Ocultar el que limita</button>' : '')
+      + (nOff ? '<button type="button" class="iconBtn" id="hfShowAll">Mostrar todos</button>' : '')
+      + '</div></div>'
+      + '<div class="hfFunds__list">'+rows+'</div>'
+      + '<p class="hfFunds__hint">Desmarca un fondo para ocultarlo. El periodo común y todos los gráficos se recalculan con los fondos visibles; los ocultos siguen cargados.</p>'
+      + '</div>';
+    box.querySelectorAll('input[type="checkbox"]').forEach(function(cb){
+      cb.addEventListener("change", function(){ HF.setHidden(Number(cb.dataset.slot), !cb.checked); });
+    });
+    var b1 = $("hfHideLim"); if (b1 && lim) b1.addEventListener("click", function(){ HF.setHidden(lim.slot, true); });
+    var b2 = $("hfShowAll"); if (b2) b2.addEventListener("click", function(){ HF.showAll(); });
+  }
+  function rerun(){ try{ return cmpHandleInputs(); }catch(e){ console.warn("[HF] rerun", e); } }
+  HF.setHidden = function(slot, off){
+    if (!window.CMP) return;
+    if (!CMP.hiddenSlots) CMP.hiddenSlots = new Set();
+    if (off){
+      var visible = Object.keys(slotInfo).filter(function(i){ return !CMP.hiddenSlots.has(Number(i)); });
+      if (visible.length <= 1){ renderFunds(); return; }   // siempre queda al menos un fondo visible
+      CMP.hiddenSlots.add(slot);
+    } else CMP.hiddenSlots.delete(slot);
+    return rerun();
+  };
+  HF.showAll = function(){ if (window.CMP && CMP.hiddenSlots){ CMP.hiddenSlots.clear(); return rerun(); } };
+
+  /* ---------------- Estado vacio de la pestaña Fondo ---------------- */
+  try{
+    if (typeof computeAndRender === "function"){
+      var _car = computeAndRender;
+      computeAndRender = function(){ try{ document.body.dataset.s1 = "1"; }catch(_){ }
+        try{
+          var nm = $("hfS1Name");
+          if (nm && typeof STATE !== "undefined"){
+            var m = STATE.sourceMeta || {};
+            var name = m.name || STATE.sourceName || "";
+            var bits = [m.isin, m.category, m.currency].filter(Boolean).join(" · ");
+            nm.innerHTML = name ? esc(name) + (bits ? "<small>" + esc(bits) + "</small>" : "") : "";
+          }
+        }catch(_){ } var r = _car.apply(this, arguments); try{ if (typeof resizePlotsIn==="function") setTimeout(function(){ resizePlotsIn("screen1"); }, 60); }catch(_){ } return r; };
+    }
+  }catch(e){ console.warn("[HF] s1 hook", e); }
+
+  /* ---------------- Modo cliente ---------------- */
+  function setCliente(on, persist){
+    document.body.classList.toggle("hf-cliente", !!on);
+    var b = $("hfClienteBtn"); if (b) b.setAttribute("aria-pressed", on ? "true" : "false");
+    if (persist){ try{ localStorage.setItem("hf_modo_cliente", on ? "1" : "0"); }catch(_){ } }
+    try{ var act = document.querySelector(".tabBtn.active"); if (act && typeof resizePlotsIn==="function") setTimeout(function(){ resizePlotsIn(act.dataset.screen); }, 80); }catch(_){ }
+  }
+  HF.setCliente = setCliente;
+  (function(){
+    var on = false;
+    try{ on = localStorage.getItem("hf_modo_cliente") === "1"; }catch(_){ }
+    try{ var q = new URLSearchParams(location.search).get("cliente"); if (q === "1") on = true; if (q === "0") on = false; }catch(_){ }
+    setCliente(on, false);
+    var b = $("hfClienteBtn"); if (b) b.addEventListener("click", function(){ setCliente(!document.body.classList.contains("hf-cliente"), true); });
+  })();
+
+  /* ---------------- Estado de carga del repositorio ---------------- */
+  (function(){
+    var el = $("hfLoad"); if (!el) return;
+    var n = 0;
+    el.textContent = "Cargando fondos…";
+    var t = setInterval(function(){
+      n++;
+      var c = 0; try{ c = (window.DP && DP.count()) || 0; }catch(_){ }
+      if (c > 0){ el.textContent = ""; clearInterval(t); }
+      else if (n > 40){ el.textContent = "Sin fondos cargados"; clearInterval(t); }
+    }, 500);
+  })();
+
+  /* ---------------- Rotulos: sin emojis, nombres claros ---------------- */
+  var EMO = /(?:[\u{1F000}-\u{1FAFF}]|[☁⚙✏➕⭐⬆⬇⚠✅❌]|️)+\s*/gu;
+  var RENAME = { "Repo":"Elegir fondo" };
+  function cleanNode(node){
+    var txt = node.nodeValue; if (!txt) return;
+    var hasE = EMO.test(txt); EMO.lastIndex = 0;
+    if (!hasE && txt.indexOf("\u2192") < 0) return;
+    var out = txt.replace(EMO, "").replace(/\s*\u2192\s*/g, " a ");
+    var p = node.parentElement;
+    if (!out.trim() && p && p.tagName === "BUTTON" && p.childNodes.length === 1){
+      var ti = p.getAttribute("title") || "";
+      if (/elimin|borr/i.test(ti)) out = "Eliminar"; else return;
+    }
+    if (p && p.tagName === "BUTTON" && RENAME[out.trim()]) out = RENAME[out.trim()];
+    node.nodeValue = out;
+  }
+  function cleanTree(root){
+    try{
+      var w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, { acceptNode:function(n){ var p=n.parentElement; return (p && /^(SCRIPT|STYLE|TEXTAREA|OPTION)$/.test(p.tagName)) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT; } });
+      var list = []; while (w.nextNode()) list.push(w.currentNode);
+      list.forEach(cleanNode);
+    }catch(e){ console.warn("[HF] clean", e); }
+  }
+  cleanTree(document.body);
+  setTimeout(function(){ cleanTree(document.body); }, 400);
+  try{
+    var pend = null;
+    new MutationObserver(function(muts){
+      if (pend) return;
+      pend = setTimeout(function(){ pend = null; cleanTree(document.body); }, 250);
+    }).observe(document.body, { childList:true, subtree:true });
+  }catch(_){ }
+
+  /* ---------------- Vista previa con muestra incrustada ---------------- */
+  HF.loadDemo = async function(demo){
+    try{
+      for (var n=0; n<40 && !(window.DATAPACK && DATAPACK.loaded && DATAPACK.funds && DATAPACK.funds.length); n++) await new Promise(function(r){ setTimeout(r, 150); });
+      if (!(window.DATAPACK && DATAPACK.funds && DATAPACK.funds.length)) return;
+      var f1 = DATAPACK.funds.find(function(x){ return x.isin === demo.fund; });
+      if (f1){ REPO_CTX.kind = "screen1"; REPO_CTX.screenId = "screen1"; REPO_CTX.role = "fund"; await repoPickerSelect(f1); }
+      CMP.repoFunds = Array(10).fill(null);
+      for (var i=0; i<demo.cmp.length && i<10; i++){
+        var f = DATAPACK.funds.find(function(x){ return x.isin === demo.cmp[i]; }); if (!f) continue;
+        var p = await repoParsedForFund(f, "screen2", "fund"); p.meta = p.meta || {}; p.meta.isin = demo.cmp[i];
+        CMP.repoFunds[i] = p;
+      }
+      await cmpHandleInputs();
+      try{
+        for (var j=0; j<(demo.bt||[]).length; j++){
+          var fb = DATAPACK.funds.find(function(x){ return x.isin === demo.bt[j]; }); if (!fb) continue;
+          REPO_CTX.kind = "bt"; REPO_CTX.slot = j; REPO_CTX.isBench = false; REPO_CTX.screenId = "screen3"; REPO_CTX.role = "fund";
+          await repoPickerSelect(fb);
+        }
+        if ((demo.bt||[]).length && typeof btRun === "function"){
+          var wts = demo.btW || [];
+          if (wts.length && typeof BT !== "undefined"){ wts.forEach(function(w, k){ BT.weights[k] = w; }); if (typeof btRenderWeightsTable === "function") btRenderWeightsTable(); }
+          await btRun();
+        }
+      }catch(e){ console.warn("[HF] demo bt", e); }
+    }catch(e){ console.warn("[HF] demo", e); }
+  };
+  if (window.__HF_DEMO) setTimeout(function(){ HF.loadDemo(window.__HF_DEMO); }, 300);
+})();
+</script>
+</body></html>
