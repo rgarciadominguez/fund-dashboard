@@ -1,0 +1,37 @@
+"""Construye v2/index.html = base (commit de la capa de datos v2) + capa HF2 (css+js) + ajustes del tema."""
+import sys, pathlib
+here = pathlib.Path(__file__).parent
+s = (here / "base_v2.html").read_text(encoding="utf-8")
+def rep(a, b, n=1):
+    global s
+    assert s.count(a) == n, (s.count(a), a[:60]); s = s.replace(a, b)
+# la capa HF expone lo que HF2 necesita
+rep("  var slotInfo = {};   // slot -> {name, isin, start, end, src}\n", "  var slotInfo = {};   // slot -> {name, isin, start, end, src}\n  HF.slotInfo = slotInfo; HF.slotSource = function(i){ return slotSource(i); };\n")
+# los gráficos propios de HF2 no pasan por el tema antiguo; los antiguos, sin barra ni rejilla vertical
+rep('      var id = (typeof el === "string") ? el : ((el && el.id) || "");\n', '      var id = (typeof el === "string") ? el : ((el && el.id) || "");\n      if (id.indexOf("hf2") === 0) return;\n')
+rep('    a.gridcolor = "#E6EAF0"; a.zerolinecolor = "#C9D2E0"; a.linecolor = "#C9D2E0";', '    a.gridcolor = "#EEF1F6"; a.zerolinecolor = "#CBD3E0"; a.linecolor = "#E3E8F0"; a.showline = false; a.ticks = "";')
+rep('''Object.keys(layout).forEach(function(k){ if (/^[xy]axis\\d*$/.test(k) && layout[k] && typeof layout[k]==="object") axis(layout[k]); });''',
+    '''Object.keys(layout).forEach(function(k){ if (/^[xy]axis\\d*$/.test(k) && layout[k] && typeof layout[k]==="object"){ axis(layout[k]); if (k.charAt(0)==="x" && !(Array.isArray(data) && data[0] && data[0].type==="heatmap")) layout[k].showgrid = false; } });''')
+rep("      Plotly[fn] = function(el, data, layout, cfg){ theme(el, data, layout); return orig.call(this, el, data, layout, cfg); };",
+    "      Plotly[fn] = function(el, data, layout, cfg){ theme(el, data, layout); return orig.call(this, el, data, layout, Object.assign({}, cfg, { displayModeBar:false })); };")
+# lo que el buscador nuevo necesita de los módulos existentes
+rep("  window.mstBuildParsed = mstBuildParsed;\n", "  window.mstBuildParsed = mstBuildParsed;\n  window.mstSearch = mstSearch;\n")
+rep("  window.__fdStore = store;\n", """  window.__fdStore = store;
+  window.__fdLazy = fdLazyMap;
+  window.__fdAddIsin = async function(isin, name, cur){   // alta en el repositorio de un fondo cargado desde Morningstar
+    if (store[isin] && ((store[isin].rows || []).length >= 2 || fdIsLazy(isin))) return false;
+    const r = await dpProcessOneIsin(isin);
+    if (name && (!r.meta.name || r.meta.name === isin)) r.meta.name = name;      // el screener de Morningstar puede no responder
+    if (cur && !r.meta.currency) r.meta.currency = cur;
+    store[isin] = {meta: r.meta, rows: r.rows, updatedAt: Date.now()};
+    dpSyncToDatapack(); dpUpdateStats(); dpRenderFundsList();
+    return true;
+  };
+""")
+import json
+cfg = json.loads((here / "config.json").read_text(encoding="utf-8"))
+css = (here / "hf2.css").read_text(encoding="utf-8")
+js = "\n".join((here / f).read_text(encoding="utf-8") for f in ("hf2.js", "hf2-pick.js", "hf2-bt.js"))
+js = js.replace("__CAT_URL__", cfg["catalog_url"]).replace("__CAT_KEY__", cfg["catalog_anon_key"])
+rep("</body>", "<style id=\"hf2-css\">\n" + css + "\n</style>\n<script id=\"hf2-layer\">\n" + js + "\n</script>\n</body>")
+out = pathlib.Path(sys.argv[1]); out.write_text(s, encoding="utf-8"); print("ok", len(s))
