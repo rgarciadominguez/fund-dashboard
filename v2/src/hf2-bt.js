@@ -29,10 +29,11 @@
     var root = h("div", "hf2", ""); root.id = "hf2Bt";
     root.innerHTML = '<div class="hf2bar"><div class="hf2chips" id="hf2BChips"></div><div class="hf2ctl">' +
       '<select class="hf2sel" id="hf2BReb" title="Rebalanceo de la cartera">' + REB.map(function(o){ return '<option value="' + o[0] + '">' + o[1] + "</option>"; }).join("") + "</select>" +
-      '<div class="hf2seg" id="hf2BPer"></div>' +
+      L.perMarkup("hf2B") +
       '<div class="hf2rel"><button type="button" class="hf2icon" id="hf2BMenuBtn" title="Más opciones" aria-label="Más opciones">⋯</button><div class="hf2pop" id="hf2BMenu" hidden style="right:0;top:38px"></div></div></div></div>' +
       '<div class="hf2hint" id="hf2BHint"></div><div id="hf2BBody"></div>';
     s3.insertBefore(root, s3.firstChild);
+    L.perBind("hf2B", B, function(){ B.sig = ""; render(); });
     $("hf2BReb").addEventListener("change", function(){ var c = $("btRebalMode"); if (c){ c.value = this.value; c.dispatchEvent(new Event("change", { bubbles: true })); } BTs().rebalMode = this.value; B.sig = ""; });
     $("hf2BMenuBtn").addEventListener("click", function(e){
       e.stopPropagation(); var m = $("hf2BMenu"); m.innerHTML = "";
@@ -83,9 +84,9 @@
     var T = L.th(), ix = loaded(), body = $("hf2BBody"), per = $("hf2BPer"), hint = $("hf2BHint"), reb = $("hf2BReb");
     chips(ix, T);
     var mode = BTs().rebalMode || ($("btRebalMode") && $("btRebalMode").value) || "none"; if (reb.value !== mode) reb.value = mode;
-    var sig = ix.map(function(i){ return i + ":" + (Number(BTs().weights[i]) || 0) + ":" + L.ser(BTs().funds[i]).length; }).join("|") + "#" + mode + B.per + B.dd + B.rm + B.rn + B.ymode + T.DARK + "#" + (window.HF2I ? HF2I.ver + "|" + HF2I.bt : "") + "#" + (body ? body.clientWidth : 0);
+    var sig = ix.map(function(i){ return i + ":" + (Number(BTs().weights[i]) || 0) + ":" + L.ser(BTs().funds[i]).length; }).join("|") + "#" + mode + L.perSig(B) + B.dd + B.rm + B.rn + B.ymode + T.DARK + "#" + (window.HF2I ? HF2I.ver + "|" + HF2I.bt : "") + "#" + (body ? body.clientWidth : 0);
     if (sig === B.sig) return; B.sig = sig;
-    var ctl = [per, reb, $("hf2BMenuBtn").parentElement];
+    var ctl = [per, reb, $("hf2BDatesBtn").parentElement, $("hf2BMenuBtn").parentElement];
     if (!ix.length){
       ctl.forEach(function(e){ e.style.display = "none"; }); hint.innerHTML = "";
       body.innerHTML = '<div class="hf2empty"><h2>Simula una cartera</h2><button type="button" class="hf2add" id="hf2BEmptyAdd">+ Añadir fondos</button></div>';
@@ -96,12 +97,9 @@
     if (!act.length || Math.abs(sumW() - 100) > 0.2){ per.innerHTML = ""; hint.innerHTML = ""; body.innerHTML = '<div class="hf2card"><div class="hf2msg">Ajusta los pesos hasta sumar 100 % para ver la cartera.</div></div>'; return; }
     var cr = null; try{ cr = btComputeCommonRange(); }catch(e){ cr = null; }
     if (!cr){ body.innerHTML = '<div class="hf2card"><div class="hf2msg">No hay periodo común entre los fondos.</div></div>'; return; }
-    var tS = +cr.start, tE = +cr.end, spanY = (tE - tS) / 864e5 / 365.25;
-    if (B.per && B.per > spanY + 0.05) B.per = 0;
-    per.innerHTML = "";
-    [[1, "1A"], [3, "3A"], [5, "5A"], [10, "10A"], [0, "Máx"]].forEach(function(o){ if (o[0] && o[0] > spanY + 0.05) return; var b = h("button", B.per === o[0] ? "on" : "", o[1]); b.type = "button"; b.addEventListener("click", function(){ B.per = o[0]; B.sig = ""; render(); }); per.appendChild(b); });
-    var d0 = B.per ? new Date(tE - B.per * 365.25 * 864e5) : cr.start, port, full;
-    try{ port = btBuildPortfolioSeriesRange(d0, cr.end, mode, Number(BTs().bandX) || 5); full = B.per ? btBuildPortfolioSeriesRange(cr.start, cr.end, mode, Number(BTs().bandX) || 5) : port; }
+    var tS = +cr.start, tE = +cr.end, rg = L.perRender("hf2B", B, tS, tE, function(){ B.sig = ""; render(); }), isFull = rg[0] === tS && rg[1] === tE, port, full;
+    /* la cartera se simula de verdad en el periodo elegido: empieza con los pesos objetivo en «Desde» */
+    try{ port = btBuildPortfolioSeriesRange(new Date(rg[0]), new Date(rg[1]), mode, Number(BTs().bandX) || 5); full = isFull ? port : btBuildPortfolioSeriesRange(cr.start, cr.end, mode, Number(BTs().bandX) || 5); }
     catch(e){ body.innerHTML = '<div class="hf2card"><div class="hf2msg">' + esc((e && e.message) || "No se ha podido calcular la cartera.") + "</div></div>"; return; }
     var p = L.pts(port, -Infinity, Infinity), pAll = L.pts(full, -Infinity, Infinity), st = L.stats(p), t0 = p[0][0], t1 = p[p.length - 1][0];
     var lim = (act.length >= 2 && (+cr.start - +cr.startNoLim) / 864e5 / 365.25 >= 0.5) ? cr.limIdx : null;
@@ -136,8 +134,10 @@
     $("hf2BKpis").innerHTML = (st.ann != null ? kpi("Anualizada", pct(st.ann, 1, true), st.ann < 0 ? "neg" : "pos") : "") + kpi("Acumulada", pct(st.cum, Math.abs(st.cum) >= 1 ? 0 : 1, true), st.ann == null ? (st.cum < 0 ? "neg" : "pos") : "") +
       kpi("Volatilidad", pct(st.vol, 1), "", "Anualizada, con cierres mensuales") + (sharpe != null ? kpi("Sharpe", num(sharpe, 2), "", "Rentabilidad anualizada entre volatilidad (tipo sin riesgo 0 %)") : "") +
       kpi("Máx. caída", pct(st.mdd, 1), "", "De pico a valle con cierres diarios") + kpi("vs índice", xs ? pct(xs.d, 1, true) : "—", xs && Math.abs(xs.d) >= 0.0005 ? (xs.d < 0 ? "neg" : "pos") : "", xs ? "Anualizada de la cartera (" + pct(xs.f, 1, true) + ") menos la del índice (" + pct(xs.i, 1, true) + ")" : "Sin índice o sin un año de datos en común");
-    var cart = { short: "Cartera", color: T.INK, lw: 2.8, p: p, st: st, series: full };
-    var comps = act.map(function(i){ var sr = L.ser(BTs().funds[i]), q = L.pts(sr, t0, t1); return { short: fname(i).short, color: T.PAL[i % T.PAL.length], lw: 1.3, p: q, st: L.stats(q), series: sr, w: Number(BTs().weights[i]) || 0 }; }).filter(function(c){ return c.p.length >= 2; });
+    /* si el periodo a medida empieza en los primeros días de enero, ese año cuenta entero: la cartera arranca con su valor inicial como cierre del año anterior */
+    var portY = port; if (!isFull && port.length){ var d0 = new Date(L.tOf(port[0])); if (d0.getUTCMonth() === 0 && d0.getUTCDate() <= 10){ var b0 = Object.assign({}, port[0]); b0.date = new Date(Date.UTC(d0.getUTCFullYear() - 1, 11, 31)); portY = [b0].concat(port); } }
+    var cart = { short: "Cartera", color: T.INK, lw: 2.8, p: p, st: st, series: isFull ? full : portY };
+    var comps = act.map(function(i){ var sr = L.ser(BTs().funds[i]), q = L.pts(sr, t0, t1), srP = isFull ? sr : sr.filter(function(x){ var t = L.tOf(x); return t >= t0 - 10 * 864e5 && t <= t1; }); return { short: fname(i).short, color: T.PAL[i % T.PAL.length], lw: 1.3, p: q, st: L.stats(q), series: srP, w: Number(BTs().weights[i]) || 0 }; }).filter(function(c){ return c.p.length >= 2; });
     var evo = [cart].concat(comps); if (idxIt) evo.push(idxIt);
     try{ if (typeof btBenchUsed === "function" && btBenchUsed() && typeof btBuildBenchmarkSeriesRange === "function"){ var bq = L.pts(btBuildBenchmarkSeriesRange(new Date(t0), new Date(t1), BTs().benchRebalMode || "none", Number(BTs().benchBandX) || 5), -Infinity, Infinity); if (bq.length >= 2) evo.push({ short: "Referencia de la vista clásica", color: T.FAINT, lw: 1.3, dash: "dot", p: bq, st: L.stats(bq), idx: true }); } }catch(_){ }
     var H1 = Math.max(300, Math.min(420, Math.round(window.innerHeight * 0.40))), H2 = 290;
@@ -149,7 +149,7 @@
       return '<div class="r"><span class="n"><i style="background:' + c.color + '"></i>' + esc(clip(c.short, 34)) + '</span><span class="b"><u style="width:' + Math.max(1, c.w) + "%;background:" + c.color + '"></u></span><b>' + num(c.w, c.w % 1 ? 1 : 0) + " %</b><em>" + pct(c.st.ann != null ? c.st.ann : c.st.cum, 1, true) + "</em></div>"; }).join("") +
       '<div class="hf2foot">A la derecha, la rentabilidad ' + (st.ann != null ? "anualizada" : "acumulada") + " de cada fondo en el periodo.</div>";
     L.ddRender("hf2B", [cart], true, H2 - 30, B, function(){ B.sig = ""; render(); });
-    L.rollRender("hf2B", pAll, T.DARK ? T.PAL[0] : T.INK, H2, B, function(){ B.sig = ""; render(); });
+    L.rollRender("hf2B", pAll, T.DARK ? T.PAL[0] : T.INK, H2, B, function(){ B.sig = ""; render(); }, isFull ? null : [t0, t1]);
   }
   window.HF2B = { render: render, state: B };
 })();

@@ -17628,6 +17628,8 @@ body:not(.hf2-legacy) #screen1 > *:not(#hf2Fund){ position:fixed !important; lef
 .hf2pop hr{ border:0; border-top:1px solid var(--h2-hair); margin:5px 0; }
 .hf2pop .dates{ display:flex; gap:8px; padding:8px 10px 10px; align-items:end; }
 .hf2pop .dates label{ font-size:11px; color:var(--h2-mut); display:flex; flex-direction:column; gap:4px; }
+.hf2pop .hf2perw{ font-size:11.5px; color:var(--h2-neg, #C0392B); padding:0 10px 8px; max-width:300px; }
+.hf2pop .hf2perw:empty{ display:none; }
 .hf2pop .dates input{ height:32px; border:1px solid var(--h2-line); border-radius:8px; padding:0 8px; font:inherit; font-size:13px; color:var(--h2-ink); background:var(--h2-bg); }
 .hf2rel{ position:relative; flex:none; }
 .hf2hint{ font-size:12.5px; color:var(--h2-mut); display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:-4px 0 12px; }
@@ -18173,11 +18175,48 @@ body.hf-dark.hf2-legacy #screen1 > *:not(#hf2Fund), body.hf-dark.hf2-legacy #scr
     plot(id, data, base(H, { hovermode: "x unified", annotations: items.length <= 4 ? ann : [], margin: { l: 46, r: 10, t: 8, b: 26 }, xaxis: { hoverformat: m === "d" ? "%d/%m/%Y" : "%m/%Y", nticks: 6 },
       yaxis: { tickformat: ".0%", range: [Math.min(-0.02, lo) * 1.22, 0.004], zeroline: false } }));
   }
+  /* control de periodo de Fondo y Backtest: el mismo que Comparación (pastillas 1A…Máx + «Fechas» a medida).
+     S.per = años (0 = Máx) o "c" con S.c0/S.c1 (ms). perRender devuelve [t0, t1] dentro del rango disponible. */
+  function perMarkup(pre){
+    return '<div class="hf2seg" id="' + pre + 'Per"></div><div class="hf2rel"><button type="button" class="hf2icon txt" id="' + pre + 'DatesBtn" title="Fechas a medida">Fechas</button>' +
+      '<div class="hf2pop" id="' + pre + 'DatesPop" hidden style="right:0;top:38px"><div class="dates"><label>Desde<input type="date" id="' + pre + 'D0"></label><label>Hasta<input type="date" id="' + pre + 'D1"></label></div><div class="hf2perw" id="' + pre + 'DW"></div></div></div>';
+  }
+  var PER_POPS = [];
+  function perBind(pre, S, again){
+    PER_POPS.push(pre + "DatesPop");
+    $(pre + "DatesBtn").addEventListener("click", function(e){ e.stopPropagation(); var p = $(pre + "DatesPop"); p.hidden = !p.hidden; });
+    $(pre + "DatesPop").addEventListener("click", function(e){ e.stopPropagation(); });
+    function apply(){
+      var a = $(pre + "D0").value, b = $(pre + "D1").value, w = $(pre + "DW"); if (!a || !b) return;
+      var t0 = Date.parse(a + "T00:00:00Z"), t1 = Date.parse(b + "T00:00:00Z"), mn = Number($(pre + "D0").dataset.mn), mx = Number($(pre + "D0").dataset.mx);
+      if (isFinite(mn)) t0 = Math.max(t0, mn); if (isFinite(mx)) t1 = Math.min(t1, mx);
+      if (!(t1 - t0 >= 28 * 864e5)){ w.textContent = "«Desde» tiene que ser anterior a «Hasta» (al menos un mes)."; return; }
+      w.textContent = ""; S.per = "c"; S.c0 = t0; S.c1 = t1; again();
+    }
+    [pre + "D0", pre + "D1"].forEach(function(id){ $(id).addEventListener("change", apply); });
+    if (PER_POPS.length === 1) document.addEventListener("click", function(){ PER_POPS.forEach(function(id){ var p = $(id); if (p && !p.hidden) p.hidden = true; }); });
+  }
+  function perRender(pre, S, tS, tE, again){
+    var spanY = (tE - tS) / 864e5 / 365.25, per = $(pre + "Per");
+    if (S.per !== "c" && S.per && S.per > spanY + 0.05) S.per = 0;
+    var t0, t1;
+    if (S.per === "c"){ t0 = Math.max(tS, Math.min(S.c0, tE)); t1 = Math.min(tE, Math.max(S.c1, tS)); if (!(t1 - t0 >= 28 * 864e5)){ S.per = 0; t0 = tS; t1 = tE; } }
+    else { t1 = tE; t0 = S.per ? Math.max(tS, tE - S.per * 365.25 * 864e5) : tS; }
+    per.innerHTML = "";
+    [[1,"1A"],[3,"3A"],[5,"5A"],[10,"10A"],[0,"Máx"]].forEach(function(o){ if (o[0] && o[0] > spanY + 0.05) return; var b = h("button", S.per === o[0] ? "on" : "", o[1]); b.type = "button"; b.addEventListener("click", function(){ S.per = o[0]; $(pre + "DatesPop").hidden = true; again(); }); per.appendChild(b); });
+    var db = $(pre + "DatesBtn"); db.className = "hf2icon txt" + (S.per === "c" ? " on" : ""); db.textContent = S.per === "c" ? dES(t0) + " – " + dES(t1) : "Fechas";
+    var i0 = $(pre + "D0"), i1 = $(pre + "D1");
+    if (document.activeElement !== i0) i0.value = dISO(t0); if (document.activeElement !== i1) i1.value = dISO(t1);
+    [i0, i1].forEach(function(e){ e.min = dISO(tS); e.max = dISO(tE); e.dataset.mn = tS; e.dataset.mx = tE; });
+    return [t0, t1];
+  }
+  function perSig(S){ return S.per === "c" ? "c" + S.c0 + "-" + S.c1 : String(S.per); }
+
   /* tarjeta «Rolling»: rentabilidad anualizada o volatilidad en ventanas móviles de N años */
   function rollCard(pre){
     return '<div class="hf2card"><h3><span id="' + pre + 'RLt">Rolling</span><span class="hf2seg sm" id="' + pre + 'RLm" style="margin-left:auto"><button type="button" data-m="r">Rentabilidad</button><button type="button" data-m="v">Volatilidad</button></span><span class="hf2seg sm" id="' + pre + 'RLn"></span></h3><div class="hf2plot" id="' + pre + 'RL"></div></div>';
   }
-  function rollRender(pre, pAll, color, H, S, again){
+  function rollRender(pre, pAll, color, H, S, again, rng){
     var me = monthEnds(pAll), span = (me.length - 1) / 12, opts = [1, 3, 5, 10].filter(function(N){ return span >= N + 1; }), nb = $(pre + "RLn"), mb = $(pre + "RLm");
     if (!mb.dataset.b){ mb.dataset.b = "1"; Array.prototype.forEach.call(mb.children, function(b){ b.addEventListener("click", function(){ S.rm = b.dataset.m; again(); }); }); }
     Array.prototype.forEach.call(mb.children, function(b){ b.className = b.dataset.m === (S.rm || "r") ? "on" : ""; });
@@ -18185,7 +18224,10 @@ body.hf-dark.hf2-legacy #screen1 > *:not(#hf2Fund), body.hf-dark.hf2-legacy #scr
     if (!opts.length){ $(pre + "RLt").textContent = "Rolling"; msg(pre + "RL", "Hacen falta al menos dos años de historial."); return; }
     if (opts.indexOf(S.rn) < 0){ var good = opts.filter(function(N){ return span >= N * 1.5; }); S.rn = good.length ? good[good.length - 1] : opts[0]; }
     opts.forEach(function(N){ var b = h("button", S.rn === N ? "on" : "", N + "A"); b.type = "button"; b.addEventListener("click", function(){ S.rn = N; again(); }); nb.appendChild(b); });
-    var isV = S.rm === "v", N = S.rn, s = isV ? rollVol(me, N) : rollAnn(me, N), avg = mean(s.map(function(x){ return x[1]; })), last = s[s.length - 1];
+    var isV = S.rm === "v", N = S.rn, s = isV ? rollVol(me, N) : rollAnn(me, N);
+    if (rng){ s = s.filter(function(x){ return x[0] >= rng[0] - 20 * 864e5 && x[0] <= rng[1] + 20 * 864e5; }); }
+    if (!s.length){ $(pre + "RLt").textContent = "Rolling a " + N + (N === 1 ? " año" : " años"); msg(pre + "RL", "Ninguna ventana de " + N + (N === 1 ? " año" : " años") + " termina en el periodo elegido."); return; }
+    var avg = mean(s.map(function(x){ return x[1]; })), last = s[s.length - 1];
     $(pre + "RLt").innerHTML = (isV ? "Volatilidad" : "Rentabilidad") + " rolling a " + N + (N === 1 ? " año" : " años") + (!isV && N > 1 ? " <small>anualizada</small>" : "");
     clear(pre + "RL");
     var lo = Math.min.apply(null, s.map(function(x){ return x[1]; }).concat([0])), hi = Math.max.apply(null, s.map(function(x){ return x[1]; }).concat([0])), pad = (hi - lo || 0.05) * 0.1;
@@ -18549,9 +18591,10 @@ body.hf-dark.hf2-legacy #screen1 > *:not(#hf2Fund), body.hf-dark.hf2-legacy #scr
   function mountFund(){
     var s1 = $("screen1"); if (!s1 || $("hf2Fund")) return;
     var root = h("div", "hf2", ""); root.id = "hf2Fund";
-    root.innerHTML = '<div class="hf2bar"><div class="hf2chips" id="hf2FChips"></div><div class="hf2ctl"><div class="hf2seg" id="hf2FPer"></div>' +
+    root.innerHTML = '<div class="hf2bar"><div class="hf2chips" id="hf2FChips"></div><div class="hf2ctl">' + perMarkup("hf2F") +
       '<div class="hf2rel"><button type="button" class="hf2icon" id="hf2FMenuBtn" title="Más opciones" aria-label="Más opciones">⋯</button><div class="hf2pop" id="hf2FMenu" hidden style="right:0;top:38px"></div></div></div></div><div id="hf2FBody"></div>';
     s1.insertBefore(root, s1.firstChild);
+    perBind("hf2F", F, function(){ F.sig = ""; renderFund(); });
     $("hf2FMenuBtn").addEventListener("click", function(e){
       e.stopPropagation(); var m = $("hf2FMenu"); m.innerHTML = "";
       function item(txt, fn, admin){ var b = h("button", "it" + (admin ? " hf2-admin" : ""), txt); b.type = "button"; b.addEventListener("click", function(){ m.hidden = true; fn(); }); m.appendChild(b); }
@@ -18567,21 +18610,21 @@ body.hf-dark.hf2-legacy #screen1 > *:not(#hf2Fund), body.hf-dark.hf2-legacy #scr
     var loaded = document.body.dataset.s1 === "1" && series.length >= 2, nm = fundName();
     var isin = String(st0.sourceKey || "").split("|")[1] || ""; if (!isinOk(isin)) isin = "";
     var I = window.HF2I || { ver: 0 };
-    var sig = (loaded ? series.length + "@" + tOf(series[series.length-1]) + nm.short + isin : "0") + "#" + F.per + (F.dd || "") + (F.rm || "") + (F.rn || "") + DARK + "#" + I.ver + "#" + ($("hf2FBody") ? $("hf2FBody").clientWidth : 0);
+    var sig = (loaded ? series.length + "@" + tOf(series[series.length-1]) + nm.short + isin : "0") + "#" + perSig(F) + (F.dd || "") + (F.rm || "") + (F.rn || "") + DARK + "#" + I.ver + "#" + ($("hf2FBody") ? $("hf2FBody").clientWidth : 0);
     if (sig === F.sig) return; F.sig = sig;
     var chips = $("hf2FChips"), per = $("hf2FPer"), body = $("hf2FBody"); chips.innerHTML = "";
     if (!loaded){
-      per.style.display = "none"; $("hf2FMenuBtn").parentElement.style.display = "none";
+      per.style.display = "none"; $("hf2FDatesBtn").parentElement.style.display = "none"; $("hf2FMenuBtn").parentElement.style.display = "none";
       body.innerHTML = '<div class="hf2empty"><h2>Analiza un fondo</h2><button type="button" class="hf2add" id="hf2FEmptyAdd">Elegir fondo</button></div>';
       $("hf2FEmptyAdd").addEventListener("click", pickFund); return;
     }
-    per.style.display = ""; $("hf2FMenuBtn").parentElement.style.display = "";
+    per.style.display = ""; $("hf2FDatesBtn").parentElement.style.display = ""; $("hf2FMenuBtn").parentElement.style.display = "";
     var c = h("button", "hf2chip", '<i style="background:' + PAL[0] + '"></i><span>' + esc(nm.short) + "</span><b style='font-size:11px' aria-hidden='true'>▾</b>"); c.type = "button"; c.title = "Cambiar de fondo"; c.style.paddingRight = "8px"; c.addEventListener("click", pickFund); chips.appendChild(c);
-    var all = pts(series, -Infinity, Infinity), tEnd = all[all.length-1][0], spanY = (tEnd - all[0][0]) / 864e5 / 365.25;
-    if (F.per && F.per > spanY + 0.05) F.per = 0;
-    per.innerHTML = "";
-    [[1,"1A"],[3,"3A"],[5,"5A"],[10,"10A"],[0,"Máx"]].forEach(function(o){ if (o[0] && o[0] > spanY + 0.05) return; var b = h("button", F.per === o[0] ? "on" : "", o[1]); b.type = "button"; b.addEventListener("click", function(){ F.per = o[0]; renderFund(); }); per.appendChild(b); });
-    var t0 = F.per ? tEnd - F.per * 365.25 * 864e5 : -Infinity, p = all.filter(function(x){ return x[0] >= t0; }), st = stats(p), yr = years(series);
+    var all = pts(series, -Infinity, Infinity), rg = perRender("hf2F", F, all[0][0], all[all.length-1][0], function(){ F.sig = ""; renderFund(); }), t0 = rg[0], tEnd = rg[1];
+    var p = all.filter(function(x){ return x[0] >= t0 && x[0] <= tEnd; }); if (p.length < 2){ p = all; t0 = all[0][0]; tEnd = all[all.length-1][0]; }
+    /* años del periodo: se incluye el cierre del año anterior si cae justo antes del inicio, para no perder el primer año completo */
+    var serP = (t0 === all[0][0] && tEnd === all[all.length-1][0]) ? series : series.filter(function(x){ var t = tOf(x); return t >= t0 - 10 * 864e5 && t <= tEnd; });
+    var st = stats(p), yr = years(serP);
     var sharpe = (st.ann != null && st.vol) ? st.ann / st.vol : null;
     /* índice de referencia: no limita el periodo; si empieza más tarde, arranca a la altura del fondo */
     var ix = isin && window.HF2I ? HF2I.choice(isin) : { spec: "", src: "none" }, ip = ix.spec ? HF2I.series(ix.spec) : [], ipP = [], xs = null, cov = "", idxIt = null;
@@ -18616,8 +18659,8 @@ body.hf-dark.hf2-legacy #screen1 > *:not(#hf2Fund), body.hf-dark.hf2-legacy #scr
     var H1 = Math.max(300, Math.min(420, Math.round(window.innerHeight * 0.40))), H2 = 290;
     plotEvolution("hf2FEvo", idxIt ? [it, idxIt] : [it], H1, true);
     ddRender("hf2F", [it], true, H2 - 30, F, function(){ F.sig = ""; renderFund(); });
-    rollRender("hf2F", all, PAL[0], H2, F, function(){ F.sig = ""; renderFund(); });
-    plotVolPN("hf2FVol", series, H2);
+    rollRender("hf2F", all, PAL[0], H2, F, function(){ F.sig = ""; renderFund(); }, serP === series ? null : [t0, tEnd]);
+    plotVolPN("hf2FVol", serP, H2);
     var yy = yr.slice(-12);
     if (yy.length){
       clear("hf2FYears");
@@ -18658,7 +18701,7 @@ body.hf-dark.hf2-legacy #screen1 > *:not(#hf2Fund), body.hf-dark.hf2-legacy #scr
   function tick(){ try{ renderCmp(); }catch(e){ console.warn("[HF2] cmp", e); } try{ renderFund(); }catch(e){ console.warn("[HF2] fund", e); } try{ if (window.HF2B) HF2B.render(); }catch(e){ console.warn("[HF2] bt", e); } }
   window.HF2 = { tick: tick, state: { C: C, F: F }, setTheme: setTheme,
     lib: { $: $, esc: esc, h: h, val: val, ser: ser, tOf: tOf, dES: dES, dISO: dISO, num: num, pct: pct, clip: clip, nameParts: nameParts, pts: pts, stats: stats, years: years, yearsVol: yearsVol, spark: spark, base: base, plot: plot, msg: msg, clear: clear,
-      plotEvolution: plotEvolution, ddCard: ddCard, ddBind: ddBind, ddRender: ddRender, rollCard: rollCard, rollRender: rollRender, monthEnds: monthEnds, rollWin: rollWin, worstOf: worstOf, HZ: HZ, rgba: rgba, sw: sw, resample: resample, ddOf: ddOf, fullStats: fullStats,
+      plotEvolution: plotEvolution, ddCard: ddCard, ddBind: ddBind, ddRender: ddRender, rollCard: rollCard, rollRender: rollRender, perMarkup: perMarkup, perBind: perBind, perRender: perRender, perSig: perSig, monthEnds: monthEnds, rollWin: rollWin, worstOf: worstOf, HZ: HZ, rgba: rgba, sw: sw, resample: resample, ddOf: ddOf, fullStats: fullStats,
       th: function(){ return { PAL: PAL, INK: INK, MUT: MUT, FAINT: FAINT, HAIR: HAIR, POS: POS, NEG: NEG, SURF: SURF, ZERO: ZERO, DARK: DARK, FONT: FONT }; } } };
   function start(){ initTheme(); tick(); setInterval(tick, 300); }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start); else start();
@@ -19261,10 +19304,11 @@ body.hf-dark.hf2-legacy #screen1 > *:not(#hf2Fund), body.hf-dark.hf2-legacy #scr
     var root = h("div", "hf2", ""); root.id = "hf2Bt";
     root.innerHTML = '<div class="hf2bar"><div class="hf2chips" id="hf2BChips"></div><div class="hf2ctl">' +
       '<select class="hf2sel" id="hf2BReb" title="Rebalanceo de la cartera">' + REB.map(function(o){ return '<option value="' + o[0] + '">' + o[1] + "</option>"; }).join("") + "</select>" +
-      '<div class="hf2seg" id="hf2BPer"></div>' +
+      L.perMarkup("hf2B") +
       '<div class="hf2rel"><button type="button" class="hf2icon" id="hf2BMenuBtn" title="Más opciones" aria-label="Más opciones">⋯</button><div class="hf2pop" id="hf2BMenu" hidden style="right:0;top:38px"></div></div></div></div>' +
       '<div class="hf2hint" id="hf2BHint"></div><div id="hf2BBody"></div>';
     s3.insertBefore(root, s3.firstChild);
+    L.perBind("hf2B", B, function(){ B.sig = ""; render(); });
     $("hf2BReb").addEventListener("change", function(){ var c = $("btRebalMode"); if (c){ c.value = this.value; c.dispatchEvent(new Event("change", { bubbles: true })); } BTs().rebalMode = this.value; B.sig = ""; });
     $("hf2BMenuBtn").addEventListener("click", function(e){
       e.stopPropagation(); var m = $("hf2BMenu"); m.innerHTML = "";
@@ -19315,9 +19359,9 @@ body.hf-dark.hf2-legacy #screen1 > *:not(#hf2Fund), body.hf-dark.hf2-legacy #scr
     var T = L.th(), ix = loaded(), body = $("hf2BBody"), per = $("hf2BPer"), hint = $("hf2BHint"), reb = $("hf2BReb");
     chips(ix, T);
     var mode = BTs().rebalMode || ($("btRebalMode") && $("btRebalMode").value) || "none"; if (reb.value !== mode) reb.value = mode;
-    var sig = ix.map(function(i){ return i + ":" + (Number(BTs().weights[i]) || 0) + ":" + L.ser(BTs().funds[i]).length; }).join("|") + "#" + mode + B.per + B.dd + B.rm + B.rn + B.ymode + T.DARK + "#" + (window.HF2I ? HF2I.ver + "|" + HF2I.bt : "") + "#" + (body ? body.clientWidth : 0);
+    var sig = ix.map(function(i){ return i + ":" + (Number(BTs().weights[i]) || 0) + ":" + L.ser(BTs().funds[i]).length; }).join("|") + "#" + mode + L.perSig(B) + B.dd + B.rm + B.rn + B.ymode + T.DARK + "#" + (window.HF2I ? HF2I.ver + "|" + HF2I.bt : "") + "#" + (body ? body.clientWidth : 0);
     if (sig === B.sig) return; B.sig = sig;
-    var ctl = [per, reb, $("hf2BMenuBtn").parentElement];
+    var ctl = [per, reb, $("hf2BDatesBtn").parentElement, $("hf2BMenuBtn").parentElement];
     if (!ix.length){
       ctl.forEach(function(e){ e.style.display = "none"; }); hint.innerHTML = "";
       body.innerHTML = '<div class="hf2empty"><h2>Simula una cartera</h2><button type="button" class="hf2add" id="hf2BEmptyAdd">+ Añadir fondos</button></div>';
@@ -19328,12 +19372,9 @@ body.hf-dark.hf2-legacy #screen1 > *:not(#hf2Fund), body.hf-dark.hf2-legacy #scr
     if (!act.length || Math.abs(sumW() - 100) > 0.2){ per.innerHTML = ""; hint.innerHTML = ""; body.innerHTML = '<div class="hf2card"><div class="hf2msg">Ajusta los pesos hasta sumar 100 % para ver la cartera.</div></div>'; return; }
     var cr = null; try{ cr = btComputeCommonRange(); }catch(e){ cr = null; }
     if (!cr){ body.innerHTML = '<div class="hf2card"><div class="hf2msg">No hay periodo común entre los fondos.</div></div>'; return; }
-    var tS = +cr.start, tE = +cr.end, spanY = (tE - tS) / 864e5 / 365.25;
-    if (B.per && B.per > spanY + 0.05) B.per = 0;
-    per.innerHTML = "";
-    [[1, "1A"], [3, "3A"], [5, "5A"], [10, "10A"], [0, "Máx"]].forEach(function(o){ if (o[0] && o[0] > spanY + 0.05) return; var b = h("button", B.per === o[0] ? "on" : "", o[1]); b.type = "button"; b.addEventListener("click", function(){ B.per = o[0]; B.sig = ""; render(); }); per.appendChild(b); });
-    var d0 = B.per ? new Date(tE - B.per * 365.25 * 864e5) : cr.start, port, full;
-    try{ port = btBuildPortfolioSeriesRange(d0, cr.end, mode, Number(BTs().bandX) || 5); full = B.per ? btBuildPortfolioSeriesRange(cr.start, cr.end, mode, Number(BTs().bandX) || 5) : port; }
+    var tS = +cr.start, tE = +cr.end, rg = L.perRender("hf2B", B, tS, tE, function(){ B.sig = ""; render(); }), isFull = rg[0] === tS && rg[1] === tE, port, full;
+    /* la cartera se simula de verdad en el periodo elegido: empieza con los pesos objetivo en «Desde» */
+    try{ port = btBuildPortfolioSeriesRange(new Date(rg[0]), new Date(rg[1]), mode, Number(BTs().bandX) || 5); full = isFull ? port : btBuildPortfolioSeriesRange(cr.start, cr.end, mode, Number(BTs().bandX) || 5); }
     catch(e){ body.innerHTML = '<div class="hf2card"><div class="hf2msg">' + esc((e && e.message) || "No se ha podido calcular la cartera.") + "</div></div>"; return; }
     var p = L.pts(port, -Infinity, Infinity), pAll = L.pts(full, -Infinity, Infinity), st = L.stats(p), t0 = p[0][0], t1 = p[p.length - 1][0];
     var lim = (act.length >= 2 && (+cr.start - +cr.startNoLim) / 864e5 / 365.25 >= 0.5) ? cr.limIdx : null;
@@ -19368,8 +19409,10 @@ body.hf-dark.hf2-legacy #screen1 > *:not(#hf2Fund), body.hf-dark.hf2-legacy #scr
     $("hf2BKpis").innerHTML = (st.ann != null ? kpi("Anualizada", pct(st.ann, 1, true), st.ann < 0 ? "neg" : "pos") : "") + kpi("Acumulada", pct(st.cum, Math.abs(st.cum) >= 1 ? 0 : 1, true), st.ann == null ? (st.cum < 0 ? "neg" : "pos") : "") +
       kpi("Volatilidad", pct(st.vol, 1), "", "Anualizada, con cierres mensuales") + (sharpe != null ? kpi("Sharpe", num(sharpe, 2), "", "Rentabilidad anualizada entre volatilidad (tipo sin riesgo 0 %)") : "") +
       kpi("Máx. caída", pct(st.mdd, 1), "", "De pico a valle con cierres diarios") + kpi("vs índice", xs ? pct(xs.d, 1, true) : "—", xs && Math.abs(xs.d) >= 0.0005 ? (xs.d < 0 ? "neg" : "pos") : "", xs ? "Anualizada de la cartera (" + pct(xs.f, 1, true) + ") menos la del índice (" + pct(xs.i, 1, true) + ")" : "Sin índice o sin un año de datos en común");
-    var cart = { short: "Cartera", color: T.INK, lw: 2.8, p: p, st: st, series: full };
-    var comps = act.map(function(i){ var sr = L.ser(BTs().funds[i]), q = L.pts(sr, t0, t1); return { short: fname(i).short, color: T.PAL[i % T.PAL.length], lw: 1.3, p: q, st: L.stats(q), series: sr, w: Number(BTs().weights[i]) || 0 }; }).filter(function(c){ return c.p.length >= 2; });
+    /* si el periodo a medida empieza en los primeros días de enero, ese año cuenta entero: la cartera arranca con su valor inicial como cierre del año anterior */
+    var portY = port; if (!isFull && port.length){ var d0 = new Date(L.tOf(port[0])); if (d0.getUTCMonth() === 0 && d0.getUTCDate() <= 10){ var b0 = Object.assign({}, port[0]); b0.date = new Date(Date.UTC(d0.getUTCFullYear() - 1, 11, 31)); portY = [b0].concat(port); } }
+    var cart = { short: "Cartera", color: T.INK, lw: 2.8, p: p, st: st, series: isFull ? full : portY };
+    var comps = act.map(function(i){ var sr = L.ser(BTs().funds[i]), q = L.pts(sr, t0, t1), srP = isFull ? sr : sr.filter(function(x){ var t = L.tOf(x); return t >= t0 - 10 * 864e5 && t <= t1; }); return { short: fname(i).short, color: T.PAL[i % T.PAL.length], lw: 1.3, p: q, st: L.stats(q), series: srP, w: Number(BTs().weights[i]) || 0 }; }).filter(function(c){ return c.p.length >= 2; });
     var evo = [cart].concat(comps); if (idxIt) evo.push(idxIt);
     try{ if (typeof btBenchUsed === "function" && btBenchUsed() && typeof btBuildBenchmarkSeriesRange === "function"){ var bq = L.pts(btBuildBenchmarkSeriesRange(new Date(t0), new Date(t1), BTs().benchRebalMode || "none", Number(BTs().benchBandX) || 5), -Infinity, Infinity); if (bq.length >= 2) evo.push({ short: "Referencia de la vista clásica", color: T.FAINT, lw: 1.3, dash: "dot", p: bq, st: L.stats(bq), idx: true }); } }catch(_){ }
     var H1 = Math.max(300, Math.min(420, Math.round(window.innerHeight * 0.40))), H2 = 290;
@@ -19381,7 +19424,7 @@ body.hf-dark.hf2-legacy #screen1 > *:not(#hf2Fund), body.hf-dark.hf2-legacy #scr
       return '<div class="r"><span class="n"><i style="background:' + c.color + '"></i>' + esc(clip(c.short, 34)) + '</span><span class="b"><u style="width:' + Math.max(1, c.w) + "%;background:" + c.color + '"></u></span><b>' + num(c.w, c.w % 1 ? 1 : 0) + " %</b><em>" + pct(c.st.ann != null ? c.st.ann : c.st.cum, 1, true) + "</em></div>"; }).join("") +
       '<div class="hf2foot">A la derecha, la rentabilidad ' + (st.ann != null ? "anualizada" : "acumulada") + " de cada fondo en el periodo.</div>";
     L.ddRender("hf2B", [cart], true, H2 - 30, B, function(){ B.sig = ""; render(); });
-    L.rollRender("hf2B", pAll, T.DARK ? T.PAL[0] : T.INK, H2, B, function(){ B.sig = ""; render(); });
+    L.rollRender("hf2B", pAll, T.DARK ? T.PAL[0] : T.INK, H2, B, function(){ B.sig = ""; render(); }, isFull ? null : [t0, t1]);
   }
   window.HF2B = { render: render, state: B };
 })();

@@ -301,11 +301,48 @@
     plot(id, data, base(H, { hovermode: "x unified", annotations: items.length <= 4 ? ann : [], margin: { l: 46, r: 10, t: 8, b: 26 }, xaxis: { hoverformat: m === "d" ? "%d/%m/%Y" : "%m/%Y", nticks: 6 },
       yaxis: { tickformat: ".0%", range: [Math.min(-0.02, lo) * 1.22, 0.004], zeroline: false } }));
   }
+  /* control de periodo de Fondo y Backtest: el mismo que Comparación (pastillas 1A…Máx + «Fechas» a medida).
+     S.per = años (0 = Máx) o "c" con S.c0/S.c1 (ms). perRender devuelve [t0, t1] dentro del rango disponible. */
+  function perMarkup(pre){
+    return '<div class="hf2seg" id="' + pre + 'Per"></div><div class="hf2rel"><button type="button" class="hf2icon txt" id="' + pre + 'DatesBtn" title="Fechas a medida">Fechas</button>' +
+      '<div class="hf2pop" id="' + pre + 'DatesPop" hidden style="right:0;top:38px"><div class="dates"><label>Desde<input type="date" id="' + pre + 'D0"></label><label>Hasta<input type="date" id="' + pre + 'D1"></label></div><div class="hf2perw" id="' + pre + 'DW"></div></div></div>';
+  }
+  var PER_POPS = [];
+  function perBind(pre, S, again){
+    PER_POPS.push(pre + "DatesPop");
+    $(pre + "DatesBtn").addEventListener("click", function(e){ e.stopPropagation(); var p = $(pre + "DatesPop"); p.hidden = !p.hidden; });
+    $(pre + "DatesPop").addEventListener("click", function(e){ e.stopPropagation(); });
+    function apply(){
+      var a = $(pre + "D0").value, b = $(pre + "D1").value, w = $(pre + "DW"); if (!a || !b) return;
+      var t0 = Date.parse(a + "T00:00:00Z"), t1 = Date.parse(b + "T00:00:00Z"), mn = Number($(pre + "D0").dataset.mn), mx = Number($(pre + "D0").dataset.mx);
+      if (isFinite(mn)) t0 = Math.max(t0, mn); if (isFinite(mx)) t1 = Math.min(t1, mx);
+      if (!(t1 - t0 >= 28 * 864e5)){ w.textContent = "«Desde» tiene que ser anterior a «Hasta» (al menos un mes)."; return; }
+      w.textContent = ""; S.per = "c"; S.c0 = t0; S.c1 = t1; again();
+    }
+    [pre + "D0", pre + "D1"].forEach(function(id){ $(id).addEventListener("change", apply); });
+    if (PER_POPS.length === 1) document.addEventListener("click", function(){ PER_POPS.forEach(function(id){ var p = $(id); if (p && !p.hidden) p.hidden = true; }); });
+  }
+  function perRender(pre, S, tS, tE, again){
+    var spanY = (tE - tS) / 864e5 / 365.25, per = $(pre + "Per");
+    if (S.per !== "c" && S.per && S.per > spanY + 0.05) S.per = 0;
+    var t0, t1;
+    if (S.per === "c"){ t0 = Math.max(tS, Math.min(S.c0, tE)); t1 = Math.min(tE, Math.max(S.c1, tS)); if (!(t1 - t0 >= 28 * 864e5)){ S.per = 0; t0 = tS; t1 = tE; } }
+    else { t1 = tE; t0 = S.per ? Math.max(tS, tE - S.per * 365.25 * 864e5) : tS; }
+    per.innerHTML = "";
+    [[1,"1A"],[3,"3A"],[5,"5A"],[10,"10A"],[0,"Máx"]].forEach(function(o){ if (o[0] && o[0] > spanY + 0.05) return; var b = h("button", S.per === o[0] ? "on" : "", o[1]); b.type = "button"; b.addEventListener("click", function(){ S.per = o[0]; $(pre + "DatesPop").hidden = true; again(); }); per.appendChild(b); });
+    var db = $(pre + "DatesBtn"); db.className = "hf2icon txt" + (S.per === "c" ? " on" : ""); db.textContent = S.per === "c" ? dES(t0) + " – " + dES(t1) : "Fechas";
+    var i0 = $(pre + "D0"), i1 = $(pre + "D1");
+    if (document.activeElement !== i0) i0.value = dISO(t0); if (document.activeElement !== i1) i1.value = dISO(t1);
+    [i0, i1].forEach(function(e){ e.min = dISO(tS); e.max = dISO(tE); e.dataset.mn = tS; e.dataset.mx = tE; });
+    return [t0, t1];
+  }
+  function perSig(S){ return S.per === "c" ? "c" + S.c0 + "-" + S.c1 : String(S.per); }
+
   /* tarjeta «Rolling»: rentabilidad anualizada o volatilidad en ventanas móviles de N años */
   function rollCard(pre){
     return '<div class="hf2card"><h3><span id="' + pre + 'RLt">Rolling</span><span class="hf2seg sm" id="' + pre + 'RLm" style="margin-left:auto"><button type="button" data-m="r">Rentabilidad</button><button type="button" data-m="v">Volatilidad</button></span><span class="hf2seg sm" id="' + pre + 'RLn"></span></h3><div class="hf2plot" id="' + pre + 'RL"></div></div>';
   }
-  function rollRender(pre, pAll, color, H, S, again){
+  function rollRender(pre, pAll, color, H, S, again, rng){
     var me = monthEnds(pAll), span = (me.length - 1) / 12, opts = [1, 3, 5, 10].filter(function(N){ return span >= N + 1; }), nb = $(pre + "RLn"), mb = $(pre + "RLm");
     if (!mb.dataset.b){ mb.dataset.b = "1"; Array.prototype.forEach.call(mb.children, function(b){ b.addEventListener("click", function(){ S.rm = b.dataset.m; again(); }); }); }
     Array.prototype.forEach.call(mb.children, function(b){ b.className = b.dataset.m === (S.rm || "r") ? "on" : ""; });
@@ -313,7 +350,10 @@
     if (!opts.length){ $(pre + "RLt").textContent = "Rolling"; msg(pre + "RL", "Hacen falta al menos dos años de historial."); return; }
     if (opts.indexOf(S.rn) < 0){ var good = opts.filter(function(N){ return span >= N * 1.5; }); S.rn = good.length ? good[good.length - 1] : opts[0]; }
     opts.forEach(function(N){ var b = h("button", S.rn === N ? "on" : "", N + "A"); b.type = "button"; b.addEventListener("click", function(){ S.rn = N; again(); }); nb.appendChild(b); });
-    var isV = S.rm === "v", N = S.rn, s = isV ? rollVol(me, N) : rollAnn(me, N), avg = mean(s.map(function(x){ return x[1]; })), last = s[s.length - 1];
+    var isV = S.rm === "v", N = S.rn, s = isV ? rollVol(me, N) : rollAnn(me, N);
+    if (rng){ s = s.filter(function(x){ return x[0] >= rng[0] - 20 * 864e5 && x[0] <= rng[1] + 20 * 864e5; }); }
+    if (!s.length){ $(pre + "RLt").textContent = "Rolling a " + N + (N === 1 ? " año" : " años"); msg(pre + "RL", "Ninguna ventana de " + N + (N === 1 ? " año" : " años") + " termina en el periodo elegido."); return; }
+    var avg = mean(s.map(function(x){ return x[1]; })), last = s[s.length - 1];
     $(pre + "RLt").innerHTML = (isV ? "Volatilidad" : "Rentabilidad") + " rolling a " + N + (N === 1 ? " año" : " años") + (!isV && N > 1 ? " <small>anualizada</small>" : "");
     clear(pre + "RL");
     var lo = Math.min.apply(null, s.map(function(x){ return x[1]; }).concat([0])), hi = Math.max.apply(null, s.map(function(x){ return x[1]; }).concat([0])), pad = (hi - lo || 0.05) * 0.1;
@@ -677,9 +717,10 @@
   function mountFund(){
     var s1 = $("screen1"); if (!s1 || $("hf2Fund")) return;
     var root = h("div", "hf2", ""); root.id = "hf2Fund";
-    root.innerHTML = '<div class="hf2bar"><div class="hf2chips" id="hf2FChips"></div><div class="hf2ctl"><div class="hf2seg" id="hf2FPer"></div>' +
+    root.innerHTML = '<div class="hf2bar"><div class="hf2chips" id="hf2FChips"></div><div class="hf2ctl">' + perMarkup("hf2F") +
       '<div class="hf2rel"><button type="button" class="hf2icon" id="hf2FMenuBtn" title="Más opciones" aria-label="Más opciones">⋯</button><div class="hf2pop" id="hf2FMenu" hidden style="right:0;top:38px"></div></div></div></div><div id="hf2FBody"></div>';
     s1.insertBefore(root, s1.firstChild);
+    perBind("hf2F", F, function(){ F.sig = ""; renderFund(); });
     $("hf2FMenuBtn").addEventListener("click", function(e){
       e.stopPropagation(); var m = $("hf2FMenu"); m.innerHTML = "";
       function item(txt, fn, admin){ var b = h("button", "it" + (admin ? " hf2-admin" : ""), txt); b.type = "button"; b.addEventListener("click", function(){ m.hidden = true; fn(); }); m.appendChild(b); }
@@ -695,21 +736,21 @@
     var loaded = document.body.dataset.s1 === "1" && series.length >= 2, nm = fundName();
     var isin = String(st0.sourceKey || "").split("|")[1] || ""; if (!isinOk(isin)) isin = "";
     var I = window.HF2I || { ver: 0 };
-    var sig = (loaded ? series.length + "@" + tOf(series[series.length-1]) + nm.short + isin : "0") + "#" + F.per + (F.dd || "") + (F.rm || "") + (F.rn || "") + DARK + "#" + I.ver + "#" + ($("hf2FBody") ? $("hf2FBody").clientWidth : 0);
+    var sig = (loaded ? series.length + "@" + tOf(series[series.length-1]) + nm.short + isin : "0") + "#" + perSig(F) + (F.dd || "") + (F.rm || "") + (F.rn || "") + DARK + "#" + I.ver + "#" + ($("hf2FBody") ? $("hf2FBody").clientWidth : 0);
     if (sig === F.sig) return; F.sig = sig;
     var chips = $("hf2FChips"), per = $("hf2FPer"), body = $("hf2FBody"); chips.innerHTML = "";
     if (!loaded){
-      per.style.display = "none"; $("hf2FMenuBtn").parentElement.style.display = "none";
+      per.style.display = "none"; $("hf2FDatesBtn").parentElement.style.display = "none"; $("hf2FMenuBtn").parentElement.style.display = "none";
       body.innerHTML = '<div class="hf2empty"><h2>Analiza un fondo</h2><button type="button" class="hf2add" id="hf2FEmptyAdd">Elegir fondo</button></div>';
       $("hf2FEmptyAdd").addEventListener("click", pickFund); return;
     }
-    per.style.display = ""; $("hf2FMenuBtn").parentElement.style.display = "";
+    per.style.display = ""; $("hf2FDatesBtn").parentElement.style.display = ""; $("hf2FMenuBtn").parentElement.style.display = "";
     var c = h("button", "hf2chip", '<i style="background:' + PAL[0] + '"></i><span>' + esc(nm.short) + "</span><b style='font-size:11px' aria-hidden='true'>▾</b>"); c.type = "button"; c.title = "Cambiar de fondo"; c.style.paddingRight = "8px"; c.addEventListener("click", pickFund); chips.appendChild(c);
-    var all = pts(series, -Infinity, Infinity), tEnd = all[all.length-1][0], spanY = (tEnd - all[0][0]) / 864e5 / 365.25;
-    if (F.per && F.per > spanY + 0.05) F.per = 0;
-    per.innerHTML = "";
-    [[1,"1A"],[3,"3A"],[5,"5A"],[10,"10A"],[0,"Máx"]].forEach(function(o){ if (o[0] && o[0] > spanY + 0.05) return; var b = h("button", F.per === o[0] ? "on" : "", o[1]); b.type = "button"; b.addEventListener("click", function(){ F.per = o[0]; renderFund(); }); per.appendChild(b); });
-    var t0 = F.per ? tEnd - F.per * 365.25 * 864e5 : -Infinity, p = all.filter(function(x){ return x[0] >= t0; }), st = stats(p), yr = years(series);
+    var all = pts(series, -Infinity, Infinity), rg = perRender("hf2F", F, all[0][0], all[all.length-1][0], function(){ F.sig = ""; renderFund(); }), t0 = rg[0], tEnd = rg[1];
+    var p = all.filter(function(x){ return x[0] >= t0 && x[0] <= tEnd; }); if (p.length < 2){ p = all; t0 = all[0][0]; tEnd = all[all.length-1][0]; }
+    /* años del periodo: se incluye el cierre del año anterior si cae justo antes del inicio, para no perder el primer año completo */
+    var serP = (t0 === all[0][0] && tEnd === all[all.length-1][0]) ? series : series.filter(function(x){ var t = tOf(x); return t >= t0 - 10 * 864e5 && t <= tEnd; });
+    var st = stats(p), yr = years(serP);
     var sharpe = (st.ann != null && st.vol) ? st.ann / st.vol : null;
     /* índice de referencia: no limita el periodo; si empieza más tarde, arranca a la altura del fondo */
     var ix = isin && window.HF2I ? HF2I.choice(isin) : { spec: "", src: "none" }, ip = ix.spec ? HF2I.series(ix.spec) : [], ipP = [], xs = null, cov = "", idxIt = null;
@@ -744,8 +785,8 @@
     var H1 = Math.max(300, Math.min(420, Math.round(window.innerHeight * 0.40))), H2 = 290;
     plotEvolution("hf2FEvo", idxIt ? [it, idxIt] : [it], H1, true);
     ddRender("hf2F", [it], true, H2 - 30, F, function(){ F.sig = ""; renderFund(); });
-    rollRender("hf2F", all, PAL[0], H2, F, function(){ F.sig = ""; renderFund(); });
-    plotVolPN("hf2FVol", series, H2);
+    rollRender("hf2F", all, PAL[0], H2, F, function(){ F.sig = ""; renderFund(); }, serP === series ? null : [t0, tEnd]);
+    plotVolPN("hf2FVol", serP, H2);
     var yy = yr.slice(-12);
     if (yy.length){
       clear("hf2FYears");
@@ -786,7 +827,7 @@
   function tick(){ try{ renderCmp(); }catch(e){ console.warn("[HF2] cmp", e); } try{ renderFund(); }catch(e){ console.warn("[HF2] fund", e); } try{ if (window.HF2B) HF2B.render(); }catch(e){ console.warn("[HF2] bt", e); } }
   window.HF2 = { tick: tick, state: { C: C, F: F }, setTheme: setTheme,
     lib: { $: $, esc: esc, h: h, val: val, ser: ser, tOf: tOf, dES: dES, dISO: dISO, num: num, pct: pct, clip: clip, nameParts: nameParts, pts: pts, stats: stats, years: years, yearsVol: yearsVol, spark: spark, base: base, plot: plot, msg: msg, clear: clear,
-      plotEvolution: plotEvolution, ddCard: ddCard, ddBind: ddBind, ddRender: ddRender, rollCard: rollCard, rollRender: rollRender, monthEnds: monthEnds, rollWin: rollWin, worstOf: worstOf, HZ: HZ, rgba: rgba, sw: sw, resample: resample, ddOf: ddOf, fullStats: fullStats,
+      plotEvolution: plotEvolution, ddCard: ddCard, ddBind: ddBind, ddRender: ddRender, rollCard: rollCard, rollRender: rollRender, perMarkup: perMarkup, perBind: perBind, perRender: perRender, perSig: perSig, monthEnds: monthEnds, rollWin: rollWin, worstOf: worstOf, HZ: HZ, rgba: rgba, sw: sw, resample: resample, ddOf: ddOf, fullStats: fullStats,
       th: function(){ return { PAL: PAL, INK: INK, MUT: MUT, FAINT: FAINT, HAIR: HAIR, POS: POS, NEG: NEG, SURF: SURF, ZERO: ZERO, DARK: DARK, FONT: FONT }; } } };
   function start(){ initTheme(); tick(); setInterval(tick, 300); }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start); else start();

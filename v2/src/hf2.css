@@ -67,6 +67,8 @@ body:not(.hf2-legacy) #screen1 > *:not(#hf2Fund){ position:fixed !important; lef
 .hf2pop hr{ border:0; border-top:1px solid var(--h2-hair); margin:5px 0; }
 .hf2pop .dates{ display:flex; gap:8px; padding:8px 10px 10px; align-items:end; }
 .hf2pop .dates label{ font-size:11px; color:var(--h2-mut); display:flex; flex-direction:column; gap:4px; }
+.hf2pop .hf2perw{ font-size:11.5px; color:var(--h2-neg, #C0392B); padding:0 10px 8px; max-width:300px; }
+.hf2pop .hf2perw:empty{ display:none; }
 .hf2pop .dates input{ height:32px; border:1px solid var(--h2-line); border-radius:8px; padding:0 8px; font:inherit; font-size:13px; color:var(--h2-ink); background:var(--h2-bg); }
 .hf2rel{ position:relative; flex:none; }
 .hf2hint{ font-size:12.5px; color:var(--h2-mut); display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:-4px 0 12px; }
