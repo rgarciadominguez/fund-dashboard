@@ -20,10 +20,20 @@ rep("  window.__fdStore = store;\n", """  window.__fdStore = store;
   window.__fdLazy = fdLazyMap;
   window.__fdAddIsin = async function(isin, name, cur){   // alta en el repositorio de un fondo cargado desde Morningstar
     if (store[isin] && ((store[isin].rows || []).length >= 2 || fdIsLazy(isin))) return false;
-    const r = await dpProcessOneIsin(isin);
-    if (name && (!r.meta.name || r.meta.name === isin)) r.meta.name = name;      // el screener de Morningstar puede no responder
-    if (cur && !r.meta.currency) r.meta.currency = cur;
-    store[isin] = {meta: r.meta, rows: r.rows, updatedAt: Date.now()};
+    // ficha: el screener puede no responder (401 desde nov-2026); con tope y sin bloquear el alta
+    let meta = {isin, name: isin, category: "", assetType: "", geography: "", currency: "", issuer: "", className: ""};
+    try { meta = await Promise.race([dpFetchMeta(isin), new Promise((_, j) => setTimeout(() => j(new Error("ficha")), 12000))]); } catch(_){}
+    if (name && (!meta.name || meta.name === isin)) meta.name = name;
+    const mc = (window.MST && MST.metaCache && MST.metaCache.get(isin)) || {};
+    const ccy = [cur, meta.currency, mc.baseCurrency].map(x => String(x || "").trim().toUpperCase()).find(x => /^[A-Z]{3}$/.test(x)) || "";
+    if (ccy) meta.currency = ccy;
+    let daily = [], weekly = [], monthly = [];
+    try { daily   = await dpFetchSeries(isin, ccy, "daily");   } catch(_){}
+    try { weekly  = await dpFetchSeries(isin, ccy, "weekly");  } catch(_){}
+    try { monthly = await dpFetchSeries(isin, ccy, "monthly"); } catch(_){}
+    const rows = dpMerge(daily, weekly, monthly);
+    if (!rows.length) throw new Error("Sin histórico disponible");
+    store[isin] = {meta, rows, updatedAt: Date.now()};
     dpSyncToDatapack(); dpUpdateStats(); dpRenderFundsList();
     return true;
   };
@@ -58,6 +68,14 @@ rep("""      const results = await mstSearchLegacyAPI(tRaw, limit || 25);
   function mstWithTimeout(p, ms){
     return Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("Morningstar no responde")), ms))]);
   }""")
+# descargas del alta: cada intento con tope (la cadena de proxies públicos colgaba sin límite)
+rep("""      try{
+        const res = await fetch(u, {credentials:"omit", cache:"default"});
+        if (!res.ok){ lastErr = new Error("HTTP "+res.status); continue; }""", """      try{
+        const ctl = new AbortController(); const tmr = setTimeout(() => ctl.abort(), 9000);
+        const res = await fetch(u, {credentials:"omit", cache:"default", signal: ctl.signal});
+        clearTimeout(tmr);
+        if (!res.ok){ lastErr = new Error("HTTP "+res.status); if (u === url && res.status === 401) break; continue; }""")
 import json
 cfg = json.loads((here / "config.json").read_text(encoding="utf-8"))
 css = (here / "hf2.css").read_text(encoding="utf-8")
