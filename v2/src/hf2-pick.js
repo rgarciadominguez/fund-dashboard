@@ -31,18 +31,27 @@
         .then(function(a){ out = out.concat(a); return a.length === 1000 ? page(off + 1000) : out; }); }
       return page(0);
     }
-    Promise.all([ all("funds?select=isin,fund_group_id,broker_disponible,distribucion,divisa,divisa_hedge_bool,clasificacion_user&order=isin"),
-                  all("fund_groups?select=fund_group_id,gestora,tipo_activo,geografia,categoria_rf,plazo,srri,caracteristicas_especiales,clasificacion_user_default&order=fund_group_id") ])
+    Promise.all([ all("funds?select=isin,fund_group_id,broker_disponible,distribucion,divisa,divisa_hedge_bool,clasificacion_user,ter_pct,comision_gestion_pct,benchmark&order=isin"),
+                  all("fund_groups?select=fund_group_id,gestora,tipo_activo,geografia,categoria_rf,plazo,srri,caracteristicas_especiales,clasificacion_user_default,aum_meur,categoria_morningstar,tema_sector&order=fund_group_id") ])
       .then(function(r){
         var g = {}; r[1].forEach(function(x){ g[x.fund_group_id] = x; });
         r[0].forEach(function(f){
           var G = g[f.fund_group_id] || {};
           TAX.by[f.isin] = { tipo: TIPO[norm(String(G.tipo_activo || "").replace(/_/g, " "))] || "", geo: GEO[norm(G.geografia)] || (G.geografia || ""), rf: G.categoria_rf || "", plazo: plazos(G.plazo),
             srri: G.srri || null, car: list(G.caracteristicas_especiales), brokers: list(f.broker_disponible), dist: f.distribucion || "", gestora: G.gestora || "",
-            clas: f.clasificacion_user || G.clasificacion_user_default || "", divisa: f.divisa ? String(f.divisa).toUpperCase() + (f.divisa_hedge_bool ? " cubierta" : "") : "" };
+            clas: f.clasificacion_user || G.clasificacion_user_default || "", divisa: f.divisa ? String(f.divisa).toUpperCase() + (f.divisa_hedge_bool ? " cubierta" : "") : "",
+            ter: num(f.ter_pct), cg: num(f.comision_gestion_pct), bmk: f.benchmark || "", aum: num(G.aum_meur), catms: G.categoria_morningstar || "", tema: G.tema_sector || "" };
         });
-        TAX.state = 2; P.rows = null; if (P.open) render();
+        TAX.state = 2; P.rows = null; if (P.open) render(); if (window.HF2I) HF2I.bump();
       }).catch(function(e){ TAX.state = 3; console.warn("[buscador] sin taxonomía del catálogo; se usa la ficha del repositorio", e); if (P.open) render(); });
+  }
+  function num(x){ var v = x == null || x === "" ? NaN : Number(x); return isFinite(v) ? v : null; }
+  /* datos de ficha para las tablas (catálogo; si el fondo no está, lo que diga la ficha del repositorio) */
+  function info(isin){
+    if (!isin) return null;
+    if (TAX.by[isin]) return TAX.by[isin];
+    var f = window.__fdStore && window.__fdStore[isin];
+    return f && f.meta ? fromMeta(isin, f.meta) : null;
   }
   function fromMeta(isin, m){
     var o = { tipo: "", geo: "", rf: "", plazo: [], car: [], brokers: [], clas: "", divisa: "", gestora: m.gestora || "", dist: "" };
@@ -270,7 +279,8 @@
     }, 280);
   }
 
-  window.HF2P = { open: open, close: close, state: P, tax: TAX };
+  setTimeout(loadTax, 50);   // la ficha (TER, patrimonio, índice) la usan también las tablas
+  window.HF2P = { open: open, close: close, state: P, tax: TAX, info: info, ready: function(){ return TAX.state >= 2; } };
   /* cualquier «Elegir fondo» o «Morningstar» de la aplicación abre este buscador */
   function hook(){
     try{ window.repoPickerOpen = function(ctx){ open(Object.assign({ fixed: ctx && ctx.slot != null }, ctx || { kind: "screen1" })); }; }catch(_){ }

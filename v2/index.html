@@ -13691,6 +13691,19 @@ async function mstDoSearch(){
   window.__fdSaveDirty = () => fdSaveDirty();
   window.__fdStore = store;
   window.__fdLazy = fdLazyMap;
+  // escribe UN campo de la ficha (meta) de un fondo: lee la ficha de la nube, añade el campo y la devuelve; la serie no se toca
+  window.__fdSaveMeta = async function(isin, field, value){
+    const filtro = "/rest/v1/funds?isin=eq." + encodeURIComponent(isin);
+    const r0 = await sbFetch(SB_URL + filtro.replace("?", "?select=meta&"), {headers: SB_HDR()});
+    if (!r0.ok) throw new Error("la nube respondió " + r0.status);
+    const cur = await r0.json();
+    if (!cur.length) throw new Error("el fondo no está en el repositorio");
+    const meta = Object.assign({}, cur[0].meta || {}); meta[field] = value;
+    const r = await sbFetch(SB_URL + filtro, {method: "PATCH", headers: Object.assign(SB_HDR(), {"Prefer": "return=minimal"}), body: JSON.stringify({meta})});
+    if (!r.ok) throw new Error("la nube respondió " + r.status);
+    if (store[isin]){ store[isin].meta = meta; fdSigMap().set(isin, fdSig(isin)); }
+    return true;
+  };
   window.__fdAddIsin = async function(isin, name, cur){   // alta en el repositorio de un fondo cargado desde Morningstar
     if (store[isin] && ((store[isin].rows || []).length >= 2 || fdIsLazy(isin))) return false;
     // ficha: el screener puede no responder (401 desde nov-2026); con tope y sin bloquear el alta
@@ -13994,7 +14007,8 @@ async function mstDoSearch(){
         rollingB: rollB,
         cmpHorizon: ($('cmpHorizon')||{}).value || '3',
         cmpFreq:    ($('cmpFreq')||{}).value || 'daily',
-        hiddenIsins: (window.HF && HF.hiddenIsins) ? HF.hiddenIsins() : []
+        hiddenIsins: (window.HF && HF.hiddenIsins) ? HF.hiddenIsins() : [],
+        hf2Idx: window.HF2I ? HF2I.exportState() : null
       }
     };
   }
@@ -14003,6 +14017,7 @@ async function mstDoSearch(){
     const data = analysis.data || { funds: analysis.funds, settings: analysis.settings };
     const funds = data.funds || [];
     const settings = data.settings || {};
+    try{ if (window.HF2I && settings.hf2Idx) HF2I.importState(settings.hf2Idx); }catch(_){ }
 
     if (!window.DATAPACK || !window.DATAPACK.loaded){
       alert('Primero carga el datapack del repositorio desde la pestaña Fondo.');
@@ -14513,7 +14528,8 @@ async function mstDoSearch(){
         rebalMode:     (($('btRebalMode')||{}).value) || (BTref.rebalMode || 'none'),
         bandX:         Number(($('btBandX')||{}).value || BTref.bandX || 5),
         benchRebalMode:(($('btBenchRebalMode')||{}).value) || (BTref.benchRebalMode || 'none'),
-        benchBandX:    Number(($('btBenchBandX')||{}).value || BTref.benchBandX || 5)
+        benchBandX:    Number(($('btBenchBandX')||{}).value || BTref.benchBandX || 5),
+        hf2Idx: window.HF2I ? HF2I.exportState() : null
       }
     };
   }
@@ -14523,6 +14539,7 @@ async function mstDoSearch(){
     const funds = data.funds || [];
     const benchFunds = data.benchFunds || [];
     const settings = data.settings || {};
+    try{ if (window.HF2I && settings.hf2Idx) HF2I.importState(settings.hf2Idx); }catch(_){ }
 
     if (!window.DATAPACK || !window.DATAPACK.loaded){
       alert('Primero carga el datapack del repositorio desde la pestaña Fondo.');
@@ -17765,6 +17782,91 @@ body.hf-cliente .hf2{ max-width:1560px; }
 
 /* ---- vista clásica en tema oscuro: se queda como una isla clara (no está rediseñada) ---- */
 body.hf-dark.hf2-legacy #screen1 > *:not(#hf2Fund), body.hf-dark.hf2-legacy #screen2 > *:not(#hf2Cmp), body.hf-dark.hf2-legacy #screen3 > *:not(#hf2Bt){ background:#F6F7FA; color-scheme:light; border-radius:14px; }
+/* ===== ronda 4: leyenda, caídas por frecuencia, índice de referencia, ejes ===== */
+.hf2icon.txt.on{ background:var(--h2-ink); color:var(--h2-card); border-color:var(--h2-ink); }
+.hf2leg{ display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap; margin:6px 2px 0; }
+.hf2leg .its{ display:flex; flex-wrap:wrap; gap:4px 6px; }
+.hf2leg .it{ display:inline-flex; align-items:flex-start; gap:7px; border:0; background:transparent; padding:4px 8px 4px 6px; border-radius:8px; cursor:pointer; text-align:left; font:inherit; color:var(--h2-ink); }
+.hf2leg span.it{ cursor:default; }
+.hf2leg button.it:hover{ background:var(--h2-hover); }
+.hf2leg .it > i{ width:10px; height:10px; border-radius:50%; flex:none; margin-top:4px; }
+.hf2leg .it svg{ flex:none; margin-top:5px; }
+.hf2leg .it > span{ display:flex; flex-direction:column; line-height:1.25; }
+.hf2leg .it b{ font-size:12.5px; font-weight:600; white-space:nowrap; }
+.hf2leg .it small{ font-size:11px; color:var(--h2-faint); font-weight:500; }
+.hf2leg .it.off{ opacity:.42; } .hf2leg .it.off b{ text-decoration:line-through; text-decoration-color:var(--h2-faint); }
+.hf2leg .it.lim small{ color:var(--h2-warn); font-weight:700; }
+.hf2leg .it.ix b{ color:var(--h2-mut); font-weight:500; }
+.hf2leg .nt{ font-size:12px; color:var(--h2-mut); margin-left:auto; text-align:right; padding-top:5px; max-width:560px; }
+.hf2leg .nt b{ color:var(--h2-ink); font-weight:600; }
+.hf2leg .nt button{ border:0; background:transparent; color:var(--h2-blue); font:600 12px var(--h2-sans); cursor:pointer; padding:0 0 0 4px; }
+.hf2leg .nt .w, .hf2card h3 .w{ display:block; color:var(--h2-warn); font-size:11.5px; margin-top:2px; }
+.hf2card h3 small .w{ display:inline; }
+.hf2dsh{ display:inline-block; width:16px; border-top:2px dashed var(--h2-mut); vertical-align:middle; }
+.hf2ddw{ display:flex; gap:12px; align-items:stretch; }
+.hf2ddw > .hf2plot{ flex:1; min-width:0; }
+.hf2dds{ flex:none; display:flex; flex-direction:column; justify-content:center; gap:2px; }
+.hf2dds.one{ width:178px; }
+.hf2dds.one .r{ display:grid; grid-template-columns:1fr auto; align-items:baseline; gap:0 8px; border:0; background:transparent; text-align:left; padding:6px 9px; border-radius:9px; cursor:pointer; font:inherit; color:var(--h2-ink); }
+.hf2dds.one .r:hover{ background:var(--h2-hover); }
+.hf2dds.one .r.on{ background:var(--h2-ctl); }
+.hf2dds.one .r span{ font-size:10.5px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--h2-faint); }
+.hf2dds.one .r b{ font-size:16px; font-weight:700; color:var(--h2-neg); text-align:right; }
+.hf2dds.one .r small{ grid-column:1 / -1; font-size:11px; color:var(--h2-faint); }
+.hf2dds.many{ width:250px; }
+.hf2dds.many table{ border-collapse:collapse; width:100%; font-size:12px; }
+.hf2dds.many th{ font-size:10px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--h2-faint); text-align:right; padding:3px 5px; cursor:pointer; }
+.hf2dds.many th.on, .hf2dds.many td.on{ background:var(--h2-ctl); }
+.hf2dds.many th.on{ border-radius:6px 6px 0 0; color:var(--h2-ink); }
+.hf2dds.many td{ text-align:right; padding:4px 5px; color:var(--h2-ink); white-space:nowrap; }
+.hf2dds.many td:first-child{ text-align:left; color:var(--h2-body); max-width:110px; overflow:hidden; text-overflow:ellipsis; }
+.hf2dds.many td i{ display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:5px; }
+.hf2idxrow{ display:flex; align-items:center; gap:8px; margin-top:8px; font-size:12px; color:var(--h2-faint); }
+.hf2idxrow > span{ font-size:10.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; }
+.hf2idxb{ display:inline-flex; align-items:center; gap:6px; height:28px; padding:0 10px; border-radius:8px; border:1px solid var(--h2-line); background:var(--h2-card); color:var(--h2-ink); font:600 12.5px var(--h2-sans); cursor:pointer; }
+.hf2idxb:hover{ border-color:var(--h2-edge); }
+.hf2idxb i{ width:14px; border-top:2px dashed var(--h2-mut); }
+.hf2idxb em{ font-style:normal; font-size:10.5px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--h2-warn); background:rgba(201,164,106,.16); padding:1px 5px; border-radius:5px; }
+.hf2idxb > span{ color:var(--h2-faint); font-size:10px; }
+.hf2tbl td.idx{ padding:4px 6px; }
+.hf2idxc{ display:inline-flex; flex-direction:column; align-items:flex-end; border:0; background:transparent; cursor:pointer; padding:3px 6px; border-radius:7px; font:inherit; line-height:1.2; }
+.hf2idxc:hover{ background:var(--h2-hover); }
+.hf2idxc b{ font-weight:600; font-size:13px; }
+.hf2idxc b.pos{ color:var(--h2-pos); } .hf2idxc b.neg{ color:var(--h2-neg); } .hf2idxc b.mut{ color:var(--h2-faint); }
+.hf2idxc small{ font-size:10.5px; color:var(--h2-faint); white-space:nowrap; }
+.hf2tbl td.idx.best .hf2idxc{ background:var(--h2-bestbg); }
+.hf2idxpop{ width:340px; max-height:430px; overflow:auto; }
+.hf2idxpop button.it{ justify-content:space-between; padding:6px 10px; font-size:13px; }
+.hf2idxpop button.it > span{ display:flex; flex-direction:column; }
+.hf2idxpop button.it small{ font-size:11px; color:var(--h2-faint); }
+.hf2idxpop button.it em{ font-style:normal; color:var(--h2-blue); font-weight:700; }
+.hf2idxpop button.it.on{ background:var(--h2-hover); }
+.hf2idxpop h6 small{ text-transform:none; letter-spacing:0; font-weight:500; }
+.hf2mix{ padding:2px 10px 6px; }
+.hf2mix .r{ display:flex; align-items:center; gap:6px; margin-bottom:5px; }
+.hf2mix select{ flex:1; min-width:0; height:28px; border:1px solid var(--h2-line); border-radius:7px; background:var(--h2-bg); color:var(--h2-ink); font:12px var(--h2-sans); }
+.hf2mix input{ width:52px; height:28px; border:1px solid var(--h2-line); border-radius:7px; background:var(--h2-bg); color:var(--h2-ink); font:12.5px var(--h2-sans); text-align:right; padding:0 6px; }
+.hf2mix em{ font-style:normal; color:var(--h2-mut); font-size:12px; }
+.hf2mix b{ cursor:pointer; color:var(--h2-faint); padding:0 4px; }
+.hf2mix .f{ display:flex; align-items:center; gap:10px; font-size:12px; }
+.hf2mix .f .ok{ color:var(--h2-pos); font-weight:600; } .hf2mix .f .bad{ color:var(--h2-neg); font-weight:600; }
+.hf2mix .lnk{ border:0; background:transparent; color:var(--h2-blue); font:600 12px var(--h2-sans); cursor:pointer; padding:0; }
+.hf2mix .go{ margin-left:auto; height:28px; padding:0 12px; border:0; border-radius:7px; background:var(--h2-blue); color:#fff; font:600 12px var(--h2-sans); cursor:pointer; }
+.hf2mix .go:disabled{ opacity:.4; cursor:default; }
+.hf2axes{ margin-left:auto; display:flex; align-items:center; gap:10px; font-size:11px; font-weight:600; color:var(--h2-faint); text-transform:none; letter-spacing:0; }
+.hf2axes label{ display:flex; align-items:center; gap:5px; }
+.hf2sel.sm{ height:24px; font-size:11.5px; padding:0 4px; border-radius:7px; max-width:190px; }
+.hf2tbl .nm.two > span{ display:flex; flex-direction:column; line-height:1.25; min-width:0; }
+.hf2tbl .nm.two b{ white-space:nowrap; }
+.hf2tbl .nm.two small{ margin-left:0; font-size:11px; }
+.hf2dds.many{ width:270px; } .hf2dds.many table{ table-layout:fixed; } .hf2dds.many td:first-child{ width:104px; }
+.hf2dds.many.big{ width:100%; } .hf2dds.many.big td:first-child{ width:auto; max-width:none; }
+.hf2dds.many.big th, .hf2dds.many.big td{ padding:7px 8px; font-size:12.5px; }
+.hf2dds.many.big td.on{ position:relative; width:30%; text-align:left; }
+.hf2dds.many.big td.on u{ display:inline-block; height:9px; border-radius:3px; vertical-align:middle; margin-right:8px; max-width:calc(100% - 60px); }
+.hf2dds.many.big td.on span{ font-weight:700; }
+.hf2dds.many td span{ white-space:nowrap; }
+.hf2dds.many.big table{ table-layout:auto; }
 
 </style>
 <script id="hf2-layer">
@@ -17797,7 +17899,7 @@ body.hf-dark.hf2-legacy #screen1 > *:not(#hf2Fund), body.hf-dark.hf2-legacy #scr
   function dES(t){ var d = new Date(t); return String(d.getUTCDate()).padStart(2,"0") + "/" + String(d.getUTCMonth()+1).padStart(2,"0") + "/" + d.getUTCFullYear(); }
   function dISO(t){ return new Date(t).toISOString().slice(0,10); }
   function num(x, d){ return x.toFixed(d).replace(".", ","); }
-  function pct(x, d, sign){ if (x == null || !isFinite(x)) return "—"; var s = num(Math.abs(x)*100, d == null ? 1 : d) + "%"; return (x < 0 ? "−" : (sign ? "+" : "")) + s; }
+  function pct(x, d, sign){ if (x == null || !isFinite(x)) return "—"; var dd = d == null ? 1 : d, s = num(Math.abs(x)*100, dd) + "%"; if (Number(num(Math.abs(x)*100, dd).replace(",", ".")) === 0) return s; return (x < 0 ? "−" : (sign ? "+" : "")) + s; }
   function titleCase(s){
     if (s !== s.toUpperCase() || s.length < 8) return s;
     return s.toLowerCase().replace(/(^|[\s\-\/(])([a-záéíóúñ])([a-záéíóúñ]*)/g, function(m, a, b, c){ var w = b + c; return a + (w.length <= 2 && !/^(de|la|el|y|en)$/.test(w) ? w.toUpperCase() : b.toUpperCase() + c); })
@@ -17878,7 +17980,7 @@ body.hf-dark.hf2-legacy #screen1 > *:not(#hf2Fund), body.hf-dark.hf2-legacy #scr
   function plotEvolution(id, items, height, single){
     clear(id);
     var lo = 0, hi = 0;
-    items.forEach(function(it){ it.g = down(it.p, 900).map(function(x){ return [x[0], x[1]/it.p[0][1] - 1]; }); it.g.forEach(function(x){ if (x[1] < lo) lo = x[1]; if (x[1] > hi) hi = x[1]; }); it.end = it.g[it.g.length-1][1];
+    items.forEach(function(it){ var o = 1 + (it.off || 0); it.g = down(it.p, 900).map(function(x){ return [x[0], o * x[1]/it.p[0][1] - 1]; }); it.g.forEach(function(x){ if (x[1] < lo) lo = x[1]; if (x[1] > hi) hi = x[1]; }); it.end = it.g[it.g.length-1][1];
       var dd = (it.p[it.p.length-1][0] - it.p[0][0]) / 864e5; it.lab = dd >= 360 ? Math.pow(1 + it.end, 365.25 / dd) - 1 : null; });
     var useLog = hi > 3, T = function(r){ return useLog ? Math.log10(1 + r) : r; };
     lo = T(lo); hi = T(hi);
@@ -17890,17 +17992,19 @@ body.hf-dark.hf2-legacy #screen1 > *:not(#hf2Fund), body.hf-dark.hf2-legacy #scr
     if (under > 0){ ys[ys.length-1] += under; for (i = ys.length-2; i >= 0; i--) if (ys[i] < ys[i+1] + gap) ys[i] = ys[i+1] + gap; }
     var data = order.map(function(it){
       var t = { type: "scatter", mode: "lines", name: clip(it.short, 34), x: it.g.map(function(x){ return dISO(x[0]); }), y: it.g.map(function(x){ return useLog ? 1 + x[1] : x[1]; }), customdata: it.g.map(function(x){ return x[1]; }),
-        line: { color: it.color, width: it.lw || (single ? 2.2 : 2), shape: "linear", dash: it.dash ? "dash" : "solid" }, hovertemplate: "%{customdata:+.1%}" };
-      if (single){ t.fill = "tozeroy"; t.fillcolor = rgba(PAL[0], DARK ? 0.14 : 0.08); }
+        line: { color: it.color, width: it.lw || (single ? 2.2 : 2), shape: "linear", dash: it.dash ? (typeof it.dash === "string" ? it.dash : "dash") : "solid" }, hovertemplate: "%{customdata:+.1%}" };
+      if (single && !it.idx){ t.fill = "tozeroy"; t.fillcolor = rgba(PAL[0], DARK ? 0.14 : 0.08); }
+      if (it.idx) t.hovertemplate = "%{customdata:+.1%} <span style='color:" + MUT + "'>índice</span>";
       return t;
     });
     var ann = order.map(function(it, k){
+      if (it.idx && it.off) return null;   // índice que empieza más tarde: su anualizada no es comparable
       return { xref: "paper", x: 1, xanchor: "left", xshift: 8, yref: "y", y: ys[k], yanchor: "middle", showarrow: false, align: "left",
-               text: "<b>" + (it.lab != null ? pct(it.lab, 1, true) + "</b> anual" : pct(it.end, 1, true) + "</b>") + (single ? "" : "  " + esc(clip(it.short, 22))), font: { family: FONT, size: 12, color: it.color } };
+               text: "<b>" + (it.lab != null ? pct(it.lab, 1, true) + "</b>" + (single && !it.idx ? " anual" : "") : pct(it.end, 1, true) + "</b>"), font: { family: FONT, size: 12, color: it.color } };
     });
     var last = order.map(function(it){ return { type: "scatter", mode: "markers", x: [dISO(it.g[it.g.length-1][0])], y: [useLog ? 1 + it.end : it.end], marker: { color: it.color, size: 7, line: { color: SURF, width: 1.5 } }, hoverinfo: "skip" }; });
     plot(id, data.concat(last), base(height, {
-      margin: { l: 50, r: single ? 96 : 236, t: 8, b: 26 }, hovermode: "x unified", annotations: ann,
+      margin: { l: 50, r: single ? 96 : 66, t: 8, b: 26 }, hovermode: "x unified", annotations: ann.filter(Boolean),
       xaxis: { hoverformat: "%d/%m/%Y", nticks: 9, showspikes: true, spikemode: "across", spikecolor: ZERO, spikethickness: 1, spikedash: "solid", spikesnap: "cursor" },
       yaxis: useLog ? (function(){ var tv = [0.25,0.5,1,2,3,6,11,21,51,101,201].filter(function(f){ var u = Math.log10(f); return u >= lo && u <= hi; });
           return { type: "log", range: [lo, hi], tickmode: "array", tickvals: tv, ticktext: tv.map(function(f){ return f === 1 ? "0%" : pct(f - 1, 0, true); }), zeroline: false }; })()
@@ -17956,12 +18060,27 @@ body.hf-dark.hf2-legacy #screen1 > *:not(#hf2Fund), body.hf-dark.hf2-legacy #scr
   var HZ = { d: { days: 0, L: "Peor día", t: "un día" }, m: { days: 30.44, L: "Peor mes", t: "un mes" }, y: { days: 365.25, L: "Peor 12 meses", t: "12 meses" } };
   function rollAnn(me, N){ var o = [], w = 12 * N; for (var i = w; i < me.length; i++) o.push([me[i][0], Math.pow(me[i][1] / me[i-w][1], 1 / N) - 1]); return o; }
   function rollVol(me, N){ var r = [], o = [], w = 12 * N; for (var i = 1; i < me.length; i++) r.push(me[i][1] / me[i-1][1] - 1); for (i = w; i <= r.length; i++) o.push([me[i][0], sd(r.slice(i - w, i)) * Math.sqrt(12)]); return o; }
-  function fullStats(series){     // medidas con TODO el historial del fondo (no solo el periodo común)
+  /* medidas con TODO el historial del fondo (no solo el periodo común). Definiciones:
+     ann = anualizada desde el primer dato; vol = desviación de las rentabilidades mensuales × √12 desde el inicio;
+     mddM = máx. caída de pico a valle con cierres de fin de mes; sharpe = ann / vol (tipo sin riesgo 0 %);
+     sh5 = media del Sharpe de todas las ventanas de 5 años (paso mensual); rN = media de la anualizada en ventanas de N años;
+     vN = media de la volatilidad en ventanas de N años; ddN(f) = máx. caída en los últimos N años con cierres de frecuencia f. */
+  function fullStats(series){
     var p = pts(series, -Infinity, Infinity); if (p.length < 2) return null;
-    var st = stats(p), me = monthEnds(p), w = {};
-    Object.keys(HZ).forEach(function(k){ w[k] = worstOf(rollWin(p, HZ[k].days)); });
+    var st = stats(p), me = monthEnds(p);
     function rm(N){ var a = rollAnn(me, N); return a.length ? mean(a.map(function(x){ return x[1]; })) : null; }
-    return { t0: p[0][0], ann: st.ann, vol: st.vol, mdd: st.mdd, sharpe: (st.ann != null && st.vol) ? st.ann / st.vol : null, w: w, r3: rm(3), r5: rm(5), r10: rm(10) };
+    function vm(N){ var a = rollVol(me, N); return a.length ? mean(a.map(function(x){ return x[1]; })) : null; }
+    var ra5 = rollAnn(me, 5), rv5 = rollVol(me, 5), sh = [];
+    for (var i = 0; i < Math.min(ra5.length, rv5.length); i++) if (rv5[i][1] > 0) sh.push(ra5[i][1] / rv5[i][1]);
+    var lastT = p[p.length - 1][0], memo = {};
+    function ddN(N, f){
+      var key = N + f; if (key in memo) return memo[key];
+      var q = p;
+      if (N){ var cut = lastT - N * 365.25 * 864e5; if (p[0][0] > cut + 31 * 864e5) return (memo[key] = null); q = p.filter(function(x){ return x[0] >= cut; }); }
+      return (memo[key] = q.length >= 2 ? ddOf(resample(q, f)).mdd : null);
+    }
+    return { t0: p[0][0], ann: st.ann, vol: st.vol, mdd: st.mdd, mddM: ddOf(resample(p, "m")).mdd, sharpe: (st.ann != null && st.vol) ? st.ann / st.vol : null, sh5: sh.length ? mean(sh) : null,
+             r3: rm(3), r5: rm(5), r10: rm(10), v3: vm(3), v5: vm(5), v10: vm(10), ddN: ddN, p: p };
   }
   function downMin(w, n){ if (w.length <= n) return w; var k = Math.ceil(w.length / n), o = []; for (var i = 0; i < w.length; i += k){ var b = w[i]; for (var j = i + 1; j < Math.min(w.length, i + k); j++) if (w[j][1] < b[1]) b = w[j]; o.push(b); } return o; }
   function hbar(id, o, vals, height, word){
@@ -17991,25 +18110,68 @@ body.hf-dark.hf2-legacy #screen1 > *:not(#hf2Fund), body.hf-dark.hf2-legacy #scr
     plot(id, data, base(height, { hovermode: "x unified", annotations: ann, xaxis: { hoverformat: "Entrando el %d/%m/%Y", nticks: 7 },
       yaxis: { tickformat: "+.0%", range: [lo * 1.3, single ? Math.min(hi, -lo * 0.3) : -lo * 0.03] } }));
   }
-  /* tarjeta «Caídas»: pérdida en ventana móvil a 12 meses / mes / día, o la clásica desde máximos */
-  var DDM = [["y", "12 meses"], ["m", "Mes"], ["d", "Día"], ["x", "Desde máximos"]];
+  /* tarjeta «Caídas desde máximos»: siempre de pico a valle; el conmutador cambia la frecuencia de los cierres
+     (todos / fin de mes / fin de trimestre / fin de año). Cada serie remuestreada es un subconjunto de la diaria,
+     así que la caída diaria ≥ mensual ≥ trimestral ≥ anual. */
+  var DDF = [["d", "Diario", "Diaria", "todos los cierres"], ["m", "Mensual", "Mensual", "cierres de fin de mes"], ["q", "Trimestral", "Trimestral", "cierres de fin de trimestre"], ["a", "Anual", "Anual", "cierres de fin de año"]];
+  function resample(p, f){
+    if (f === "d" || p.length < 2) return p;
+    var o = [p[0]], k = null;
+    for (var i = 1; i < p.length; i++){
+      var d = new Date(p[i][0]), y = d.getUTCFullYear(), m = d.getUTCMonth(), kk = f === "m" ? y * 12 + m : f === "q" ? y * 4 + Math.floor(m / 3) : y;
+      if (kk === k) o[o.length - 1] = p[i]; else { o.push(p[i]); k = kk; }
+    }
+    return o;
+  }
+  function ddOf(q){
+    var pk = -Infinity, tp = null, m = 0, a = null, b = null, c = [];
+    q.forEach(function(x){ if (x[1] > pk){ pk = x[1]; tp = x[0]; } var d = x[1] / pk - 1; c.push([x[0], d]); if (d < m){ m = d; a = tp; b = x[0]; } });
+    return { mdd: m, tP: a, tV: b, c: c };
+  }
+  function ddAll(p){ var o = {}; DDF.forEach(function(f){ o[f[0]] = ddOf(resample(p, f[0])); }); return o; }
   function ddCard(pre){
-    return '<div class="hf2card"><h3>Caídas <small id="' + pre + 'DDs"></small><span class="hf2seg sm" id="' + pre + 'DDm" style="margin-left:auto">' +
-      DDM.map(function(o){ return '<button type="button" data-m="' + o[0] + '">' + o[1] + "</button>"; }).join("") + '</span></h3><div class="hf2mini" id="' + pre + 'DDk"></div><div class="hf2plot" id="' + pre + 'DD"></div></div>';
+    return '<div class="hf2card"><h3>Caídas desde máximos <small id="' + pre + 'DDs"></small><span class="hf2seg sm" id="' + pre + 'DDm" style="margin-left:auto">' +
+      DDF.map(function(o){ return '<button type="button" data-m="' + o[0] + '">' + o[1] + "</button>"; }).join("") + '</span></h3><div class="hf2ddw"><div class="hf2plot" id="' + pre + 'DD"></div><div class="hf2dds" id="' + pre + 'DDk"></div></div></div>';
   }
   function ddBind(pre, S, again){ Array.prototype.forEach.call($(pre + "DDm").children, function(b){ b.addEventListener("click", function(){ S.dd = b.dataset.m; again(); }); }); }
-  function ddRender(pre, items, single, H, S){
-    var m = S.dd || "y";
+  function sd2(t){ return t == null ? "" : dES(t).slice(0, 6) + dES(t).slice(8); }
+  function ddRender(pre, items, single, H, S, again){
+    var m = S.dd; if (!DDF.some(function(f){ return f[0] === m; })) m = S.dd = "m";
+    var F0 = DDF.filter(function(f){ return f[0] === m; })[0];
     Array.prototype.forEach.call($(pre + "DDm").children, function(b){ b.className = b.dataset.m === m ? "on" : ""; });
-    $(pre + "DDs").textContent = m === "x" ? "desde el máximo anterior" : "resultado de entrar cualquier día y mantener " + HZ[m].t;
+    $(pre + "DDs").textContent = F0[3];
+    items.forEach(function(it){ it.dda = ddAll(it.p); });
     var k = $(pre + "DDk");
     if (single){
-      var p = items[0].p, cell = function(l, v, t){ return "<div" + (t ? ' title="' + esc(t) + '"' : "") + "><span>" + l + "</span><b>" + v + "</b></div>"; };
-      k.innerHTML = Object.keys(HZ).map(function(h){ var w = worstOf(rollWin(p, HZ[h].days)); return cell(HZ[h].L, w ? pct(Math.min(w.r, 0), 1) : "—", w ? "Entrando el " + dES(w.tIn) : "Sin historial suficiente"); }).join("") +
-        cell("Máx. caída desde máximos", pct(items[0].st.mdd, 1), "De pico a valle, el " + dES(items[0].st.mddT));
-      k.style.display = "";
-    } else { k.innerHTML = ""; k.style.display = "none"; }
-    if (m === "x") plotDrawdown(pre + "DD", items, H, single); else plotLoss(pre + "DD", items, H, single, m);
+      var d = items[0].dda;
+      k.className = "hf2dds one";
+      k.innerHTML = DDF.map(function(f){ var x = d[f[0]]; return '<button type="button" class="r' + (f[0] === m ? " on" : "") + '" data-m="' + f[0] + '"><span>' + f[2] + "</span><b>" + pct(x.mdd, 1) + "</b><small>" + (x.tP != null && x.mdd < 0 ? sd2(x.tP) + " a " + sd2(x.tV) : "sin caídas") + "</small></button>"; }).join("");
+    } else {
+      /* con más de 4 fondos, solo la tabla (barra en la frecuencia elegida); con menos, curvas + tabla al lado */
+      var big = items.length > 4, worst = Math.min.apply(null, items.map(function(it){ return it.dda[m].mdd; }).concat([-0.01]));
+      k.className = "hf2dds many" + (big ? " big" : "");
+      var rows = big ? items.slice().sort(function(a, b){ return a.dda[m].mdd - b.dda[m].mdd; }) : items;
+      k.innerHTML = '<table><thead><tr><th></th>' + DDF.map(function(f){ return '<th class="' + (f[0] === m ? "on" : "") + '" data-m="' + f[0] + '" title="' + f[3] + '">' + (big ? f[2] : f[2].slice(0, 3) + ".") + "</th>"; }).join("") + "</tr></thead><tbody>" +
+        rows.map(function(it){ return '<tr><td title="' + esc(it.short) + '"><i style="background:' + it.color + '"></i>' + esc(clip(it.short, big ? 30 : 14)) + "</td>" + DDF.map(function(f){ var x = it.dda[f[0]], on = f[0] === m;
+          return '<td class="' + (on ? "on" : "") + '" title="' + (x.tP != null && x.mdd < 0 ? "De " + dES(x.tP) + " a " + dES(x.tV) : "") + '">' + (big && on ? '<u style="width:' + Math.round(x.mdd / worst * 100) + "%;background:" + it.color + '"></u>' : "") + "<span>" + pct(x.mdd, 1) + "</span></td>"; }).join("") + "</tr>"; }).join("") + "</tbody></table>" +
+        (big ? '<div class="hf2foot">Pasa el ratón por una cifra para ver las fechas de pico y valle.</div>' : "");
+    }
+    Array.prototype.forEach.call(k.querySelectorAll("[data-m]"), function(b){ b.addEventListener("click", function(){ S.dd = b.dataset.m; if (again) again(); }); });
+    var id = pre + "DD"; clear(id);
+    $(id).style.display = (!single && items.length > 4) ? "none" : "";
+    if (!single && items.length > 4) return;
+    var lo = 0, ann = [];
+    var data = items.map(function(it){
+      var c = it.dda[m].c, q = m === "d" ? downMin(c, 700) : c, col = single ? NEG : it.color; if (it.dda[m].mdd < lo) lo = it.dda[m].mdd;
+      var t = { type: "scatter", mode: "lines", name: clip(it.short, 34), x: q.map(function(x){ return dISO(x[0]); }), y: q.map(function(x){ return x[1]; }),
+        line: { color: col, width: 1.6, dash: it.dash ? "dash" : "solid", shape: m === "d" ? "linear" : "hv" }, hovertemplate: "%{y:.1%}" };
+      if (single || items.length <= 2){ t.fill = "tozeroy"; t.fillcolor = rgba(col, single ? 0.12 : 0.10); }
+      var w = it.dda[m];
+      if (w.mdd < -0.005) ann.push({ x: dISO(w.tV), y: w.mdd, xref: "x", yref: "y", text: "<b>" + pct(w.mdd, 1) + "</b>", showarrow: true, arrowhead: 0, arrowwidth: 1, arrowcolor: col, ax: 0, ay: 16, font: { family: FONT, size: 11.5, color: col }, bgcolor: rgba(SURF, 0.85) });
+      return t;
+    });
+    plot(id, data, base(H, { hovermode: "x unified", annotations: items.length <= 4 ? ann : [], margin: { l: 46, r: 10, t: 8, b: 26 }, xaxis: { hoverformat: m === "d" ? "%d/%m/%Y" : "%m/%Y", nticks: 6 },
+      yaxis: { tickformat: ".0%", range: [Math.min(-0.02, lo) * 1.22, 0.004], zeroline: false } }));
   }
   /* tarjeta «Rolling»: rentabilidad anualizada o volatilidad en ventanas móviles de N años */
   function rollCard(pre){
@@ -18076,10 +18238,12 @@ body.hf-dark.hf2-legacy #screen1 > *:not(#hf2Fund), body.hf-dark.hf2-legacy #scr
     root.innerHTML =
       '<div class="hf2bar"><div class="hf2chips" id="hf2Chips"></div>' +
       '<div class="hf2ctl"><div class="hf2seg" id="hf2Per"></div>' +
+      '<button type="button" class="hf2icon txt" id="hf2IdxBtn" title="Mostrar el índice de referencia de cada fondo en el gráfico de evolución" aria-pressed="false">Índices</button>' +
       '<div class="hf2rel"><button type="button" class="hf2icon txt" id="hf2DatesBtn" title="Fechas a medida">Fechas</button><div class="hf2pop" id="hf2DatesPop" hidden style="right:0;top:38px"><div class="dates"><label>Desde<input type="date" id="hf2D0"></label><label>Hasta<input type="date" id="hf2D1"></label></div></div></div>' +
       '<div class="hf2rel"><button type="button" class="hf2icon" id="hf2MenuBtn" title="Más opciones" aria-label="Más opciones">⋯</button><div class="hf2pop" id="hf2Menu" hidden style="right:0;top:38px"></div></div></div></div>' +
       '<div class="hf2hint" id="hf2Hint"></div><div id="hf2Body"></div>';
     s2.insertBefore(root, s2.firstChild);
+    $("hf2IdxBtn").addEventListener("click", function(){ if (window.HF2I){ HF2I.cmpOn = !HF2I.cmpOn; HF2I.bump(); } });
     $("hf2DatesBtn").addEventListener("click", function(e){ e.stopPropagation(); $("hf2Menu").hidden = true; var p = $("hf2DatesPop"); p.hidden = !p.hidden; });
     $("hf2MenuBtn").addEventListener("click", function(e){ e.stopPropagation(); $("hf2DatesPop").hidden = true; buildMenu(); var p = $("hf2Menu"); p.hidden = !p.hidden; });
     ["hf2D0","hf2D1"].forEach(function(id, k){ $(id).addEventListener("change", function(){ var t = $(k ? "cmpEndDate" : "cmpStartDate"); if (!t || !this.value) return; t.value = this.value; t.dispatchEvent(new Event("change", { bubbles: true })); t.dispatchEvent(new Event("input", { bubbles: true })); }); });
@@ -18098,11 +18262,40 @@ body.hf-dark.hf2-legacy #screen1 > *:not(#hf2Fund), body.hf-dark.hf2-legacy #scr
     var a = $("cmpStartDate"), b = $("cmpEndDate"); if (!a || !b || !a.value || !b.value) return null;
     return [Date.parse(a.value + "T00:00:00Z"), Date.parse(b.value + "T00:00:00Z")];
   }
+  /* ---------------- ficha (catálogo): patrimonio y coste ---------------- */
+  function isinOk(x){ return /^[A-Z]{2}[A-Z0-9]{9}[0-9]$/.test(x || ""); }
+  function info(isin){ return (isin && window.HF2P && HF2P.info) ? (HF2P.info(isin) || {}) : {}; }
+  /* el coste es el MISMO dato para todos: TER si lo tienen todos; si no, comisión de gestión si la tienen todos;
+     si tampoco, la medida con más cobertura (y guion donde falte) */
+  function costOf(isins){
+    var nt = isins.filter(function(i){ return info(i).ter != null; }).length, ng = isins.filter(function(i){ return info(i).cg != null; }).length, n = isins.length;
+    var k = nt === n ? "ter" : ng === n ? "cg" : (nt >= ng ? "ter" : "cg");
+    return { k: k, lab: k === "ter" ? "TER" : "Com. gestión", tip: (k === "ter" ? "Gastos corrientes (TER) anuales, del catálogo" : "Comisión de gestión anual, del catálogo") + (k === "cg" && nt < n ? ". Se muestra la comisión de gestión porque no todos los fondos tienen TER" : "") + ((k === "ter" ? nt : ng) < n ? ". Guion: sin dato en el catálogo" : ""),
+             v: function(isin){ var x = info(isin)[k]; return x == null ? null : x / 100; } };
+  }
+  function fmtAum(v){ if (v == null) return "—"; return (v >= 1000 ? Math.round(v).toLocaleString("es-ES", { useGrouping: true }).replace(/ /g, ".") : num(v, v >= 10 ? 0 : 1)) + " M€"; }
+  function yr(t){ return t == null ? "" : String(new Date(t).getUTCFullYear()); }
+  function sw(color, dash){ return dash ? '<svg width="16" height="8" aria-hidden="true"><line x1="0" y1="4" x2="16" y2="4" stroke="' + color + '" stroke-width="2" stroke-dasharray="' + (dash === "dot" ? "2 3" : "5 3") + '"/></svg>' : '<i style="background:' + color + '"></i>'; }
+  var IDXDASH = ["dash", "dot", "dashdot", "longdash"];
+
+  /* ejes del gráfico rentabilidad-riesgo */
+  var RRO = [["r3", "Rentab. rolling 3A", "+"], ["r5", "Rentab. rolling 5A", "+"], ["r10", "Rentab. rolling 10A", "+"], ["ann", "Rentab. anualizada desde inicio", "+"],
+             ["v3", "Volatilidad media 3A", ""], ["v5", "Volatilidad media 5A", ""], ["v10", "Volatilidad media 10A", ""], ["vol", "Volatilidad desde inicio", ""],
+             ["d3", "Máx. caída 3A", ""], ["d5", "Máx. caída 5A", ""], ["d10", "Máx. caída 10A", ""], ["d0", "Máx. caída desde inicio", ""], ["fee", "Coste anual", ""]];
+  var RRTIP = { r: "media de la rentabilidad anualizada de todas las ventanas de N años", v: "media de la volatilidad (mensual × √12) de todas las ventanas de N años", d: "de pico a valle en los últimos N años" };
+  function rrVal(it, k, f, cost){
+    var fs = it.fs || {};
+    if (k === "fee") return cost.v(it.isin);
+    if (k.charAt(0) === "d"){ var N = Number(k.slice(1)); return fs.ddN ? fs.ddN(N, f) : null; }
+    return fs[k] == null ? null : fs[k];
+  }
+
   function renderCmp(){
     var s2 = $("screen2"); if (!s2 || s2.classList.contains("hidden")) return;
     mountCmp();
+    var I = window.HF2I || { ver: 0, cmpOn: false };
     var slots = cmpSlots(), funds = (window.CMP && CMP.funds) || [], fs = (window.CMP && CMP.fundSlots) || [], rg = range();
-    var sig = slots.map(function(s){ return s.slot + (s.hidden ? "h" : "") + s.short; }).join("|") + "#" + funds.length + "#" + (rg ? rg.join("-") : "") + "#" + savedList().length + "#" + C.sort + C.asc + C.ymode + (C.dd || "") + DARK + "#" + ($("hf2Body") ? $("hf2Body").clientWidth : 0);
+    var sig = slots.map(function(s){ return s.slot + (s.hidden ? "h" : "") + s.short; }).join("|") + "#" + funds.length + "#" + (rg ? rg.join("-") : "") + "#" + savedList().length + "#" + C.sort + C.asc + C.ymode + (C.dd || "") + C.rx + C.ry + C.rrf + C.cn + DARK + "#" + I.ver + (I.cmpOn ? "i" : "") + "#" + ($("hf2Body") ? $("hf2Body").clientWidth : 0);
     if (sig === C.sig) return; C.sig = sig;
 
     /* chips */
@@ -18121,9 +18314,9 @@ body.hf-dark.hf2-legacy #screen1 > *:not(#hf2Fund), body.hf-dark.hf2-legacy #scr
     });
     if (slots.length && firstEmpty() >= 0){ var ad = h("button", "hf2add ghost", "+ Añadir fondo"); ad.type = "button"; ad.addEventListener("click", addFund); chips.appendChild(ad); }
 
-    var body = $("hf2Body"), per = $("hf2Per"), hint = $("hf2Hint");
+    var body = $("hf2Body"), per = $("hf2Per"), hint = $("hf2Hint"), ib = $("hf2IdxBtn");
     if (!slots.length){
-      per.innerHTML = ""; per.style.display = "none"; $("hf2DatesBtn").style.display = "none"; hint.innerHTML = "";
+      per.innerHTML = ""; per.style.display = "none"; $("hf2DatesBtn").style.display = "none"; ib.style.display = "none"; hint.innerHTML = "";
       var sv = savedList().slice(0, 4);
       body.innerHTML = '<div class="hf2empty"><h2>Compara fondos</h2><button type="button" class="hf2add" id="hf2EmptyAdd">+ Añadir fondo</button>' +
         (sv.length ? '<div class="sv"><h6>Análisis guardados</h6>' + sv.map(function(x, k){ return '<button type="button" data-k="' + k + '">' + esc(clip(x.t, 60)) + "</button>"; }).join("") + "</div>" : "") + "</div>";
@@ -18131,7 +18324,7 @@ body.hf-dark.hf2-legacy #screen1 > *:not(#hf2Fund), body.hf-dark.hf2-legacy #scr
       Array.prototype.forEach.call(body.querySelectorAll(".sv button"), function(b){ b.addEventListener("click", function(){ loadSaved(sv[Number(b.dataset.k)].v); }); });
       return;
     }
-    per.style.display = ""; $("hf2DatesBtn").style.display = "";
+    per.style.display = ""; $("hf2DatesBtn").style.display = ""; ib.style.display = ""; ib.className = "hf2icon txt" + (I.cmpOn ? " on" : ""); ib.setAttribute("aria-pressed", I.cmpOn ? "true" : "false");
     if (!funds.length || !rg){ body.innerHTML = '<div class="hf2card"><div class="hf2msg">Cargando…</div></div>'; C.sig = ""; return; }
 
     /* periodo */
@@ -18145,9 +18338,7 @@ body.hf-dark.hf2-legacy #screen1 > *:not(#hf2Fund), body.hf-dark.hf2-legacy #scr
     });
     $("hf2D0").value = dISO(rg[0]); $("hf2D1").value = dISO(rg[1]);
     hint.innerHTML = "<span><b>" + dES(rg[0]) + " – " + dES(rg[1]) + "</b> · " + (curY >= 1 ? num(curY, 1) + " años" : Math.round(curY * 12) + " meses") + "</span>" +
-      (lim ? "<span>·</span><span>El periodo común lo limita <b>" + esc(lim.short) + "</b>; sin él empezaría el " + dES(next.start) + ".</span><button type='button' id='hf2HideLim'>Ocultar</button>" : "") +
       (slots.length > vis.length ? "<span>·</span><button type='button' id='hf2ShowAll'>Mostrar todos</button>" : "");
-    var hl = $("hf2HideLim"); if (hl) hl.addEventListener("click", function(){ HF.setHidden(lim.slot, true); });
     var sa = $("hf2ShowAll"); if (sa) sa.addEventListener("click", function(){ HF.showAll(); });
 
     /* datos por fondo visible */
@@ -18156,61 +18347,101 @@ body.hf-dark.hf2-legacy #screen1 > *:not(#hf2Fund), body.hf-dark.hf2-legacy #scr
     funds.forEach(function(f, k){
       var s = bySlot[fs[k] !== undefined ? fs[k] : k]; if (!s) return;
       var p = pts(ser(f), rg[0], rg[1]); if (p.length < 2) return;
-      var st = stats(p), yr = years(ser(f));
-      items.push({ f: f, slot: s.slot, short: s.short, sub: s.sub, color: s.color, dash: s.dash, p: p, st: st, yr: yr });
+      var st = stats(p), yr2 = years(ser(f));
+      items.push({ f: f, slot: s.slot, short: s.short, sub: s.sub, color: s.color, dash: s.dash, p: p, st: st, yr: yr2, isin: isinOk(s.isin) ? s.isin : "" });
     });
     if (!items.length){ body.innerHTML = '<div class="hf2card"><div class="hf2msg">No hay datos en el periodo elegido.</div></div>'; return; }
 
     if (!$("hf2Evo")){
       body.innerHTML =
         '<div class="hf2card hf2sum" id="hf2Sum"></div>' +
-        '<div class="hf2card"><h3>Evolución <small>rentabilidad acumulada · al final de cada línea, la anualizada del periodo</small></h3><div class="hf2plot" id="hf2Evo"></div></div>' +
+        '<div class="hf2card"><h3>Evolución <small>rentabilidad acumulada · al final de cada línea, la anualizada del periodo</small></h3><div class="hf2plot" id="hf2Evo"></div><div class="hf2leg" id="hf2Leg"></div></div>' +
         '<div class="hf2grid">' +
           '<div class="hf2card"><h3>Por año <span class="hf2seg sm" id="hf2YMode" style="margin-left:auto"><button type="button" data-m="r">Rentabilidad</button><button type="button" data-m="v">Volatilidad</button></span></h3><div id="hf2Years" style="overflow-x:auto"></div></div>' +
           ddCard("hf2") +
-          '<div class="hf2card"><h3>Rentabilidad y riesgo <small>anualizada frente a volatilidad</small></h3><div class="hf2plot" id="hf2RR"></div></div>' +
-          '<div class="hf2card"><h3>Correlación <small>rentabilidades mensuales</small></h3><div class="hf2plot" id="hf2Corr"></div></div>' +
+          '<div class="hf2card"><h3>Rentabilidad y riesgo <span class="hf2axes"><label>Vertical <select class="hf2sel sm" id="hf2RRy"></select></label><label>Horizontal <select class="hf2sel sm" id="hf2RRx"></select></label><span class="hf2seg sm" id="hf2RRf"></span></span></h3><div class="hf2plot" id="hf2RR"></div><div class="hf2foot" id="hf2RRF"></div></div>' +
+          '<div class="hf2card"><h3>Correlación <small>rentabilidades mensuales</small><span class="hf2seg sm" id="hf2CN" style="margin-left:auto"></span></h3><div class="hf2plot" id="hf2Corr"></div><div class="hf2foot" id="hf2CorrF"></div></div>' +
         "</div>" +
         '<button type="button" class="hf2more hf2-admin" id="hf2More">Más análisis</button>';
       Array.prototype.forEach.call($("hf2YMode").children, function(b){ b.addEventListener("click", function(){ C.ymode = b.dataset.m; renderCmp(); }); });
       ddBind("hf2", C, function(){ renderCmp(); });
+      ["hf2RRx", "hf2RRy"].forEach(function(id, k){ var e = $(id); e.innerHTML = RRO.map(function(o){ return '<option value="' + o[0] + '">' + o[1] + "</option>"; }).join(""); e.addEventListener("change", function(){ C[k ? "ry" : "rx"] = this.value; renderCmp(); }); });
       $("hf2More").addEventListener("click", function(){ setLegacy(!C.legacy); this.textContent = C.legacy ? "Ocultar vista clásica" : "Más análisis"; if (C.legacy) setTimeout(function(){ var c = $("savedAnCard"); if (c) c.scrollIntoView({ behavior: "smooth" }); }, 120); });
     }
 
-    /* tabla resumen: medidas desde el inicio de cada fondo + la anualizada del periodo mostrado */
-    items.forEach(function(it){ var sr = ser(it.f); if (!it.f._hf2 || it.f._hf2n !== sr.length){ it.f._hf2 = fullStats(sr); it.f._hf2n = sr.length; } it.fs = it.f._hf2 || {}; });
-    var cols = [["t0","Desde",0],["ann","Anualizada",1],["vol","Volatilidad",-1],["sharpe","Sharpe",1],["mdd","Máx. caída",1],["wy","Peor 12 meses",1],["wm","Peor mes",1],["r3","Rolling 3A",1],["r5","Rolling 5A",1],["r10","Rolling 10A",1],["pann","Anualizada",1]];
-    var TIP = { t0: "Primera fecha con datos del fondo", ann: "Rentabilidad anualizada desde su primera fecha", vol: "Volatilidad anualizada con cierres mensuales, desde su primera fecha", sharpe: "Rentabilidad anualizada entre volatilidad (tipo sin riesgo 0 %)",
-      mdd: "Mayor caída de pico a valle desde su primera fecha", wy: "Peor resultado de entrar cualquier día y mantener 12 meses", wm: "Peor resultado de entrar cualquier día y mantener un mes",
-      r3: "Media de la rentabilidad anualizada en todas las ventanas de 3 años", r5: "Media de la rentabilidad anualizada en todas las ventanas de 5 años", r10: "Media de la rentabilidad anualizada en todas las ventanas de 10 años", pann: "Rentabilidad anualizada del periodo mostrado (acumulada si es menor de un año)" };
-    function key(it, k){ var f = it.fs; return k === "wy" ? (f.w && f.w.y ? Math.min(f.w.y.r, 0) : null) : k === "wm" ? (f.w && f.w.m ? Math.min(f.w.m.r, 0) : null) : k === "pann" ? (it.st.ann != null ? it.st.ann : it.st.cum) : (f[k] == null ? null : f[k]); }
+    /* medidas desde el inicio de cada fondo + índice de referencia */
+    items.forEach(function(it){ var sr = ser(it.f); if (!it.f._hf2 || it.f._hf2n !== sr.length){ it.f._hf2 = fullStats(sr); it.f._hf2n = sr.length; } it.fs = it.f._hf2 || {};
+      it.ix = it.isin && window.HF2I ? HF2I.choice(it.isin) : { spec: "", src: "none" };
+      var ip = it.ix.spec ? HF2I.series(it.ix.spec) : [];
+      it.ip = ip; it.xs = ip && ip.length && it.fs.p ? HF2I.excess(it.fs.p, ip) : null; });
+    var cost = costOf(items.map(function(it){ return it.isin; }));
+    var cols = [["t0","Inicio",0],["aum","Patrimonio",0],["fee",cost.lab,-1],["ann","Anualizada",1],["vol","Volatilidad",-1],["mddM","Máx. caída",1],["sharpe","Sharpe",1],["sh5","Sharpe 5A",1],["r3","Rolling 3A",1],["r5","Rolling 5A",1],["r10","Rolling 10A",1],["xs","vs índice",1]];
+    var TIP = { t0: "Año del primer dato del fondo", aum: "Patrimonio del fondo (todas sus clases), en millones de euros, del catálogo", fee: cost.tip, ann: "Rentabilidad anualizada desde su primer dato", vol: "Volatilidad media desde el inicio: desviación de las rentabilidades mensuales × √12",
+      mddM: "Mayor caída de pico a valle desde el inicio, con cierres de fin de mes", sharpe: "Rentabilidad anualizada entre volatilidad desde el inicio (tipo sin riesgo 0 %)", sh5: "Media del Sharpe de todas las ventanas de 5 años (paso mensual, tipo sin riesgo 0 %)",
+      r3: "Media de la rentabilidad anualizada en todas las ventanas de 3 años", r5: "Media de la rentabilidad anualizada en todas las ventanas de 5 años", r10: "Media de la rentabilidad anualizada en todas las ventanas de 10 años",
+      xs: "Anualizada del fondo menos la de su índice de referencia, en el tramo en que existen los dos. Pulsa para cambiar el índice" };
+    function key(it, k){ var f = it.fs; return k === "aum" ? (info(it.isin).aum == null ? null : info(it.isin).aum) : k === "fee" ? cost.v(it.isin) : k === "xs" ? (it.xs ? it.xs.d : null) : (f[k] == null ? null : f[k]); }
     var rows = items.slice();
     if (C.sort) rows.sort(function(a,b){ var x = key(a, C.sort), y = key(b, C.sort); if (x == null) return 1; if (y == null) return -1; return C.asc ? x - y : y - x; });
     var bestOf = {};
     if (items.length > 1) cols.forEach(function(c){ var k = c[0]; if (!c[2]) return; var v = items.map(function(it){ return key(it, k); }).filter(function(x){ return x != null; }); if (v.length < 2) return; bestOf[k] = c[2] < 0 ? Math.min.apply(null, v) : Math.max.apply(null, v); });
-    var html = '<table class="hf2tbl"><thead><tr class="grp"><th></th><th colspan="10">Desde el inicio de cada fondo</th><th colspan="2">Periodo mostrado</th></tr><tr><th>Fondo</th>' +
-      cols.map(function(c){ return '<th data-k="' + c[0] + '" title="' + TIP[c[0]] + '" class="' + (c[0] === "pann" ? "sepl " : "") + (C.sort === c[0] ? "s" + (C.asc ? " asc" : "") : "") + '">' + c[1] + "</th>"; }).join("") + "<th></th></tr></thead><tbody>";
+    var wide = ($("hf2Body").clientWidth || 1200) >= 1320;
+    var html = '<table class="hf2tbl"><thead><tr class="grp"><th></th><th colspan="3">Ficha</th><th colspan="8">Desde el inicio de cada fondo</th><th class="sepl">Índice</th>' + (wide ? "<th></th>" : "") + '</tr><tr><th>Fondo</th>' +
+      cols.map(function(c){ return '<th data-k="' + c[0] + '" title="' + esc(TIP[c[0]]) + '" class="' + (c[0] === "xs" || c[0] === "ann" ? "sepl " : "") + (C.sort === c[0] ? "s" + (C.asc ? " asc" : "") : "") + '">' + c[1] + "</th>"; }).join("") + (wide ? "<th></th>" : "") + "</tr></thead><tbody>";
     rows.forEach(function(it){
-      html += '<tr><td><div class="nm"><i style="background:' + it.color + '"></i><span><b>' + esc(it.short) + "</b>" + (it.sub ? "<small>" + esc(it.sub) + "</small>" : "") + "</span></div></td>";
+      html += '<tr><td><div class="nm two"><i style="background:' + it.color + '"></i><span><b title="' + esc(it.short) + '">' + esc(clip(it.short, 30)) + "</b>" + (it.sub ? "<small>" + esc(clip(it.sub, 34)) + "</small>" : "") + "</span></div></td>";
       cols.forEach(function(c){
         var k = c[0], v = key(it, k), txt, cls = "";
-        if (k === "t0") txt = v == null ? "—" : '<span class="mut">' + dES(v).slice(3) + "</span>";
-        else if (k === "sharpe") txt = v == null ? "—" : num(v, 2);
-        else if (k === "vol" || k === "mdd" || k === "wy" || k === "wm") txt = pct(v, 1);
-        else { txt = pct(v, 1, true); cls = v == null ? "mut" : (v < 0 ? "neg" : (k === "ann" || k === "pann" ? "pos" : "")); }
+        if (k === "t0") txt = v == null ? "—" : '<span class="mut">' + yr(v) + "</span>";
+        else if (k === "aum") txt = v == null ? '<span class="mut">—</span>' : fmtAum(v);
+        else if (k === "fee") txt = v == null ? '<span class="mut">—</span>' : num(v * 100, 2) + " %";
+        else if (k === "sharpe" || k === "sh5") txt = v == null ? '<span class="mut">—</span>' : num(v, 2);
+        else if (k === "vol" || k === "mddM") txt = pct(v, 1);
+        else if (k === "xs"){
+          if (!it.isin){ html += '<td class="sepl mut">—</td>'; return; }
+          var lab = it.ix.spec ? HF2I.short(it.ix.spec) : "elegir índice", load = it.ix.spec && it.ip === null;
+          txt = '<button type="button" class="hf2idxc" data-hf2idx="' + esc(it.isin) + '" data-n="' + esc(it.short) + '" title="' + esc((it.ix.spec ? HF2I.label(it.ix.spec) + (it.ix.src === "sugerido" ? " · sugerido (" + it.ix.why + ")" : "") : "Sin índice") + ". Pulsa para cambiarlo") + '">' +
+            '<b class="' + (v == null ? "mut" : Math.abs(v) < 0.0005 ? "" : v < 0 ? "neg" : "pos") + '">' + (load ? "…" : (v == null ? "—" : pct(v, 1, true))) + "</b><small>" + esc(clip(lab, 18)) + (it.ix.src === "sugerido" && it.ix.spec ? " ·&nbsp;sug." : "") + "</small></button>";
+          var isB = v != null && bestOf.xs !== undefined && Math.abs(v - bestOf.xs) < 1e-12;
+          html += '<td class="sepl idx' + (isB ? " best" : "") + '">' + txt + "</td>"; return;
+        }
+        else { txt = pct(v, 1, true); cls = v == null ? "mut" : (v < 0 ? "neg" : (k === "ann" ? "pos" : "")); }
         var isBest = v != null && bestOf[k] !== undefined && Math.abs(v - bestOf[k]) < 1e-12;
-        html += '<td class="' + (k === "ann" ? "big " : "") + (k === "pann" ? "sepl " : "") + (isBest ? "best " : "") + cls + '">' + (isBest ? "<span>" + txt + "</span>" : txt) + "</td>";
+        html += '<td class="' + (k === "ann" ? "big sepl " : "") + (isBest ? "best " : "") + cls + '">' + (isBest ? "<span>" + txt + "</span>" : txt) + "</td>";
       });
-      html += '<td class="sp">' + spark(it.p, it.color) + "</td></tr>";
+      html += (wide ? '<td class="sp">' + spark(it.p, it.color) + "</td>" : "") + "</tr>";
     });
-    $("hf2Sum").innerHTML = html + "</tbody></table>";
-    Array.prototype.forEach.call($("hf2Sum").querySelectorAll("th[data-k]"), function(th){ th.addEventListener("click", function(){ var k = th.dataset.k, low = (k === "vol" || k === "t0");
+    $("hf2Sum").innerHTML = html + "</tbody></table>" +
+      '<div class="hf2foot">Volatilidad: rentabilidades mensuales × √12 · Máx. caída: de pico a valle con cierres de fin de mes · Sharpe con tipo sin riesgo 0 % · Sharpe 5A y rolling: media de todas las ventanas · ' + esc(cost.lab) + ": del catálogo</div>";
+    Array.prototype.forEach.call($("hf2Sum").querySelectorAll("th[data-k]"), function(th){ th.addEventListener("click", function(){ var k = th.dataset.k, low = (k === "vol" || k === "t0" || k === "fee");
       if (C.sort === k){ if (C.asc === low){ C.asc = !C.asc; } else { C.sort = null; C.asc = false; } } else { C.sort = k; C.asc = low; } renderCmp(); }); });
+    if (window.HF2I) HF2I.bind($("hf2Sum"));
 
-    /* gráficos */
+    /* evolución + índices (no limitan el periodo) + leyenda */
     var H1 = Math.max(300, Math.min(430, Math.round(window.innerHeight * 0.40))), H2 = 300;
-    plotEvolution("hf2Evo", items, H1, false);
-    ddRender("hf2", items, false, H2, C);
+    var evo = items.slice(), idxs = [], warn = [];
+    if (I.cmpOn && window.HF2I){
+      var seen = {};
+      items.forEach(function(it){ var sp = it.ix.spec; if (!sp || seen[sp]) return; seen[sp] = 1;
+        var ip = HF2I.series(sp); if (!ip || !ip.length) return;
+        var q = ip.filter(function(x){ return x[0] >= rg[0] - 20 * 864e5 && x[0] <= rg[1]; }); if (q.length < 2) { warn.push(HF2I.label(sp) + " no tiene datos en el periodo"); return; }
+        var w = HF2I.cover(ip, rg[0], rg[1]); if (w) warn.push(HF2I.label(sp) + " " + w);
+        idxs.push({ short: HF2I.label(sp), color: MUT, dash: IDXDASH[idxs.length % IDXDASH.length], lw: 1.4, p: q, st: stats(q), idx: true }); });
+      evo = evo.concat(idxs);
+    }
+    plotEvolution("hf2Evo", evo, H1, false);
+    var t0By = {}; funds.forEach(function(f, k){ var s = fs[k] !== undefined ? fs[k] : k, a = ser(f); if (a.length) t0By[s] = tOf(a[0]); });
+    var leg = slots.map(function(s){ var t = s.start || t0By[s.slot];
+      return '<button type="button" class="it' + (s.hidden ? " off" : "") + (lim && lim.slot === s.slot ? " lim" : "") + '" data-s="' + s.slot + '" title="' + (s.hidden ? "Mostrar " : "Ocultar ") + esc(s.short) + (s.hidden ? "" : " (se recalcula el periodo común)") + '">' + sw(s.color) + "<span><b>" + esc(clip(s.short, 30)) + "</b><small>" + (t ? yr(t) : "") + "</small></span></button>"; }).join("") +
+      idxs.map(function(x){ return '<span class="it ix">' + sw(MUT, x.dash) + "<span><b>" + esc(clip(x.short, 34)) + "</b><small>índice</small></span></span>"; }).join("");
+    var nY = lim ? (lim.start - next.start) / 864e5 / 365.25 : 0;
+    var note = lim ? "Periodo común desde <b>" + yr(cs) + "</b> · lo limita <b>" + esc(lim.short) + "</b>; sin él, desde " + yr(next.start) + " (+" + (nY >= 1 ? Math.round(nY) + (Math.round(nY) === 1 ? " año" : " años") : Math.round(nY * 12) + " meses") + ') <button type="button" id="hf2HideLim">Ocultarlo</button>'
+      : "Periodo común desde <b>" + yr(cs) + "</b>";
+    $("hf2Leg").innerHTML = '<div class="its">' + leg + '</div><div class="nt">' + note + (warn.length ? '<span class="w">' + esc(warn.join(" · ")) + "</span>" : "") + "</div>";
+    Array.prototype.forEach.call($("hf2Leg").querySelectorAll("button.it"), function(b){ b.addEventListener("click", function(){ var s = bySlot[Number(b.dataset.s)]; if (s && window.HF && HF.setHidden) HF.setHidden(s.slot, !s.hidden); }); });
+    var hl = $("hf2HideLim"); if (hl) hl.addEventListener("click", function(){ HF.setHidden(lim.slot, true); });
+
+    ddRender("hf2", items, false, H2 - 30, C, function(){ renderCmp(); });
 
     /* rentabilidad por año: mapa de calor años × fondos */
     var isV = C.ymode === "v";
@@ -18230,46 +18461,75 @@ body.hf-dark.hf2-legacy #screen1 > *:not(#hf2Fund), body.hf-dark.hf2-legacy #scr
     var ytd = yl.map(function(y){ return allY[y]; }).filter(function(o){ return o.ytd; })[0];
     $("hf2Years").innerHTML = ht + "</tbody></table>" + (ytd ? '<div style="font-size:11.5px;color:' + FAINT + ';margin:6px 4px 2px">* ' + ytd.y + (isV ? " incompleto" : " hasta el " + dES(ytd.t)) + "</div>" : "");
 
-    /* rentabilidad y riesgo */
-    var rr = items.filter(function(it){ return it.st.vol != null; });
+    /* rentabilidad y riesgo con ejes a elegir */
+    C.rx = C.rx || "v5"; C.ry = C.ry || "r5"; C.rrf = C.rrf || "m";
+    $("hf2RRx").value = C.rx; $("hf2RRy").value = C.ry;
+    var needF = C.rx.charAt(0) === "d" && C.rx !== "d" || C.ry.charAt(0) === "d", fsg = $("hf2RRf");
+    fsg.style.display = needF ? "" : "none";
+    fsg.innerHTML = needF ? DDF.map(function(f){ return '<button type="button" data-m="' + f[0] + '" title="Máx. caída con ' + f[3] + '" class="' + (C.rrf === f[0] ? "on" : "") + '">' + f[1].charAt(0) + "</button>"; }).join("") : "";
+    Array.prototype.forEach.call(fsg.children, function(b){ b.addEventListener("click", function(){ C.rrf = b.dataset.m; renderCmp(); }); });
+    function axLab(k){ var o = RRO.filter(function(x){ return x[0] === k; })[0]; var t = o[1]; if (k === "fee") t = cost.lab + " anual"; if (k.charAt(0) === "d") t += " (" + DDF.filter(function(f){ return f[0] === C.rrf; })[0][3].replace("cierres de ", "cierres ") + ")"; return t; }
+    function axTip(k){ var c = k.charAt(0); if (k === "ann" || k === "vol" || k === "fee") return ""; return RRTIP[c] ? RRTIP[c].replace("N años", k.slice(1) === "0" ? "todo el historial" : k.slice(1) + " años") : ""; }
+    var rr = [], miss = [];
+    items.forEach(function(it){ var x = rrVal(it, C.rx, C.rrf, cost), y = rrVal(it, C.ry, C.rrf, cost); if (x == null || y == null) miss.push(it.short); else rr.push({ it: it, x: x, y: y }); });
+    var fmtA = function(k){ return k.charAt(0) === "r" || k === "ann" ? "+.1%" : ".1%"; };
     if (rr.length){
       clear("hf2RR");
-      var useAnn = rr.every(function(it){ return it.st.ann != null; });
-      var xs = rr.map(function(it){ return it.st.vol; }), yv = rr.map(function(it){ return useAnn ? it.st.ann : it.st.cum; });
-      var xr = (Math.max.apply(null, xs) || 0.01), yr2 = (Math.max.apply(null, yv) - Math.min.apply(null, yv)) || 0.01, posn = [];
+      var xs = rr.map(function(o){ return o.x; }), yv = rr.map(function(o){ return o.y; });
+      var xr = (Math.max.apply(null, xs) - Math.min.apply(null, xs.concat([0]))) || 0.01, yr2 = (Math.max.apply(null, yv) - Math.min.apply(null, yv)) || 0.01, posn = [];
       var ord = rr.map(function(_, i){ return i; }).sort(function(a,b){ return yv[b] - yv[a]; });
       ord.forEach(function(i, k){
         var p = "top center";
         for (var q = 0; q < k; q++){ var j = ord[q]; if (Math.abs(xs[i]-xs[j]) < xr*0.26 && Math.abs(yv[i]-yv[j]) < yr2*0.24){ p = (posn[j] === "bottom center" || p === "bottom center" && posn[j] !== "top center") ? "middle right" : "bottom center"; } }
         posn[i] = p;
       });
-      var hideT = {};   // en los grupos apretados solo se rotula el de arriba; el resto se identifica por color y al pasar el ratón
+      var hideT = {};
       if (rr.length > 4) ord.forEach(function(i, k){ for (var q = 0; q < k; q++){ var j = ord[q]; if (!hideT[j] && Math.abs(xs[i]-xs[j]) < xr*0.2 && Math.abs(yv[i]-yv[j]) < yr2*0.13){ hideT[i] = 1; break; } } });
-      plot("hf2RR", rr.map(function(it, i){ return { type: "scatter", mode: "markers+text", x: [it.st.vol], y: [useAnn ? it.st.ann : it.st.cum], text: [hideT[i] ? "" : clip(it.short, 18)], textposition: posn[i], textfont: { family: FONT, size: 11.5, color: INK },
-          marker: { color: it.color, size: 14, line: { color: SURF, width: 2 } }, hovertemplate: "<b>" + esc(it.short) + "</b><br>Rentabilidad %{y:+.1%}<br>Volatilidad %{x:.1%}<extra></extra>", cliponaxis: false }; }),
+      var xNeg = xs.every(function(v){ return v <= 0; });
+      plot("hf2RR", rr.map(function(o, i){ return { type: "scatter", mode: "markers+text", x: [o.x], y: [o.y], text: [hideT[i] ? "" : clip(o.it.short, 18)], textposition: posn[i], textfont: { family: FONT, size: 11.5, color: INK },
+          marker: { color: o.it.color, size: 14, line: { color: SURF, width: 2 } }, hovertemplate: "<b>" + esc(o.it.short) + "</b><br>" + esc(axLab(C.ry)) + " %{y:" + fmtA(C.ry) + "}<br>" + esc(axLab(C.rx)) + " %{x:" + fmtA(C.rx) + "}<extra></extra>", cliponaxis: false }; }),
         base(H2, { margin: { l: 54, r: 24, t: 22, b: 40 }, hovermode: "closest",
-          xaxis: { tickformat: ".0%", rangemode: "tozero", showgrid: true, gridcolor: HAIR, title: { text: "Volatilidad", font: { size: 11.5, color: FAINT }, standoff: 8 }, nticks: 7 },
-          yaxis: { tickformat: "+.0%", title: { text: useAnn ? "Rentabilidad anualizada" : "Rentabilidad acumulada", font: { size: 11.5, color: FAINT }, standoff: 6 } } }));
-    } else msg("hf2RR", "Hace falta al menos medio año de datos.");
+          xaxis: { tickformat: C.rx === "fee" ? ".1%" : fmtA(C.rx).replace(".1", ".0"), rangemode: xNeg ? "normal" : "tozero", showgrid: true, gridcolor: HAIR, title: { text: axLab(C.rx), font: { size: 11.5, color: FAINT }, standoff: 8 }, nticks: 7 },
+          yaxis: { tickformat: C.ry === "fee" ? ".1%" : fmtA(C.ry).replace(".1", ".0"), title: { text: axLab(C.ry), font: { size: 11.5, color: FAINT }, standoff: 6 } } }));
+    } else msg("hf2RR", "Ningún fondo tiene historial suficiente para estos ejes.");
+    var tipx = [axTip(C.ry) ? "Vertical: " + axTip(C.ry) : "", axTip(C.rx) ? "Horizontal: " + axTip(C.rx) : ""].filter(Boolean).join(" · ");
+    $("hf2RRF").innerHTML = esc(tipx) + (miss.length ? (tipx ? "<br>" : "") + "Sin dato: " + esc(miss.join(", ")) : "");
 
-    /* correlación */
+    /* correlación: rentabilidades mensuales de los últimos N años (o todo lo común) con el historial completo */
+    var cn = $("hf2CN"); C.cn = C.cn || 5;
+    cn.innerHTML = [[3,"3A"],[5,"5A"],[10,"10A"],[0,"Todo"]].map(function(o){ return '<button type="button" data-n="' + o[0] + '" class="' + (C.cn === o[0] || (o[0] === 0 && C.cn === "all") ? "on" : "") + '">' + o[1] + "</button>"; }).join("");
+    Array.prototype.forEach.call(cn.children, function(b){ b.addEventListener("click", function(){ C.cn = Number(b.dataset.n) || "all"; renderCmp(); }); });
+    $("hf2CorrF").innerHTML = "";
     if (items.length < 2) msg("hf2Corr", "Añade otro fondo para ver la correlación.");
     else {
-      var keys = Object.keys(items[0].st.mr).filter(function(k){ return items.every(function(it){ return k in it.st.mr; }); });
-      if (keys.length < 12) msg("hf2Corr", "Hace falta al menos un año en común.");
+      items.forEach(function(it){ it.mrAll = it.fs && it.fs.p ? (it._mrA || (it._mrA = monthlyRets(it.fs.p))) : {}; });
+      var lastM = items.map(function(it){ var k = Object.keys(it.mrAll).sort(); return k[k.length - 1] || ""; }).sort()[0];
+      var keysC, inC = items, out = [];
+      if (C.cn === "all"){ keysC = Object.keys(items[0].mrAll).filter(function(k){ return k <= lastM && items.every(function(it){ return k in it.mrAll; }); }).sort(); }
+      else {
+        var y0 = Number(lastM.slice(0, 4)), m0 = Number(lastM.slice(5, 7)), win = [];
+        for (var q = 0; q < C.cn * 12; q++){ var mm = m0 - q, yy = y0; while (mm <= 0){ mm += 12; yy--; } win.push(yy + "-" + String(mm).padStart(2, "0")); }
+        inC = items.filter(function(it){ return win.every(function(k){ return k in it.mrAll; }); });
+        out = items.filter(function(it){ return inC.indexOf(it) < 0; });
+        keysC = win.reverse();
+      }
+      if (out.length) $("hf2CorrF").textContent = "Sin " + C.cn + " años de historia: " + out.map(function(it){ return it.short; }).join(", ");
+      if (inC.length < 2) msg("hf2Corr", "Hacen falta al menos dos fondos con " + C.cn + " años de historia.");
+      else if (keysC.length < 12) msg("hf2Corr", "Hace falta al menos un año en común.");
       else {
         clear("hf2Corr");
-        var R = items.map(function(it){ return keys.map(function(k){ return it.st.mr[k]; }); }), n = items.length, z = [], an = [];
-        var labs = items.map(function(it){ return clip(it.short, n > 5 ? 14 : 20); });
+        if (C.cn === "all") $("hf2CorrF").textContent = "Todo el tramo común: " + keysC.length + " meses desde " + keysC[0].slice(5) + "/" + keysC[0].slice(0, 4);
+        var R = inC.map(function(it){ return keysC.map(function(k){ return it.mrAll[k]; }); }), n = inC.length, z = [], an = [];
+        var labs = inC.map(function(it){ return clip(it.short, n > 5 ? 14 : 20); });
         for (var i = 0; i < n; i++){ z.push([]); for (var j = 0; j < n; j++){
           var a = R[i], b = R[j], ma = a.reduce(function(s,x){ return s+x; },0)/a.length, mb = b.reduce(function(s,x){ return s+x; },0)/b.length, sab = 0, sa2 = 0, sb2 = 0;
-          for (var q = 0; q < a.length; q++){ sab += (a[q]-ma)*(b[q]-mb); sa2 += (a[q]-ma)*(a[q]-ma); sb2 += (b[q]-mb)*(b[q]-mb); }
+          for (var q2 = 0; q2 < a.length; q2++){ sab += (a[q2]-ma)*(b[q2]-mb); sa2 += (a[q2]-ma)*(a[q2]-ma); sb2 += (b[q2]-mb)*(b[q2]-mb); }
           var c = (sa2 > 0 && sb2 > 0) ? sab / Math.sqrt(sa2*sb2) : 0; z[i].push(i === j ? null : c);
           an.push({ x: j, y: i, text: i === j ? "" : num(c, 2), showarrow: false, font: { family: FONT, size: n > 6 ? 10.5 : 12, color: Math.abs(c) > 0.62 ? "#fff" : INK } });
         } }
         plot("hf2Corr", [{ type: "heatmap", z: z, x: labs.map(function(_, k){ return k; }), y: labs.map(function(_, k){ return k; }), zmin: -1, zmax: 1, xgap: 3, ygap: 3, showscale: false, hoverinfo: "skip",
             colorscale: [[0,PAL[1]],[0.5,MIDC],[1,PAL[0]]] }],
-          base(H2, { margin: { l: 8, r: 10, t: 6, b: 8 }, annotations: an,
+          base(H2 - 20, { margin: { l: 8, r: 10, t: 6, b: 8 }, annotations: an,
             xaxis: { tickmode: "array", tickvals: labs.map(function(_, k){ return k; }), ticktext: labs, tickangle: n > 4 ? -28 : 0, tickfont: { color: MUT, size: 11 }, side: "bottom" },
             yaxis: { tickmode: "array", tickvals: labs.map(function(_, k){ return k; }), ticktext: labs, autorange: "reversed", zeroline: false, showgrid: false, tickfont: { color: MUT, size: 11 } } }));
       }
@@ -18305,7 +18565,9 @@ body.hf-dark.hf2-legacy #screen1 > *:not(#hf2Fund), body.hf-dark.hf2-legacy #scr
     mountFund();
     var st0 = window.STATE || {}, series = (st0.dailySeries && st0.dailySeries.length >= 2) ? st0.dailySeries : (st0.series || []);
     var loaded = document.body.dataset.s1 === "1" && series.length >= 2, nm = fundName();
-    var sig = (loaded ? series.length + "@" + tOf(series[series.length-1]) + nm.short : "0") + "#" + F.per + (F.dd || "") + (F.rm || "") + (F.rn || "") + DARK + "#" + ($("hf2FBody") ? $("hf2FBody").clientWidth : 0);
+    var isin = String(st0.sourceKey || "").split("|")[1] || ""; if (!isinOk(isin)) isin = "";
+    var I = window.HF2I || { ver: 0 };
+    var sig = (loaded ? series.length + "@" + tOf(series[series.length-1]) + nm.short + isin : "0") + "#" + F.per + (F.dd || "") + (F.rm || "") + (F.rn || "") + DARK + "#" + I.ver + "#" + ($("hf2FBody") ? $("hf2FBody").clientWidth : 0);
     if (sig === F.sig) return; F.sig = sig;
     var chips = $("hf2FChips"), per = $("hf2FPer"), body = $("hf2FBody"); chips.innerHTML = "";
     if (!loaded){
@@ -18320,38 +18582,60 @@ body.hf-dark.hf2-legacy #screen1 > *:not(#hf2Fund), body.hf-dark.hf2-legacy #scr
     per.innerHTML = "";
     [[1,"1A"],[3,"3A"],[5,"5A"],[10,"10A"],[0,"Máx"]].forEach(function(o){ if (o[0] && o[0] > spanY + 0.05) return; var b = h("button", F.per === o[0] ? "on" : "", o[1]); b.type = "button"; b.addEventListener("click", function(){ F.per = o[0]; renderFund(); }); per.appendChild(b); });
     var t0 = F.per ? tEnd - F.per * 365.25 * 864e5 : -Infinity, p = all.filter(function(x){ return x[0] >= t0; }), st = stats(p), yr = years(series);
-    var wy = worstOf(rollWin(p, HZ.y.days)), sharpe = (st.ann != null && st.vol) ? st.ann / st.vol : null;
+    var sharpe = (st.ann != null && st.vol) ? st.ann / st.vol : null;
+    /* índice de referencia: no limita el periodo; si empieza más tarde, arranca a la altura del fondo */
+    var ix = isin && window.HF2I ? HF2I.choice(isin) : { spec: "", src: "none" }, ip = ix.spec ? HF2I.series(ix.spec) : [], ipP = [], xs = null, cov = "", idxIt = null;
+    if (ip && ip.length){
+      ipP = ip.filter(function(x){ return x[0] >= p[0][0] - 20 * 864e5 && x[0] <= tEnd; });
+      cov = HF2I.cover(ip, p[0][0], tEnd);
+      if (ipP.length >= 2){
+        var off = 0; if (ipP[0][0] > p[0][0] + 20 * 864e5){ var fv = null; p.forEach(function(x){ if (x[0] <= ipP[0][0]) fv = x[1]; }); off = fv ? fv / p[0][1] - 1 : 0; }
+        idxIt = { short: HF2I.label(ix.spec), color: MUT, dash: true, lw: 1.5, p: ipP, st: stats(ipP), idx: true, off: off };
+        xs = HF2I.excess(p, ipP);
+      }
+    }
     function kpi(l, v, cls, tip){ return '<div class="hf2kpi"' + (tip ? ' title="' + tip + '"' : "") + "><span>" + l + "</span><b" + (cls ? ' class="' + cls + '"' : "") + ">" + v + "</b></div>"; }
     if (!$("hf2FEvo")){
-      body.innerHTML = '<div class="hf2head"><div><h1 id="hf2FName"></h1><p id="hf2FSub"></p></div><div class="hf2kpis" id="hf2FKpis"></div></div>' +
-        '<div class="hf2card"><h3>Evolución <small>rentabilidad acumulada en el periodo</small></h3><div class="hf2plot" id="hf2FEvo"></div></div>' +
+      body.innerHTML = '<div class="hf2head"><div><h1 id="hf2FName"></h1><p id="hf2FSub"></p><div class="hf2idxrow" id="hf2FIdx"></div></div><div class="hf2kpis" id="hf2FKpis"></div></div>' +
+        '<div class="hf2card"><h3>Evolución <small id="hf2FEvoS">rentabilidad acumulada en el periodo</small></h3><div class="hf2plot" id="hf2FEvo"></div></div>' +
         '<div class="hf2grid"><div class="hf2card"><h3>Rentabilidad por año</h3><div class="hf2plot" id="hf2FYears"></div></div>' +
         '<div class="hf2card"><h3>Volatilidad por año <small>anualizada, separando días al alza y a la baja</small></h3><div class="hf2plot" id="hf2FVol"></div></div>' +
         ddCard("hf2F") + rollCard("hf2F") + "</div>";
       ddBind("hf2F", F, function(){ F.sig = ""; renderFund(); });
     }
+    $("hf2FIdx").innerHTML = isin && window.HF2I ? '<span>Índice de referencia</span>' + HF2I.button(isin, nm.short) : "";
+    if (window.HF2I) HF2I.bind($("hf2FIdx"));
+    $("hf2FEvoS").innerHTML = "rentabilidad acumulada en el periodo" + (idxIt ? ' · <span class="hf2dsh"></span> ' + esc(idxIt.short) : "") + (ix.spec && ip === null ? " · cargando índice…" : "") + (cov ? ' · <span class="w">el índice ' + esc(cov) + "</span>" : "");
     $("hf2FName").textContent = nm.short;
     $("hf2FSub").textContent = [nm.sub, dES(p[0][0]) + " – " + dES(tEnd)].filter(Boolean).join("  ·  ");
     $("hf2FKpis").innerHTML = (st.ann != null ? kpi("Anualizada", pct(st.ann, 1, true), st.ann < 0 ? "neg" : "pos") : "") + kpi("Acumulada", pct(st.cum, Math.abs(st.cum) >= 1 ? 0 : 1, true), st.ann == null ? (st.cum < 0 ? "neg" : "pos") : "") +
       kpi("Volatilidad", pct(st.vol, 1), "", "Anualizada, con cierres mensuales") + (sharpe != null ? kpi("Sharpe", num(sharpe, 2), "", "Rentabilidad anualizada entre volatilidad (tipo sin riesgo 0 %)") : "") +
-      kpi("Máx. caída", pct(st.mdd, 1), "", "De pico a valle") + kpi("Peor 12 meses", wy ? pct(Math.min(wy.r, 0), 1) : "—", "", wy ? "Entrando el " + dES(wy.tIn) : "Sin historial suficiente");
+      kpi("Máx. caída", pct(st.mdd, 1), "", "De pico a valle con cierres diarios") +
+      (isin ? kpi("vs índice", xs ? pct(xs.d, 1, true) : "—", xs && Math.abs(xs.d) >= 0.0005 ? (xs.d < 0 ? "neg" : "pos") : "", xs ? "Anualizada del fondo (" + pct(xs.f, 1, true) + ") menos la del índice (" + pct(xs.i, 1, true) + ") del " + dES(xs.t0) + " al " + dES(xs.t1) : "Sin índice o sin un año de datos en común") : "");
     var it = { short: nm.short, color: PAL[0], p: p, st: st };
     var H1 = Math.max(300, Math.min(420, Math.round(window.innerHeight * 0.40))), H2 = 290;
-    plotEvolution("hf2FEvo", [it], H1, true);
-    ddRender("hf2F", [it], true, H2 - 40, F);
+    plotEvolution("hf2FEvo", idxIt ? [it, idxIt] : [it], H1, true);
+    ddRender("hf2F", [it], true, H2 - 30, F, function(){ F.sig = ""; renderFund(); });
     rollRender("hf2F", all, PAL[0], H2, F, function(){ F.sig = ""; renderFund(); });
     plotVolPN("hf2FVol", series, H2);
     var yy = yr.slice(-12);
     if (yy.length){
       clear("hf2FYears");
-      plot("hf2FYears", [{ type: "bar", x: yy.map(function(y){ return String(y.y) + (y.ytd ? "*" : ""); }), y: yy.map(function(y){ return y.r; }),
+      var iy = {}, hasI = false;
+      if (ip && ip.length) years(ip.map(function(x){ return { date: new Date(x[0]), value: x[1] }; })).forEach(function(o){ iy[o.y] = o.r; });
+      var yiv = yy.map(function(y){ var v = iy[y.y]; if (v != null && !y.ytd) hasI = true; return y.ytd ? null : (v == null ? null : v); });
+      var trs = [{ type: "bar", name: nm.short, x: yy.map(function(y){ return String(y.y) + (y.ytd ? "*" : ""); }), y: yy.map(function(y){ return y.r; }),
           marker: { color: yy.map(function(y){ return rgba(y.r >= 0 ? PAL[0] : NEG, y.ytd ? 0.45 : 1); }) },
-          text: yy.map(function(y){ return pct(y.r, 1); }), textposition: "outside", textfont: { family: FONT, size: 11.5, color: INK }, cliponaxis: false,
-          hovertemplate: "%{x}: %{y:+.1%}<extra></extra>" }],
-        base(H2, { barcornerradius: 4, bargap: 0.32, margin: { l: 8, r: 8, t: 8, b: yy[yy.length-1].ytd ? 44 : 26 }, xaxis: { type: "category" },
-          yaxis: (function(){ var mx = Math.max.apply(null, yy.map(function(y){ return y.r; }).concat([0])), mn = Math.min.apply(null, yy.map(function(y){ return y.r; }).concat([0])), sp = (mx - mn) || 0.1;
+          text: yy.map(function(y){ return pct(y.r, 1); }), textposition: "outside", constraintext: "none", textfont: { family: FONT, size: hasI ? 10.5 : 11.5, color: INK }, cliponaxis: false,
+          hovertemplate: "%{x}: %{y:+.1%}<extra></extra>" }];
+      if (hasI) trs.push({ type: "bar", name: "Índice", x: yy.map(function(y){ return String(y.y) + (y.ytd ? "*" : ""); }), y: yiv, marker: { color: rgba(FAINT, DARK ? 0.55 : 0.45) },
+          hovertemplate: "%{x} índice: %{y:+.1%}<extra></extra>" });
+      var allv = yy.map(function(y){ return y.r; }).concat(yiv.filter(function(v){ return v != null; }));
+      plot("hf2FYears", trs,
+        base(H2, { barcornerradius: 4, bargap: hasI ? 0.22 : 0.32, bargroupgap: 0.06, barmode: "group", margin: { l: 8, r: 8, t: 8, b: yy[yy.length-1].ytd || hasI ? 44 : 26 }, xaxis: { type: "category" },
+          yaxis: (function(){ var mx = Math.max.apply(null, allv.concat([0])), mn = Math.min.apply(null, allv.concat([0])), sp = (mx - mn) || 0.1;
             return { showticklabels: false, showgrid: false, zerolinecolor: ZERO, range: [mn - sp * (mn < 0 ? 0.16 : 0.02), mx + sp * 0.16] }; })(),
-          annotations: yy[yy.length-1].ytd ? [{ xref: "paper", yref: "paper", x: 0, y: -0.2, xanchor: "left", showarrow: false, text: "* " + yy[yy.length-1].y + " hasta el " + dES(yy[yy.length-1].t), font: { family: FONT, size: 11.5, color: FAINT } }] : [] }));
+          annotations: (yy[yy.length-1].ytd || hasI) ? [{ xref: "paper", yref: "paper", x: 0, y: -0.2, xanchor: "left", showarrow: false, text: [yy[yy.length-1].ytd ? "* " + yy[yy.length-1].y + " hasta el " + dES(yy[yy.length-1].t) : "", hasI ? "<span style='color:" + rgba(FAINT, 0.8) + "'>■</span> índice de referencia" : ""].filter(Boolean).join("   "), font: { family: FONT, size: 11.5, color: FAINT } }] : [] }));
     } else msg("hf2FYears", "Aún no hay años completos.");
   }
 
@@ -18374,7 +18658,7 @@ body.hf-dark.hf2-legacy #screen1 > *:not(#hf2Fund), body.hf-dark.hf2-legacy #scr
   function tick(){ try{ renderCmp(); }catch(e){ console.warn("[HF2] cmp", e); } try{ renderFund(); }catch(e){ console.warn("[HF2] fund", e); } try{ if (window.HF2B) HF2B.render(); }catch(e){ console.warn("[HF2] bt", e); } }
   window.HF2 = { tick: tick, state: { C: C, F: F }, setTheme: setTheme,
     lib: { $: $, esc: esc, h: h, val: val, ser: ser, tOf: tOf, dES: dES, dISO: dISO, num: num, pct: pct, clip: clip, nameParts: nameParts, pts: pts, stats: stats, years: years, yearsVol: yearsVol, spark: spark, base: base, plot: plot, msg: msg, clear: clear,
-      plotEvolution: plotEvolution, ddCard: ddCard, ddBind: ddBind, ddRender: ddRender, rollCard: rollCard, rollRender: rollRender, monthEnds: monthEnds, rollWin: rollWin, worstOf: worstOf, HZ: HZ, rgba: rgba,
+      plotEvolution: plotEvolution, ddCard: ddCard, ddBind: ddBind, ddRender: ddRender, rollCard: rollCard, rollRender: rollRender, monthEnds: monthEnds, rollWin: rollWin, worstOf: worstOf, HZ: HZ, rgba: rgba, sw: sw, resample: resample, ddOf: ddOf, fullStats: fullStats,
       th: function(){ return { PAL: PAL, INK: INK, MUT: MUT, FAINT: FAINT, HAIR: HAIR, POS: POS, NEG: NEG, SURF: SURF, ZERO: ZERO, DARK: DARK, FONT: FONT }; } } };
   function start(){ initTheme(); tick(); setInterval(tick, 300); }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start); else start();
@@ -18413,18 +18697,27 @@ body.hf-dark.hf2-legacy #screen1 > *:not(#hf2Fund), body.hf-dark.hf2-legacy #scr
         .then(function(a){ out = out.concat(a); return a.length === 1000 ? page(off + 1000) : out; }); }
       return page(0);
     }
-    Promise.all([ all("funds?select=isin,fund_group_id,broker_disponible,distribucion,divisa,divisa_hedge_bool,clasificacion_user&order=isin"),
-                  all("fund_groups?select=fund_group_id,gestora,tipo_activo,geografia,categoria_rf,plazo,srri,caracteristicas_especiales,clasificacion_user_default&order=fund_group_id") ])
+    Promise.all([ all("funds?select=isin,fund_group_id,broker_disponible,distribucion,divisa,divisa_hedge_bool,clasificacion_user,ter_pct,comision_gestion_pct,benchmark&order=isin"),
+                  all("fund_groups?select=fund_group_id,gestora,tipo_activo,geografia,categoria_rf,plazo,srri,caracteristicas_especiales,clasificacion_user_default,aum_meur,categoria_morningstar,tema_sector&order=fund_group_id") ])
       .then(function(r){
         var g = {}; r[1].forEach(function(x){ g[x.fund_group_id] = x; });
         r[0].forEach(function(f){
           var G = g[f.fund_group_id] || {};
           TAX.by[f.isin] = { tipo: TIPO[norm(String(G.tipo_activo || "").replace(/_/g, " "))] || "", geo: GEO[norm(G.geografia)] || (G.geografia || ""), rf: G.categoria_rf || "", plazo: plazos(G.plazo),
             srri: G.srri || null, car: list(G.caracteristicas_especiales), brokers: list(f.broker_disponible), dist: f.distribucion || "", gestora: G.gestora || "",
-            clas: f.clasificacion_user || G.clasificacion_user_default || "", divisa: f.divisa ? String(f.divisa).toUpperCase() + (f.divisa_hedge_bool ? " cubierta" : "") : "" };
+            clas: f.clasificacion_user || G.clasificacion_user_default || "", divisa: f.divisa ? String(f.divisa).toUpperCase() + (f.divisa_hedge_bool ? " cubierta" : "") : "",
+            ter: num(f.ter_pct), cg: num(f.comision_gestion_pct), bmk: f.benchmark || "", aum: num(G.aum_meur), catms: G.categoria_morningstar || "", tema: G.tema_sector || "" };
         });
-        TAX.state = 2; P.rows = null; if (P.open) render();
+        TAX.state = 2; P.rows = null; if (P.open) render(); if (window.HF2I) HF2I.bump();
       }).catch(function(e){ TAX.state = 3; console.warn("[buscador] sin taxonomía del catálogo; se usa la ficha del repositorio", e); if (P.open) render(); });
+  }
+  function num(x){ var v = x == null || x === "" ? NaN : Number(x); return isFinite(v) ? v : null; }
+  /* datos de ficha para las tablas (catálogo; si el fondo no está, lo que diga la ficha del repositorio) */
+  function info(isin){
+    if (!isin) return null;
+    if (TAX.by[isin]) return TAX.by[isin];
+    var f = window.__fdStore && window.__fdStore[isin];
+    return f && f.meta ? fromMeta(isin, f.meta) : null;
   }
   function fromMeta(isin, m){
     var o = { tipo: "", geo: "", rf: "", plazo: [], car: [], brokers: [], clas: "", divisa: "", gestora: m.gestora || "", dist: "" };
@@ -18652,7 +18945,8 @@ body.hf-dark.hf2-legacy #screen1 > *:not(#hf2Fund), body.hf-dark.hf2-legacy #scr
     }, 280);
   }
 
-  window.HF2P = { open: open, close: close, state: P, tax: TAX };
+  setTimeout(loadTax, 50);   // la ficha (TER, patrimonio, índice) la usan también las tablas
+  window.HF2P = { open: open, close: close, state: P, tax: TAX, info: info, ready: function(){ return TAX.state >= 2; } };
   /* cualquier «Elegir fondo» o «Morningstar» de la aplicación abre este buscador */
   function hook(){
     try{ window.repoPickerOpen = function(ctx){ open(Object.assign({ fixed: ctx && ctx.slot != null }, ctx || { kind: "screen1" })); }; }catch(_){ }
@@ -18663,6 +18957,280 @@ body.hf-dark.hf2-legacy #screen1 > *:not(#hf2Fund), body.hf-dark.hf2-legacy #scr
 })();
 
 /* ==========================================================================
+   HF2 · índice de referencia (nov-2026). Sugiere un índice por fondo con la
+   tabla de abajo (editable), deja cambiarlo y lo guarda en la ficha del fondo
+   del repositorio (meta.benchmark, solo ese campo). Las series son las IDX_*
+   del propio repositorio (versión en euros). Un índice no limita el periodo.
+   ========================================================================== */
+(function(){
+  "use strict";
+  var L = window.HF2.lib, $ = L.$, esc = L.esc, h = L.h;
+
+  /* ---------- nombres de los índices del repositorio (los que no estén aquí salen con su clave) ---------- */
+  var NAMES = {
+    IDX_MSCI_ACWI_GROSS_Euro: "MSCI ACWI", IDX_MSCI_WORLD_GROSS_EUE_Euro: "MSCI World", IDX_MSCI_EUROPE_GROSS_EUR_Euro: "MSCI Europe",
+    IDX_SP500_GROSS_Euro: "S&P 500", IDX_MSCI_UNITED_STATES_BROAD_GROSS_Euro: "MSCI USA", IDX_MSCI_EM_GROSS_Euro: "MSCI Emergentes",
+    IDX_MSCI_WORLD_SMALL_CAP_PRICE_VERSION_Euro: "MSCI World Small Cap (precio)", IDX_SMALL_CAPS_EUROPA_STOXX_SMALL_EUR_NR_Euro: "STOXX Europe Small 200",
+    IDX_MSCI_US_SMALL_GROSS_Euro: "MSCI USA Small Cap", IDX_MSCI_PACIFIC_NET_Euro: "MSCI Pacífico", IDX_MSCI_CHINA_NET_Euro: "MSCI China", IDX_MSCI_INDIA_NET_Euro: "MSCI India",
+    IDX_MSCI_ACWI_EX_USA_GROSS_Euro: "MSCI ACWI ex USA", IDX_MSCI_WORLD_EX_USA_GROSS_Euro: "MSCI World ex USA", IDX_NASDAQ_100_TR_Euro: "Nasdaq 100",
+    IDX_NASDAQ_100_Euro: "Nasdaq 100 (precio)", IDX_NASDAQ_COMPOSITE_TR_Euro: "Nasdaq Composite", IDX_REITS_EUROPA_Euro: "REITs Europa",
+    IDX_EUROZONE_3_YEARS_GOV_Euro: "Deuda eurozona 3A", IDX_EUROZONE_5_YEARS_GOV_Euro: "Deuda eurozona 5A", IDX_EUROZONE_7_YEARS_GOV_Euro: "Deuda eurozona 7A",
+    IDX_EUROZONE_10_YEARS_GOV_Euro: "Deuda eurozona 10A", IDX_EUROZONE_20_YEARS_GOV_Euro: "Deuda eurozona 20A", IDX_EUROZONE_30_YEARS_GOV_Euro: "Deuda eurozona 30A",
+    IDX_BLOOMBERG_GOLD_TR_Euro: "Oro (Bloomberg Gold TR)", IDX_FUTUROS_ORO_DESDE_2000_Euro: "Oro (futuros)",
+    IDX_US_3_YEARS_GOV_Euro: "Deuda EE. UU. 3A (en EUR)", IDX_US_5_YEARS_GOV_Euro: "Deuda EE. UU. 5A (en EUR)", IDX_US_10_YEAR_GOV_Euro: "Deuda EE. UU. 10A (en EUR)", IDX_US_30_YEARS_GOV_Euro: "Deuda EE. UU. 30A (en EUR)"
+  };
+  /* si el índice sugerido no está al día, se sugiere este en su lugar (o ninguno) */
+  var FALLBACK = { IDX_MSCI_WORLD_SMALL_CAP_PRICE_VERSION_Euro: "IDX_MSCI_WORLD_GROSS_EUE_Euro" };
+  var ACWI = "IDX_MSCI_ACWI_GROSS_Euro", WORLD = "IDX_MSCI_WORLD_GROSS_EUE_Euro", EUR = "IDX_MSCI_EUROPE_GROSS_EUR_Euro", SP = "IDX_SP500_GROSS_Euro", EM = "IDX_MSCI_EM_GROSS_Euro",
+      SMW = "IDX_MSCI_WORLD_SMALL_CAP_PRICE_VERSION_Euro", SME = "IDX_SMALL_CAPS_EUROPA_STOXX_SMALL_EUR_NR_Euro", PAC = "IDX_MSCI_PACIFIC_NET_Euro",
+      G3 = "IDX_EUROZONE_3_YEARS_GOV_Euro", G5 = "IDX_EUROZONE_5_YEARS_GOV_Euro", G10 = "IDX_EUROZONE_10_YEARS_GOV_Euro", GOLD = "IDX_BLOOMBERG_GOLD_TR_Euro";
+  function mix(a){ return a.map(function(x){ return x[0] + "*" + x[1]; }).join("+"); }   // [[clave, peso %]] → "IDX_A*50+IDX_B*50"
+
+  /* ---------- 1) texto «benchmark» del catálogo → índice (primera regla que encaje) ---------- */
+  var TEXT_RULES = [
+    [/permanente/i, mix([[ACWI, 25], [G10, 25], [GOLD, 25], [G3, 25]]), "cartera permanente"],
+    [/75\s*%\s*rv/i, mix([[ACWI, 75], [G5, 25]]), "75 % RV / 25 % RF"],
+    [/40\s*%\s*rv/i, mix([[ACWI, 40], [G5, 60]]), "40 % RV / 60 % RF"],
+    [/25\s*%\s*rv/i, mix([[ACWI, 25], [G5, 75]]), "25 % RV / 75 % RF"],
+    [/small/i, null, "small"],                                  // se resuelve abajo según la zona
+    [/acwi/i, ACWI, ""], [/msci world|mundial/i, WORLD, ""], [/sp ?500|s&p/i, SP, ""],
+    [/emerg/i, EM, ""], [/india/i, "IDX_MSCI_INDIA_NET_Euro", ""], [/china/i, "IDX_MSCI_CHINA_NET_Euro", ""],
+    [/jap[oó]n|pac[ií]fico/i, PAC, "aprox."], [/euro ?stoxx|europe|europa/i, EUR, ""],
+    [/euribor|corto plazo/i, G3, "aprox."], [/medio plazo/i, G5, ""], [/largo plazo/i, G10, ""],
+    [/\boro\b|gold/i, GOLD, ""], [/reit/i, "IDX_REITS_EUROPA_Euro", "aprox."],
+    [/high yield|cat[aá]strofe|ibex/i, "", "sin índice equivalente en el repositorio"]
+  ];
+  /* ---------- 2) si no hay texto: tipo · zona · categoría RF · plazo ---------- */
+  function byTax(t){
+    var tipo = t.tipo || "", geo = t.geo || "", car = (t.car || []).join(" ").toLowerCase(), cm = String(t.catms || "").toLowerCase(), pz = t.plazo || [];
+    if (!tipo) tipo = /money market|monetari/.test(cm) ? "Monetario" : /bond|renta fija/.test(cm) ? "Renta fija" : /allocation|mixto/.test(cm) ? "Mixtos" : /equity|renta variable|rv /.test(cm) ? "Renta variable" : /commodit|precious|oro/.test(cm) ? "Materias primas" : "";
+    if (tipo === "Monetario") return [G3, "monetario → deuda eurozona 3A (aprox.)"];
+    if (tipo === "Renta fija"){
+      if (/high yield|cat[aá]strofe|ils/.test(car) || /high yield/.test(cm)) return ["", "renta fija high yield / ILS: sin índice equivalente"];
+      if (pz.indexOf("Corto") >= 0 || /corto|ultra short|short/.test(cm)) return [G3, "renta fija corto plazo"];
+      if (pz.indexOf("Largo") >= 0 || /largo|long/.test(cm)) return [G10, "renta fija largo plazo"];
+      return [G5, "renta fija"];
+    }
+    if (tipo === "Mixtos"){
+      if (/defensiv|conservad|cautious|prudente/.test(cm)) return [mix([[ACWI, 30], [G5, 70]]), "mixto defensivo"];
+      if (/agresiv|aggressive|dinámic|dinamic/.test(cm)) return [mix([[ACWI, 75], [G5, 25]]), "mixto agresivo"];
+      return [mix([[ACWI, 50], [G5, 50]]), "mixto"];
+    }
+    if (tipo === "Materias primas") return /oro|gold|preciosos/.test(cm + " " + String(t.tema || "").toLowerCase()) ? [GOLD, "oro"] : ["", "materias primas: sin índice equivalente"];
+    if (tipo === "Renta variable" || /rv |renta variable|equity/.test(cm)){
+      var small = /small|peque/.test(car + " " + cm);
+      if (small) return /europ|espa/i.test(geo + " " + cm) ? [SME, "small caps Europa"] : (/EE\. UU\./.test(geo) || /^us |usa/.test(cm)) ? ["IDX_MSCI_US_SMALL_GROSS_Euro", "small caps EE. UU."] : [SMW, "small caps"];
+      if (/reit/.test(car)) return ["IDX_REITS_EUROPA_Euro", "REITs (aprox.)"];
+      if (/Europa|España|Nórdicos/.test(geo) || /europ|españa|zona euro|eurozona/.test(cm)) return [EUR, "renta variable Europa"];
+      if (/EE\. UU\./.test(geo) || /ee\.? ?uu|usa|us large|estados unidos/.test(cm)) return [SP, "renta variable EE. UU."];
+      if (/Emergentes/.test(geo) || /emerg/.test(cm)) return [EM, "renta variable emergente"];
+      if (/Asia/.test(geo) || /jap[oó]n|asia|pac[ií]f/.test(cm)) return [PAC, "Asia-Pacífico (aprox.)"];
+      if (/india/.test(cm)) return ["IDX_MSCI_INDIA_NET_Euro", "India"];
+      if (/china/.test(cm)) return ["IDX_MSCI_CHINA_NET_Euro", "China"];
+      if (/Desarrollados/.test(geo)) return [WORLD, "renta variable desarrollados"];
+      return [ACWI, "renta variable global"];
+    }
+    return ["", "sin regla para este tipo de fondo"];
+  }
+  function suggest(isin){
+    var g = suggestRaw(isin), c = parse(g.spec);
+    if (!c.length) return g;
+    var bad = c.filter(function(x){ return !fresh(x.k); });
+    if (!bad.length) return g;
+    var ok = c.every(function(x){ return fresh(x.k) || (FALLBACK[x.k] && fresh(FALLBACK[x.k])); });
+    if (!ok) return { spec: "", why: g.why + " · " + bad.map(function(x){ return nameOf(x.k); }).join(", ") + " no está al día en el repositorio" };
+    return { spec: c.map(function(x){ return (fresh(x.k) ? x.k : FALLBACK[x.k]) + (c.length > 1 ? "*" + x.w : ""); }).join("+"), why: g.why + " · " + bad.map(function(x){ return nameOf(x.k); }).join(", ") + " no está al día: se usa " + bad.map(function(x){ return nameOf(FALLBACK[x.k]); }).join(", ") + " (aprox.)" };
+  }
+  /* fecha final de un índice del repositorio y si está al día (≤ 60 días del más reciente) */
+  function endOf(k){ var lz = window.__fdLazy ? window.__fdLazy() : null, e = lz && lz.get ? lz.get(k) : null; if (e && e.d1) return Date.parse(e.d1 + "T00:00:00Z"); var r = rowsOf(k); return r ? L.tOf(r[r.length - 1]) : null; }
+  function newest(){ var lz = window.__fdLazy ? window.__fdLazy() : null, m = 0; if (lz && lz.forEach) lz.forEach(function(e, k){ if (/^IDX_/.test(k) && e && e.d1){ var t = Date.parse(e.d1 + "T00:00:00Z"); if (t > m) m = t; } }); return m; }
+  function fresh(k){ if (!exists(k)) return false; var e = endOf(k), n = newest(); return !(e && n && e < n - 60 * 864e5); }
+  function suggestRaw(isin){
+    var t = (window.HF2P && HF2P.info) ? (HF2P.info(isin) || {}) : {};
+    var txt = String(t.bmk || "");
+    if (txt){
+      for (var i = 0; i < TEXT_RULES.length; i++){
+        var r = TEXT_RULES[i]; if (!r[0].test(txt)) continue;
+        if (r[2] === "small") return { spec: /europ/i.test(txt) ? SME : SMW, why: "catálogo: «" + txt + "»" };
+        return { spec: r[1], why: "catálogo: «" + txt + "»" + (r[2] && r[1] ? " (" + r[2] + ")" : (r[1] ? "" : " · " + r[2])) };
+      }
+    }
+    var b = byTax(t);
+    return { spec: b[0], why: b[1] };
+  }
+
+  /* ---------- elección: lo guardado en la ficha manda; si no, la sugerencia ---------- */
+  var LOCAL = {};   // isin → spec elegido en esta sesión (fondos que no están en el repositorio)
+  var I = { ver: 0, cmpOn: false, bt: null };
+  function store(){ return window.__fdStore || {}; }
+  /* meta.benchmark = [{id, peso}] (lista vacía = sin índice) */
+  function fromList(b){ return b.filter(function(x){ return x && x.id; }).map(function(x, i, a){ return x.id + (a.length > 1 ? "*" + (Number(x.peso) || 0) : ""); }).join("+"); }
+  function toList(spec){ return parse(spec).map(function(x){ return { id: x.k, peso: x.w }; }); }
+  function saved(isin){ var f = store()[isin], b = f && f.meta && f.meta.benchmark; if (Array.isArray(b)) return fromList(b); if (b && typeof b === "object" && typeof b.spec === "string") return b.spec; if (typeof b === "string") return b; return null; }
+  function choice(isin){
+    if (!isin) return { spec: "", src: "none", why: "" };
+    if (isin in LOCAL) return { spec: LOCAL[isin], src: "elegido", why: "" };
+    var s = saved(isin); if (s != null) return { spec: s, src: "guardado", why: "" };
+    var g = suggest(isin); return { spec: g.spec || "", src: "sugerido", why: g.why };
+  }
+  function parse(spec){ if (!spec) return []; return String(spec).split("+").map(function(x){ var a = x.split("*"); return { k: a[0], w: a.length > 1 ? Number(a[1]) : 100 }; }).filter(function(x){ return x.k && x.w > 0; }); }
+  function nameOf(k){ return NAMES[k] || (NAMES[String(k).replace(/_USD$/, "_Euro")] ? NAMES[String(k).replace(/_USD$/, "_Euro")].replace(/ \(en EUR\)/, "") + " (USD)" : String(k).replace(/^IDX_/, "").replace(/_(Euro|USD)$/, "").replace(/_/g, " ")); }
+  function label(spec){ var c = parse(spec); if (!c.length) return "Sin índice"; if (c.length === 1) return nameOf(c[0].k); return c.map(function(x){ return x.w + " % " + nameOf(x.k); }).join(" + "); }
+  function short(spec){ var c = parse(spec); if (!c.length) return "—"; if (c.length === 1) return nameOf(c[0].k); return c.map(function(x){ return x.w; }).join("/") + " " + c.map(function(x){ return nameOf(x.k).replace(/^Deuda eurozona /, "Gob. ").replace(/^MSCI /, ""); }).join("·"); }
+
+  function bump(){ I.ver++; try{ window.HF2.state.C.sig = ""; window.HF2.state.F.sig = ""; if (window.HF2B) HF2B.state.sig = ""; }catch(_){ } }
+  /* guarda SOLO meta.benchmark: lee la ficha de la nube, añade el campo y la vuelve a escribir (sin tocar la serie) */
+  function persist(isin, spec){
+    if (!/^[A-Z]{2}[A-Z0-9]{9}[0-9]$/.test(isin) || !store()[isin] || typeof window.__fdSaveMeta !== "function"){ LOCAL[isin] = spec; bump(); return Promise.resolve(false); }
+    var val = toList(spec);
+    LOCAL[isin] = spec; bump();
+    return window.__fdSaveMeta(isin, "benchmark", val).then(function(){ delete LOCAL[isin]; bump(); return true; })
+      .catch(function(e){ console.warn("[índice] no se pudo guardar en la ficha de " + isin, e); return false; });
+  }
+
+  /* ---------- series: una sola o mezcla con rebalanceo mensual ---------- */
+  var CACHE = {};
+  function rowsOf(k){ var f = store()[k]; return f && f.rows && f.rows.length >= 2 ? f.rows : null; }
+  function exists(k){ var lz = window.__fdLazy ? window.__fdLazy() : null; return !!(store()[k] || (lz && lz.has && lz.has(k))); }
+  function series(spec){   // → [[t, v]] | null (cargando) | [] (no disponible)
+    var c = parse(spec); if (!c.length) return [];
+    var key = c.map(function(x){ return x.k + x.w; }).join("+") + "@" + c.map(function(x){ var r = rowsOf(x.k); return r ? r.length : 0; }).join(",");
+    if (CACHE[key]) return CACHE[key];
+    var miss = c.filter(function(x){ return !rowsOf(x.k); });
+    if (miss.length){
+      if (miss.some(function(x){ return !exists(x.k); })) return [];
+      miss.forEach(function(x){ if (x.k in LOADING) return; LOADING[x.k] = 1;
+        Promise.resolve(window.__fdEnsureSeries ? window.__fdEnsureSeries(x.k) : null).catch(function(e){ console.warn("[índice]", e); }).then(function(){ delete LOADING[x.k]; bump(); }); });
+      return null;
+    }
+    var out;
+    if (c.length === 1) out = L.pts(rowsOf(c[0].k), -Infinity, Infinity);
+    else {
+      var me = c.map(function(x){ var m = {}; L.monthEnds(L.pts(rowsOf(x.k), -Infinity, Infinity)).forEach(function(p){ m[L.dISO(p[0]).slice(0, 7)] = p; }); return m; });
+      var ks = Object.keys(me[0]).filter(function(k){ return me.every(function(m){ return k in m; }); }).sort(), tw = c.reduce(function(s, x){ return s + x.w; }, 0);
+      out = []; var v = 100;
+      ks.forEach(function(k, i){
+        if (i){ var r = 0; c.forEach(function(x, j){ r += x.w / tw * (me[j][k][1] / me[j][ks[i - 1]][1] - 1); }); v *= 1 + r; }
+        out.push([Math.max.apply(null, me.map(function(m){ return m[k][0]; })), v]);
+      });
+    }
+    CACHE[key] = out; return out;
+  }
+  var LOADING = {};
+  /* serie de un fondo frente a su índice en el tramo en que existen los dos */
+  function excess(fp, ip){
+    if (!fp || !ip || fp.length < 2 || ip.length < 2) return null;
+    var a = Math.max(fp[0][0], ip[0][0]), b = Math.min(fp[fp.length - 1][0], ip[ip.length - 1][0]);
+    if ((b - a) / 864e5 < 360) return null;
+    function at(p, t, first){ var best = null; for (var i = 0; i < p.length; i++){ if (first ? p[i][0] >= t : p[i][0] <= t){ if (first) return p[i]; best = p[i]; } } return best; }
+    var f0 = at(fp, a, true), f1 = at(fp, b, false), i0 = at(ip, a, true), i1 = at(ip, b, false);
+    if (!f0 || !f1 || !i0 || !i1) return null;
+    var yf = (f1[0] - f0[0]) / 864e5 / 365.25, yi = (i1[0] - i0[0]) / 864e5 / 365.25;
+    if (yf <= 0 || yi <= 0) return null;
+    var af = Math.pow(f1[1] / f0[1], 1 / yf) - 1, ai = Math.pow(i1[1] / i0[1], 1 / yi) - 1;
+    return { d: af - ai, f: af, i: ai, t0: a, t1: b };
+  }
+  /* aviso discreto cuando el índice no cubre el periodo */
+  function cover(ip, t0, t1){
+    if (!ip || !ip.length) return "";
+    var a = ip[0][0], b = ip[ip.length - 1][0], w = [];
+    if (a > t0 + 40 * 864e5) w.push("empieza el " + L.dES(a));
+    if (b < t1 - 40 * 864e5) w.push("termina el " + L.dES(b));
+    return w.join(" y ");
+  }
+  /* índice de una cartera: mezcla de los índices de sus fondos por peso (o el global si ninguno tiene) */
+  function portfolio(list){   // [{isin, w}]
+    var acc = {}, tw = 0;
+    list.forEach(function(x){ var c = parse(choice(x.isin).spec); if (!c.length || !(x.w > 0)) return; var s = c.reduce(function(q, y){ return q + y.w; }, 0); tw += x.w;
+      c.forEach(function(y){ acc[y.k] = (acc[y.k] || 0) + x.w * y.w / s; }); });
+    if (!tw) return ACWI;
+    var a = Object.keys(acc).map(function(k){ return [k, Math.round(acc[k] / tw * 100)]; }).filter(function(x){ return x[1] > 0; }).sort(function(x, y){ return y[1] - x[1]; });
+    var d = 100 - a.reduce(function(s, x){ return s + x[1]; }, 0); if (a.length) a[0][1] += d;
+    return a.length === 1 ? a[0][0] : mix(a);
+  }
+
+  /* ---------- selector ---------- */
+  function available(){
+    var ks = {}, lz = window.__fdLazy ? window.__fdLazy() : null;
+    function ok(k){ return /^IDX_/.test(k) && (/_Euro$/.test(k) || (/_USD$/.test(k) && fresh(k) && k !== "IDX_FUTUROS_ORO_DESDE_1975_USD")); }
+    Object.keys(store()).forEach(function(k){ if (ok(k)) ks[k] = 1; });
+    if (lz && lz.forEach) lz.forEach(function(_, k){ if (ok(k)) ks[k] = 1; });
+    if (!Object.keys(ks).length) Object.keys(NAMES).forEach(function(k){ ks[k] = 1; });
+    return Object.keys(ks);
+  }
+  function group(k){ return /GOV|BOND/.test(k) ? "Renta fija" : /GOLD|ORO|REIT/.test(k) ? "Oro e inmobiliario" : "Renta variable"; }
+  /* los de USD que ya no se actualizan no se ofrecen (sus versiones en EUR sí) */
+  var POP = null;
+  function closePop(){ if (POP){ POP.remove(); POP = null; } }
+  document.addEventListener("click", function(e){ if (POP && !POP.contains(e.target) && !(e.target.closest && e.target.closest("[data-hf2idx],[data-hf2idxbt]"))) closePop(); });
+  document.addEventListener("keydown", function(e){ if (e.key === "Escape") closePop(); });
+  /* opts: {anchor, isin, name, current, src, suggested, sugWhy, onPick(spec) → si se pasa, no se guarda en la ficha (cartera)} */
+  function tag(k){ var e = endOf(k), cur = /_USD$/.test(k) ? "USD" : "", t = []; if (cur) t.push(cur); if (!fresh(k) && e) t.push("hasta " + L.dES(e)); return t.join(" · "); }
+  function open(opts){
+    closePop();
+    var cur = opts.isin ? choice(opts.isin) : { spec: opts.current || "", src: opts.src || "elegido", why: opts.why || "" };
+    var sg = opts.isin ? suggest(opts.isin) : { spec: opts.suggested || "", why: opts.sugWhy || "" };
+    var p = h("div", "hf2pop hf2idxpop", ""); POP = p;
+    var picked = cur.src === "sugerido" ? null : cur.spec;
+    function it(spec, txt, sub, on){ return '<button type="button" class="it' + (on ? " on" : "") + '" data-s="' + esc(spec) + '"><span>' + txt + (sub ? "<small>" + sub + "</small>" : "") + "</span>" + (on ? "<em>✓</em>" : "") + "</button>"; }
+    var html = '<h6>Índice de referencia' + (opts.name ? " · " + esc(L.clip(opts.name, 34)) : "") + "</h6>";
+    html += it(sg.spec || "", "<b>Sugerido:</b> " + esc(label(sg.spec)), esc(sg.why || ""), cur.src === "sugerido");
+    if (picked && parse(picked).length > 1) html += it(picked, esc(label(picked)), "mezcla elegida · rebalanceo mensual", true);
+    var av = available(), gs = {};
+    av.forEach(function(k){ (gs[group(k)] = gs[group(k)] || []).push(k); });
+    ["Renta variable", "Renta fija", "Oro e inmobiliario"].forEach(function(g){
+      if (!gs[g]) return; html += "<h6>" + g + "</h6>";
+      gs[g].sort(function(a, b){ return (/_USD$/.test(a) - /_USD$/.test(b)) || nameOf(a).localeCompare(nameOf(b), "es"); }).forEach(function(k){ html += it(k, esc(nameOf(k)), esc(tag(k)), picked === k); });
+    });
+    html += '<h6>Mezcla a medida <small>rebalanceo mensual</small></h6><div class="hf2mix" id="hf2Mix"></div><hr>' + it("", "Sin índice", "", picked === "");
+    p.innerHTML = html;
+    document.body.appendChild(p);
+    /* constructor de mezcla: índice + %, suma 100 */
+    var rows = parse(picked && parse(picked).length > 1 ? picked : (sg.spec && parse(sg.spec).length > 1 ? sg.spec : "IDX_MSCI_ACWI_GROSS_Euro*60+IDX_EUROZONE_5_YEARS_GOV_Euro*40")).map(function(x){ return { k: x.k, w: x.w }; });
+    var opt = av.slice().sort(function(a, b){ return nameOf(a).localeCompare(nameOf(b), "es"); });
+    function paintMix(){
+      var box = p.querySelector("#hf2Mix"), sum = rows.reduce(function(q, r){ return q + (Number(r.w) || 0); }, 0);
+      box.innerHTML = rows.map(function(r, i){ return '<div class="r"><select data-i="' + i + '">' + opt.map(function(k){ return '<option value="' + esc(k) + '"' + (k === r.k ? " selected" : "") + ">" + esc(nameOf(k)) + (tag(k) ? " · " + esc(tag(k)) : "") + "</option>"; }).join("") +
+        '</select><input type="number" min="0" max="100" step="5" value="' + r.w + '" data-i="' + i + '"><em>%</em>' + (rows.length > 1 ? '<b data-i="' + i + '" title="Quitar">×</b>' : "") + "</div>"; }).join("") +
+        '<div class="f"><button type="button" class="lnk" id="hf2MixAdd">+ Añadir índice</button><span class="' + (Math.abs(sum - 100) < 0.01 ? "ok" : "bad") + '">Suma ' + L.num(sum, 0) + ' %</span><button type="button" class="go" id="hf2MixGo"' + (Math.abs(sum - 100) < 0.01 && rows.length > 1 ? "" : " disabled") + ">Aplicar</button></div>";
+      Array.prototype.forEach.call(box.querySelectorAll("select"), function(e){ e.addEventListener("change", function(){ rows[+e.dataset.i].k = e.value; }); });
+      Array.prototype.forEach.call(box.querySelectorAll("input"), function(e){ e.addEventListener("change", function(){ rows[+e.dataset.i].w = Math.max(0, Math.min(100, Number(e.value) || 0)); paintMix(); }); });
+      Array.prototype.forEach.call(box.querySelectorAll("b"), function(e){ e.addEventListener("click", function(ev){ ev.stopPropagation(); rows.splice(+e.dataset.i, 1); paintMix(); }); });
+      box.querySelector("#hf2MixAdd").addEventListener("click", function(ev){ ev.stopPropagation(); rows.push({ k: "IDX_EUROZONE_3_YEARS_GOV_Euro", w: Math.max(0, 100 - sum) }); paintMix(); });
+      box.querySelector("#hf2MixGo").addEventListener("click", function(){ var seen = {}, m = []; rows.forEach(function(r){ if (!(r.w > 0)) return; if (seen[r.k]) seen[r.k].w += r.w; else { seen[r.k] = { k: r.k, w: r.w }; m.push(seen[r.k]); } });
+        pick(m.length === 1 ? m[0].k : m.map(function(x){ return x.k + "*" + x.w; }).join("+")); });
+    }
+    paintMix();
+    var r = opts.anchor.getBoundingClientRect();
+    p.style.position = "fixed"; p.style.top = Math.max(8, Math.min(r.bottom + 6, window.innerHeight - 440)) + "px"; p.style.left = Math.max(8, Math.min(r.left, window.innerWidth - 360)) + "px";
+    function pick(sp){ closePop(); if (opts.onPick){ opts.onPick(sp); bump(); return; } persist(opts.isin, sp); }
+    Array.prototype.forEach.call(p.querySelectorAll("button.it"), function(b){ b.addEventListener("click", function(){ pick(b.dataset.s); }); });
+    p.addEventListener("click", function(e){ e.stopPropagation(); });
+  }
+  /* botón «Índice: X · sugerido ▾» */
+  function button(isin, name, cls){
+    var c = choice(isin);
+    return '<button type="button" class="hf2idxb ' + (cls || "") + '" data-hf2idx="' + esc(isin) + '" data-n="' + esc(name || "") + '" title="' + esc(c.src === "sugerido" ? "Sugerido (" + c.why + "). Pulsa para elegir otro o confirmarlo." : "Índice de referencia guardado en la ficha del fondo. Pulsa para cambiarlo.") + '">' +
+      '<i></i>' + esc(label(c.spec)) + (c.src === "sugerido" && c.spec ? ' <em>sugerido</em>' : "") + ' <span aria-hidden="true">▾</span></button>';
+  }
+  function bind(root){
+    Array.prototype.forEach.call((root || document).querySelectorAll("[data-hf2idx]"), function(b){
+      if (b.dataset.b) return; b.dataset.b = "1";
+      b.addEventListener("click", function(e){ e.stopPropagation(); if (POP){ closePop(); return; } open({ anchor: b, isin: b.dataset.hf2idx, name: b.dataset.n }); });
+    });
+  }
+
+  /* ---------- análisis guardados ---------- */
+  function exportState(){ return { cmpOn: !!I.cmpOn, bt: I.bt, local: Object.assign({}, LOCAL) }; }
+  function importState(s){ if (!s || typeof s !== "object") return; I.cmpOn = !!s.cmpOn; I.bt = s.bt == null ? null : String(s.bt); if (s.local && typeof s.local === "object") Object.keys(s.local).forEach(function(k){ if (saved(k) == null) LOCAL[k] = String(s.local[k]); }); bump(); }
+
+  I.choice = choice; I.suggest = suggest; I.label = label; I.short = short; I.parse = parse; I.series = series; I.excess = excess; I.cover = cover; I.portfolio = portfolio;
+  I.open = open; I.button = button; I.bind = bind; I.persist = persist; I.exportState = exportState; I.importState = importState; I.bump = bump; I.nameOf = nameOf;
+  I.RULES = { text: TEXT_RULES, byTax: byTax }; I.fresh = fresh; I.endOf = endOf; I.toList = toList;
+  window.HF2I = I;
+})();
+
+/* ==========================================================================
    HF2 · Backtest de cartera con el mismo lenguaje que Comparación: barra de
    control (fondos con su peso), resumen de la cartera y gráficos propios.
    La cartera la construye el motor de siempre (btBuildPortfolioSeriesRange).
@@ -18670,7 +19238,7 @@ body.hf-dark.hf2-legacy #screen1 > *:not(#hf2Fund), body.hf-dark.hf2-legacy #scr
 (function(){
   "use strict";
   var L = window.HF2.lib, $ = L.$, esc = L.esc, h = L.h, pct = L.pct, num = L.num, dES = L.dES, clip = L.clip;
-  var B = { sig: "", chipSig: "", per: 0, dd: "y", rm: "r", rn: 0, legacy: false, ymode: "r" };
+  var B = { sig: "", chipSig: "", per: 0, dd: "m", rm: "r", rn: 0, legacy: false, ymode: "r" };
   var REB = [["none", "Sin rebalanceo"], ["yearly", "Rebalanceo anual"], ["bands", "Rebalanceo por bandas"]];
   function BTs(){ return window.BT; }
   function loaded(){ var a = []; for (var i = 0; i < BTs().funds.length; i++) if (BTs().funds[i]) a.push(i); return a; }
@@ -18747,7 +19315,7 @@ body.hf-dark.hf2-legacy #screen1 > *:not(#hf2Fund), body.hf-dark.hf2-legacy #scr
     var T = L.th(), ix = loaded(), body = $("hf2BBody"), per = $("hf2BPer"), hint = $("hf2BHint"), reb = $("hf2BReb");
     chips(ix, T);
     var mode = BTs().rebalMode || ($("btRebalMode") && $("btRebalMode").value) || "none"; if (reb.value !== mode) reb.value = mode;
-    var sig = ix.map(function(i){ return i + ":" + (Number(BTs().weights[i]) || 0) + ":" + L.ser(BTs().funds[i]).length; }).join("|") + "#" + mode + B.per + B.dd + B.rm + B.rn + B.ymode + T.DARK + "#" + (body ? body.clientWidth : 0);
+    var sig = ix.map(function(i){ return i + ":" + (Number(BTs().weights[i]) || 0) + ":" + L.ser(BTs().funds[i]).length; }).join("|") + "#" + mode + B.per + B.dd + B.rm + B.rn + B.ymode + T.DARK + "#" + (window.HF2I ? HF2I.ver + "|" + HF2I.bt : "") + "#" + (body ? body.clientWidth : 0);
     if (sig === B.sig) return; B.sig = sig;
     var ctl = [per, reb, $("hf2BMenuBtn").parentElement];
     if (!ix.length){
@@ -18772,8 +19340,8 @@ body.hf-dark.hf2-legacy #screen1 > *:not(#hf2Fund), body.hf-dark.hf2-legacy #scr
     hint.innerHTML = "<span><b>" + dES(t0) + " – " + dES(t1) + "</b> · " + (st.days >= 365 ? num(st.days / 365.25, 1) + " años" : Math.round(st.days / 30.44) + " meses") + "</span>" +
       (lim != null ? "<span>·</span><span>El periodo lo limita <b>" + esc(fname(lim).short) + "</b>; sin él empezaría el " + dES(+cr.startNoLim) + ".</span>" : "");
     if (!$("hf2BEvo")){
-      body.innerHTML = '<div class="hf2head"><div><h1>Cartera</h1><p id="hf2BSub"></p></div><div class="hf2kpis" id="hf2BKpis"></div></div>' +
-        '<div class="hf2card"><h3>Evolución <small>cartera frente a sus fondos · rentabilidad acumulada, con la anualizada al final de cada línea</small></h3><div class="hf2plot" id="hf2BEvo"></div></div>' +
+      body.innerHTML = '<div class="hf2head"><div><h1>Cartera</h1><p id="hf2BSub"></p><div class="hf2idxrow" id="hf2BIdx"></div></div><div class="hf2kpis" id="hf2BKpis"></div></div>' +
+        '<div class="hf2card"><h3>Evolución <small id="hf2BEvoS"></small></h3><div class="hf2plot" id="hf2BEvo"></div><div class="hf2leg" id="hf2BLeg"></div></div>' +
         '<div class="hf2grid"><div class="hf2card"><h3>Por año <span class="hf2seg sm" id="hf2BY" style="margin-left:auto"><button type="button" data-m="r">Rentabilidad</button><button type="button" data-m="v">Volatilidad</button></span></h3><div id="hf2BYears" style="overflow-x:auto"></div></div>' +
         '<div class="hf2card"><h3>Composición</h3><div id="hf2BComp" class="hf2comp"></div></div>' + L.ddCard("hf2B") + L.rollCard("hf2B") + "</div>" +
         '<button type="button" class="hf2more hf2-admin" id="hf2BMore">Más análisis</button>';
@@ -18781,24 +19349,38 @@ body.hf-dark.hf2-legacy #screen1 > *:not(#hf2Fund), body.hf-dark.hf2-legacy #scr
       Array.prototype.forEach.call($("hf2BY").children, function(b){ b.addEventListener("click", function(){ B.ymode = b.dataset.m; B.sig = ""; render(); }); });
       $("hf2BMore").addEventListener("click", function(){ setLegacy(!B.legacy); this.textContent = B.legacy ? "Ocultar vista clásica" : "Más análisis"; });
     }
-    var wy = L.worstOf(L.rollWin(p, L.HZ.y.days)), sharpe = (st.ann != null && st.vol) ? st.ann / st.vol : null;
+    var sharpe = (st.ann != null && st.vol) ? st.ann / st.vol : null;
+    /* índice de la cartera: mezcla de los índices de sus fondos por peso (se puede cambiar) */
+    var I = window.HF2I, ixAuto = I ? I.portfolio(act.map(function(i){ var f = BTs().funds[i]; return { isin: (f && f.meta && f.meta.isin) || (f && f.fileName && f.fileName.indexOf("repo:") === 0 ? f.fileName.slice(5) : ""), w: Number(BTs().weights[i]) || 0 }; })) : "";
+    var ixSpec = I ? (I.bt != null ? I.bt : ixAuto) : "", ip = ixSpec ? I.series(ixSpec) : [], idxIt = null, xs = null, cov = "";
+    if (ip && ip.length){
+      var ipP = ip.filter(function(x){ return x[0] >= t0 - 20 * 864e5 && x[0] <= t1; }); cov = I.cover(ip, t0, t1);
+      if (ipP.length >= 2){ var off = 0; if (ipP[0][0] > t0 + 20 * 864e5){ var fv = null; p.forEach(function(x){ if (x[0] <= ipP[0][0]) fv = x[1]; }); off = fv ? fv / p[0][1] - 1 : 0; }
+        idxIt = { short: I.label(ixSpec), color: T.MUT, dash: true, lw: 1.6, p: ipP, st: L.stats(ipP), idx: true, off: off }; xs = I.excess(p, ipP); }
+    }
+    if (I){
+      $("hf2BIdx").innerHTML = '<span>Índice de referencia</span><button type="button" class="hf2idxb" data-hf2idxbt="1" title="' + esc(I.bt == null ? "Automático: mezcla de los índices de los fondos según su peso. Pulsa para cambiarlo." : "Elegido para esta cartera. Pulsa para cambiarlo.") + '"><i></i>' + esc(I.label(ixSpec)) + (I.bt == null ? " <em>automático</em>" : "") + ' <span aria-hidden="true">▾</span></button>';
+      $("hf2BIdx").querySelector("button").addEventListener("click", function(e){ e.stopPropagation(); I.open({ anchor: this, name: "Cartera", current: ixSpec, src: I.bt == null ? "sugerido" : "elegido", suggested: ixAuto, sugWhy: "mezcla de los índices de los fondos según su peso", onPick: function(sp){ I.bt = sp === ixAuto ? null : sp; } }); });
+    }
+    $("hf2BEvoS").innerHTML = "cartera frente a sus fondos · rentabilidad acumulada, con la anualizada al final de cada línea" + (idxIt ? ' · <span class="hf2dsh"></span> índice' : "") + (ixSpec && ip === null ? " · cargando índice…" : "") + (cov ? ' · <span class="w">el índice ' + esc(cov) + "</span>" : "");
     function kpi(l, v, cls, tip){ return '<div class="hf2kpi"' + (tip ? ' title="' + tip + '"' : "") + "><span>" + l + "</span><b" + (cls ? ' class="' + cls + '"' : "") + ">" + v + "</b></div>"; }
     $("hf2BSub").textContent = act.length + (act.length === 1 ? " fondo" : " fondos") + " · " + REB.filter(function(o){ return o[0] === mode; })[0][1].toLowerCase();
     $("hf2BKpis").innerHTML = (st.ann != null ? kpi("Anualizada", pct(st.ann, 1, true), st.ann < 0 ? "neg" : "pos") : "") + kpi("Acumulada", pct(st.cum, Math.abs(st.cum) >= 1 ? 0 : 1, true), st.ann == null ? (st.cum < 0 ? "neg" : "pos") : "") +
       kpi("Volatilidad", pct(st.vol, 1), "", "Anualizada, con cierres mensuales") + (sharpe != null ? kpi("Sharpe", num(sharpe, 2), "", "Rentabilidad anualizada entre volatilidad (tipo sin riesgo 0 %)") : "") +
-      kpi("Máx. caída", pct(st.mdd, 1), "", "De pico a valle") + kpi("Peor 12 meses", wy ? pct(Math.min(wy.r, 0), 1) : "—", "", wy ? "Entrando el " + dES(wy.tIn) : "Sin historial suficiente");
+      kpi("Máx. caída", pct(st.mdd, 1), "", "De pico a valle con cierres diarios") + kpi("vs índice", xs ? pct(xs.d, 1, true) : "—", xs && Math.abs(xs.d) >= 0.0005 ? (xs.d < 0 ? "neg" : "pos") : "", xs ? "Anualizada de la cartera (" + pct(xs.f, 1, true) + ") menos la del índice (" + pct(xs.i, 1, true) + ")" : "Sin índice o sin un año de datos en común");
     var cart = { short: "Cartera", color: T.INK, lw: 2.8, p: p, st: st, series: full };
     var comps = act.map(function(i){ var sr = L.ser(BTs().funds[i]), q = L.pts(sr, t0, t1); return { short: fname(i).short, color: T.PAL[i % T.PAL.length], lw: 1.3, p: q, st: L.stats(q), series: sr, w: Number(BTs().weights[i]) || 0 }; }).filter(function(c){ return c.p.length >= 2; });
-    var evo = [cart].concat(comps);
-    try{ if (typeof btBenchUsed === "function" && btBenchUsed() && typeof btBuildBenchmarkSeriesRange === "function"){ var bq = L.pts(btBuildBenchmarkSeriesRange(new Date(t0), new Date(t1), BTs().benchRebalMode || "none", Number(BTs().benchBandX) || 5), -Infinity, Infinity); if (bq.length >= 2) evo.push({ short: "Índice de referencia", color: T.MUT, lw: 1.6, dash: true, p: bq, st: L.stats(bq) }); } }catch(_){ }
+    var evo = [cart].concat(comps); if (idxIt) evo.push(idxIt);
+    try{ if (typeof btBenchUsed === "function" && btBenchUsed() && typeof btBuildBenchmarkSeriesRange === "function"){ var bq = L.pts(btBuildBenchmarkSeriesRange(new Date(t0), new Date(t1), BTs().benchRebalMode || "none", Number(BTs().benchBandX) || 5), -Infinity, Infinity); if (bq.length >= 2) evo.push({ short: "Referencia de la vista clásica", color: T.FAINT, lw: 1.3, dash: "dot", p: bq, st: L.stats(bq), idx: true }); } }catch(_){ }
     var H1 = Math.max(300, Math.min(420, Math.round(window.innerHeight * 0.40))), H2 = 290;
     L.plotEvolution("hf2BEvo", evo, H1, false);
+    $("hf2BLeg").innerHTML = '<div class="its">' + evo.map(function(e){ return '<span class="it' + (e.idx ? " ix" : "") + '">' + L.sw(e.color, e.idx ? (typeof e.dash === "string" ? e.dash : "dash") : null) + "<span><b>" + esc(clip(e.short, 34)) + "</b>" + (e.w != null ? "<small>" + num(e.w, e.w % 1 ? 1 : 0) + " %</small>" : (e.idx ? "<small>índice</small>" : "")) + "</span></span>"; }).join("") + "</div>";
     Array.prototype.forEach.call($("hf2BY").children, function(b){ b.className = b.dataset.m === B.ymode ? "on" : ""; });
     $("hf2BYears").innerHTML = heat([cart].concat(comps), B.ymode === "v", T);
     $("hf2BComp").innerHTML = comps.slice().sort(function(a, b){ return b.w - a.w; }).map(function(c){
       return '<div class="r"><span class="n"><i style="background:' + c.color + '"></i>' + esc(clip(c.short, 34)) + '</span><span class="b"><u style="width:' + Math.max(1, c.w) + "%;background:" + c.color + '"></u></span><b>' + num(c.w, c.w % 1 ? 1 : 0) + " %</b><em>" + pct(c.st.ann != null ? c.st.ann : c.st.cum, 1, true) + "</em></div>"; }).join("") +
       '<div class="hf2foot">A la derecha, la rentabilidad ' + (st.ann != null ? "anualizada" : "acumulada") + " de cada fondo en el periodo.</div>";
-    L.ddRender("hf2B", [cart], true, H2 - 40, B);
+    L.ddRender("hf2B", [cart], true, H2 - 30, B, function(){ B.sig = ""; render(); });
     L.rollRender("hf2B", pAll, T.DARK ? T.PAL[0] : T.INK, H2, B, function(){ B.sig = ""; render(); });
   }
   window.HF2B = { render: render, state: B };

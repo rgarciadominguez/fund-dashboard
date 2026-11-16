@@ -18,6 +18,19 @@ rep("      Plotly[fn] = function(el, data, layout, cfg){ theme(el, data, layout)
 rep("  window.mstBuildParsed = mstBuildParsed;\n", "  window.mstBuildParsed = mstBuildParsed;\n  window.mstSearch = mstSearch;\n")
 rep("  window.__fdStore = store;\n", """  window.__fdStore = store;
   window.__fdLazy = fdLazyMap;
+  // escribe UN campo de la ficha (meta) de un fondo: lee la ficha de la nube, añade el campo y la devuelve; la serie no se toca
+  window.__fdSaveMeta = async function(isin, field, value){
+    const filtro = "/rest/v1/funds?isin=eq." + encodeURIComponent(isin);
+    const r0 = await sbFetch(SB_URL + filtro.replace("?", "?select=meta&"), {headers: SB_HDR()});
+    if (!r0.ok) throw new Error("la nube respondió " + r0.status);
+    const cur = await r0.json();
+    if (!cur.length) throw new Error("el fondo no está en el repositorio");
+    const meta = Object.assign({}, cur[0].meta || {}); meta[field] = value;
+    const r = await sbFetch(SB_URL + filtro, {method: "PATCH", headers: Object.assign(SB_HDR(), {"Prefer": "return=minimal"}), body: JSON.stringify({meta})});
+    if (!r.ok) throw new Error("la nube respondió " + r.status);
+    if (store[isin]){ store[isin].meta = meta; fdSigMap().set(isin, fdSig(isin)); }
+    return true;
+  };
   window.__fdAddIsin = async function(isin, name, cur){   // alta en el repositorio de un fondo cargado desde Morningstar
     if (store[isin] && ((store[isin].rows || []).length >= 2 || fdIsLazy(isin))) return false;
     // ficha: el screener puede no responder (401 desde nov-2026); con tope y sin bloquear el alta
@@ -79,7 +92,11 @@ rep("""      try{
 import json
 cfg = json.loads((here / "config.json").read_text(encoding="utf-8"))
 css = (here / "hf2.css").read_text(encoding="utf-8")
-js = "\n".join((here / f).read_text(encoding="utf-8") for f in ("hf2.js", "hf2-pick.js", "hf2-bt.js"))
+# análisis guardados (Comparación y Backtest): también el estado de los índices de referencia
+rep("        hiddenIsins: (window.HF && HF.hiddenIsins) ? HF.hiddenIsins() : []\n", "        hiddenIsins: (window.HF && HF.hiddenIsins) ? HF.hiddenIsins() : [],\n        hf2Idx: window.HF2I ? HF2I.exportState() : null\n")
+rep("        benchBandX:    Number(($('btBenchBandX')||{}).value || BTref.benchBandX || 5)\n", "        benchBandX:    Number(($('btBenchBandX')||{}).value || BTref.benchBandX || 5),\n        hf2Idx: window.HF2I ? HF2I.exportState() : null\n")
+rep("    const settings = data.settings || {};\n\n    if (!window.DATAPACK || !window.DATAPACK.loaded){", "    const settings = data.settings || {};\n    try{ if (window.HF2I && settings.hf2Idx) HF2I.importState(settings.hf2Idx); }catch(_){ }\n\n    if (!window.DATAPACK || !window.DATAPACK.loaded){", 2)
+js = "\n".join((here / f).read_text(encoding="utf-8") for f in ("hf2.js", "hf2-pick.js", "hf2-idx.js", "hf2-bt.js"))
 js = js.replace("__CAT_URL__", cfg["catalog_url"]).replace("__CAT_KEY__", cfg["catalog_anon_key"])
 rep("</body>", "<style id=\"hf2-css\">\n" + css + "\n</style>\n<script id=\"hf2-layer\">\n" + js + "\n</script>\n</body>")
 out = pathlib.Path(sys.argv[1]); out.write_text(s, encoding="utf-8"); print("ok", len(s))

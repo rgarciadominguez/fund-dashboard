@@ -6,7 +6,7 @@
 (function(){
   "use strict";
   var L = window.HF2.lib, $ = L.$, esc = L.esc, h = L.h, pct = L.pct, num = L.num, dES = L.dES, clip = L.clip;
-  var B = { sig: "", chipSig: "", per: 0, dd: "y", rm: "r", rn: 0, legacy: false, ymode: "r" };
+  var B = { sig: "", chipSig: "", per: 0, dd: "m", rm: "r", rn: 0, legacy: false, ymode: "r" };
   var REB = [["none", "Sin rebalanceo"], ["yearly", "Rebalanceo anual"], ["bands", "Rebalanceo por bandas"]];
   function BTs(){ return window.BT; }
   function loaded(){ var a = []; for (var i = 0; i < BTs().funds.length; i++) if (BTs().funds[i]) a.push(i); return a; }
@@ -83,7 +83,7 @@
     var T = L.th(), ix = loaded(), body = $("hf2BBody"), per = $("hf2BPer"), hint = $("hf2BHint"), reb = $("hf2BReb");
     chips(ix, T);
     var mode = BTs().rebalMode || ($("btRebalMode") && $("btRebalMode").value) || "none"; if (reb.value !== mode) reb.value = mode;
-    var sig = ix.map(function(i){ return i + ":" + (Number(BTs().weights[i]) || 0) + ":" + L.ser(BTs().funds[i]).length; }).join("|") + "#" + mode + B.per + B.dd + B.rm + B.rn + B.ymode + T.DARK + "#" + (body ? body.clientWidth : 0);
+    var sig = ix.map(function(i){ return i + ":" + (Number(BTs().weights[i]) || 0) + ":" + L.ser(BTs().funds[i]).length; }).join("|") + "#" + mode + B.per + B.dd + B.rm + B.rn + B.ymode + T.DARK + "#" + (window.HF2I ? HF2I.ver + "|" + HF2I.bt : "") + "#" + (body ? body.clientWidth : 0);
     if (sig === B.sig) return; B.sig = sig;
     var ctl = [per, reb, $("hf2BMenuBtn").parentElement];
     if (!ix.length){
@@ -108,8 +108,8 @@
     hint.innerHTML = "<span><b>" + dES(t0) + " – " + dES(t1) + "</b> · " + (st.days >= 365 ? num(st.days / 365.25, 1) + " años" : Math.round(st.days / 30.44) + " meses") + "</span>" +
       (lim != null ? "<span>·</span><span>El periodo lo limita <b>" + esc(fname(lim).short) + "</b>; sin él empezaría el " + dES(+cr.startNoLim) + ".</span>" : "");
     if (!$("hf2BEvo")){
-      body.innerHTML = '<div class="hf2head"><div><h1>Cartera</h1><p id="hf2BSub"></p></div><div class="hf2kpis" id="hf2BKpis"></div></div>' +
-        '<div class="hf2card"><h3>Evolución <small>cartera frente a sus fondos · rentabilidad acumulada, con la anualizada al final de cada línea</small></h3><div class="hf2plot" id="hf2BEvo"></div></div>' +
+      body.innerHTML = '<div class="hf2head"><div><h1>Cartera</h1><p id="hf2BSub"></p><div class="hf2idxrow" id="hf2BIdx"></div></div><div class="hf2kpis" id="hf2BKpis"></div></div>' +
+        '<div class="hf2card"><h3>Evolución <small id="hf2BEvoS"></small></h3><div class="hf2plot" id="hf2BEvo"></div><div class="hf2leg" id="hf2BLeg"></div></div>' +
         '<div class="hf2grid"><div class="hf2card"><h3>Por año <span class="hf2seg sm" id="hf2BY" style="margin-left:auto"><button type="button" data-m="r">Rentabilidad</button><button type="button" data-m="v">Volatilidad</button></span></h3><div id="hf2BYears" style="overflow-x:auto"></div></div>' +
         '<div class="hf2card"><h3>Composición</h3><div id="hf2BComp" class="hf2comp"></div></div>' + L.ddCard("hf2B") + L.rollCard("hf2B") + "</div>" +
         '<button type="button" class="hf2more hf2-admin" id="hf2BMore">Más análisis</button>';
@@ -117,24 +117,38 @@
       Array.prototype.forEach.call($("hf2BY").children, function(b){ b.addEventListener("click", function(){ B.ymode = b.dataset.m; B.sig = ""; render(); }); });
       $("hf2BMore").addEventListener("click", function(){ setLegacy(!B.legacy); this.textContent = B.legacy ? "Ocultar vista clásica" : "Más análisis"; });
     }
-    var wy = L.worstOf(L.rollWin(p, L.HZ.y.days)), sharpe = (st.ann != null && st.vol) ? st.ann / st.vol : null;
+    var sharpe = (st.ann != null && st.vol) ? st.ann / st.vol : null;
+    /* índice de la cartera: mezcla de los índices de sus fondos por peso (se puede cambiar) */
+    var I = window.HF2I, ixAuto = I ? I.portfolio(act.map(function(i){ var f = BTs().funds[i]; return { isin: (f && f.meta && f.meta.isin) || (f && f.fileName && f.fileName.indexOf("repo:") === 0 ? f.fileName.slice(5) : ""), w: Number(BTs().weights[i]) || 0 }; })) : "";
+    var ixSpec = I ? (I.bt != null ? I.bt : ixAuto) : "", ip = ixSpec ? I.series(ixSpec) : [], idxIt = null, xs = null, cov = "";
+    if (ip && ip.length){
+      var ipP = ip.filter(function(x){ return x[0] >= t0 - 20 * 864e5 && x[0] <= t1; }); cov = I.cover(ip, t0, t1);
+      if (ipP.length >= 2){ var off = 0; if (ipP[0][0] > t0 + 20 * 864e5){ var fv = null; p.forEach(function(x){ if (x[0] <= ipP[0][0]) fv = x[1]; }); off = fv ? fv / p[0][1] - 1 : 0; }
+        idxIt = { short: I.label(ixSpec), color: T.MUT, dash: true, lw: 1.6, p: ipP, st: L.stats(ipP), idx: true, off: off }; xs = I.excess(p, ipP); }
+    }
+    if (I){
+      $("hf2BIdx").innerHTML = '<span>Índice de referencia</span><button type="button" class="hf2idxb" data-hf2idxbt="1" title="' + esc(I.bt == null ? "Automático: mezcla de los índices de los fondos según su peso. Pulsa para cambiarlo." : "Elegido para esta cartera. Pulsa para cambiarlo.") + '"><i></i>' + esc(I.label(ixSpec)) + (I.bt == null ? " <em>automático</em>" : "") + ' <span aria-hidden="true">▾</span></button>';
+      $("hf2BIdx").querySelector("button").addEventListener("click", function(e){ e.stopPropagation(); I.open({ anchor: this, name: "Cartera", current: ixSpec, src: I.bt == null ? "sugerido" : "elegido", suggested: ixAuto, sugWhy: "mezcla de los índices de los fondos según su peso", onPick: function(sp){ I.bt = sp === ixAuto ? null : sp; } }); });
+    }
+    $("hf2BEvoS").innerHTML = "cartera frente a sus fondos · rentabilidad acumulada, con la anualizada al final de cada línea" + (idxIt ? ' · <span class="hf2dsh"></span> índice' : "") + (ixSpec && ip === null ? " · cargando índice…" : "") + (cov ? ' · <span class="w">el índice ' + esc(cov) + "</span>" : "");
     function kpi(l, v, cls, tip){ return '<div class="hf2kpi"' + (tip ? ' title="' + tip + '"' : "") + "><span>" + l + "</span><b" + (cls ? ' class="' + cls + '"' : "") + ">" + v + "</b></div>"; }
     $("hf2BSub").textContent = act.length + (act.length === 1 ? " fondo" : " fondos") + " · " + REB.filter(function(o){ return o[0] === mode; })[0][1].toLowerCase();
     $("hf2BKpis").innerHTML = (st.ann != null ? kpi("Anualizada", pct(st.ann, 1, true), st.ann < 0 ? "neg" : "pos") : "") + kpi("Acumulada", pct(st.cum, Math.abs(st.cum) >= 1 ? 0 : 1, true), st.ann == null ? (st.cum < 0 ? "neg" : "pos") : "") +
       kpi("Volatilidad", pct(st.vol, 1), "", "Anualizada, con cierres mensuales") + (sharpe != null ? kpi("Sharpe", num(sharpe, 2), "", "Rentabilidad anualizada entre volatilidad (tipo sin riesgo 0 %)") : "") +
-      kpi("Máx. caída", pct(st.mdd, 1), "", "De pico a valle") + kpi("Peor 12 meses", wy ? pct(Math.min(wy.r, 0), 1) : "—", "", wy ? "Entrando el " + dES(wy.tIn) : "Sin historial suficiente");
+      kpi("Máx. caída", pct(st.mdd, 1), "", "De pico a valle con cierres diarios") + kpi("vs índice", xs ? pct(xs.d, 1, true) : "—", xs && Math.abs(xs.d) >= 0.0005 ? (xs.d < 0 ? "neg" : "pos") : "", xs ? "Anualizada de la cartera (" + pct(xs.f, 1, true) + ") menos la del índice (" + pct(xs.i, 1, true) + ")" : "Sin índice o sin un año de datos en común");
     var cart = { short: "Cartera", color: T.INK, lw: 2.8, p: p, st: st, series: full };
     var comps = act.map(function(i){ var sr = L.ser(BTs().funds[i]), q = L.pts(sr, t0, t1); return { short: fname(i).short, color: T.PAL[i % T.PAL.length], lw: 1.3, p: q, st: L.stats(q), series: sr, w: Number(BTs().weights[i]) || 0 }; }).filter(function(c){ return c.p.length >= 2; });
-    var evo = [cart].concat(comps);
-    try{ if (typeof btBenchUsed === "function" && btBenchUsed() && typeof btBuildBenchmarkSeriesRange === "function"){ var bq = L.pts(btBuildBenchmarkSeriesRange(new Date(t0), new Date(t1), BTs().benchRebalMode || "none", Number(BTs().benchBandX) || 5), -Infinity, Infinity); if (bq.length >= 2) evo.push({ short: "Índice de referencia", color: T.MUT, lw: 1.6, dash: true, p: bq, st: L.stats(bq) }); } }catch(_){ }
+    var evo = [cart].concat(comps); if (idxIt) evo.push(idxIt);
+    try{ if (typeof btBenchUsed === "function" && btBenchUsed() && typeof btBuildBenchmarkSeriesRange === "function"){ var bq = L.pts(btBuildBenchmarkSeriesRange(new Date(t0), new Date(t1), BTs().benchRebalMode || "none", Number(BTs().benchBandX) || 5), -Infinity, Infinity); if (bq.length >= 2) evo.push({ short: "Referencia de la vista clásica", color: T.FAINT, lw: 1.3, dash: "dot", p: bq, st: L.stats(bq), idx: true }); } }catch(_){ }
     var H1 = Math.max(300, Math.min(420, Math.round(window.innerHeight * 0.40))), H2 = 290;
     L.plotEvolution("hf2BEvo", evo, H1, false);
+    $("hf2BLeg").innerHTML = '<div class="its">' + evo.map(function(e){ return '<span class="it' + (e.idx ? " ix" : "") + '">' + L.sw(e.color, e.idx ? (typeof e.dash === "string" ? e.dash : "dash") : null) + "<span><b>" + esc(clip(e.short, 34)) + "</b>" + (e.w != null ? "<small>" + num(e.w, e.w % 1 ? 1 : 0) + " %</small>" : (e.idx ? "<small>índice</small>" : "")) + "</span></span>"; }).join("") + "</div>";
     Array.prototype.forEach.call($("hf2BY").children, function(b){ b.className = b.dataset.m === B.ymode ? "on" : ""; });
     $("hf2BYears").innerHTML = heat([cart].concat(comps), B.ymode === "v", T);
     $("hf2BComp").innerHTML = comps.slice().sort(function(a, b){ return b.w - a.w; }).map(function(c){
       return '<div class="r"><span class="n"><i style="background:' + c.color + '"></i>' + esc(clip(c.short, 34)) + '</span><span class="b"><u style="width:' + Math.max(1, c.w) + "%;background:" + c.color + '"></u></span><b>' + num(c.w, c.w % 1 ? 1 : 0) + " %</b><em>" + pct(c.st.ann != null ? c.st.ann : c.st.cum, 1, true) + "</em></div>"; }).join("") +
       '<div class="hf2foot">A la derecha, la rentabilidad ' + (st.ann != null ? "anualizada" : "acumulada") + " de cada fondo en el periodo.</div>";
-    L.ddRender("hf2B", [cart], true, H2 - 40, B);
+    L.ddRender("hf2B", [cart], true, H2 - 30, B, function(){ B.sig = ""; render(); });
     L.rollRender("hf2B", pAll, T.DARK ? T.PAL[0] : T.INK, H2, B, function(){ B.sig = ""; render(); });
   }
   window.HF2B = { render: render, state: B };
