@@ -28,6 +28,36 @@ rep("  window.__fdStore = store;\n", """  window.__fdStore = store;
     return true;
   };
 """)
+# búsqueda Morningstar: por ISIN primero security_details (directo, ~0,2 s; el proxy del Worker devuelve 202
+# vacío por el WAF y la cadena de proxies públicos colgaba la búsqueda); y tope de tiempo a cada ruta lenta
+rep("""    if (mstIsIsin(tRaw)){
+      try {
+        const results = await mstSearchLegacyAPI(tRaw, 5);""", """    if (mstIsIsin(tRaw)){
+      try {
+        const d = await mstFetchSecurityDetails(tRaw);
+        if (d && d.name) return [{ name: d.name, isin: (d.isin || tRaw).toUpperCase(), msId: d.msId || "", baseCurrency: d.currency || "" }];
+      } catch(_){}
+      try {
+        const results = await mstWithTimeout(mstSearchLegacyAPI(tRaw, 5), 6000);""")
+rep("""      return await mstSearchGlobal(tRaw, 5);
+    }""", """      return await mstWithTimeout(mstSearchGlobal(tRaw, 5), 8000).catch(() => []);
+    }""")
+rep("""      const results = await mstSearchLegacyAPI(tRaw, limit || 25);
+      if (results.length) return results;
+    } catch(e){
+      if (e && e.message && /aws-waf-token/i.test(e.message)) throw e;
+    }
+    return await mstSearchGlobal(tRaw, limit);
+  }""", """      const results = await mstWithTimeout(mstSearchLegacyAPI(tRaw, limit || 25), 6000);
+      if (results.length) return results;
+    } catch(e){
+      if (e && e.message && /aws-waf-token/i.test(e.message)) throw e;
+    }
+    return await mstWithTimeout(mstSearchGlobal(tRaw, limit), 8000).catch(() => []);
+  }
+  function mstWithTimeout(p, ms){
+    return Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("Morningstar no responde")), ms))]);
+  }""")
 import json
 cfg = json.loads((here / "config.json").read_text(encoding="utf-8"))
 css = (here / "hf2.css").read_text(encoding="utf-8")

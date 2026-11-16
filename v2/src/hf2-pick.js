@@ -260,10 +260,10 @@
     P.mstState = "busy";
     mstT = setTimeout(function(){
       var asked = P.q; if (typeof window.mstSearch !== "function"){ P.mstState = "err"; P.mstQ = asked; render(true); return; }
-      window.mstSearch(q, 12).then(function(items){
+      Promise.race([window.mstSearch(q, 12), new Promise(function(_, rej){ setTimeout(function(){ rej(new Error("tiempo agotado")); }, 15000); })]).then(function(items){
         if (P.q !== asked) return;
         P.mst = (items || []).map(function(it){ var isin = String(it.isin || (it.fields && it.fields.isin && it.fields.isin.value) || "").toUpperCase(); var nm = it.name || (it.fields && it.fields.name && it.fields.name.value) || isin;
-          var cur = (it.fields && it.fields.baseCurrency && (it.fields.baseCurrency.value || it.fields.baseCurrency)) || ""; return { src: "mst", isin: isin, name: titleCase(String(nm)), sub: typeof cur === "string" ? cur : "", cur: typeof cur === "string" ? cur : "", clas: "", tipo: "", geo: "" }; })
+          var cur = (it.fields && it.fields.baseCurrency && (it.fields.baseCurrency.value || it.fields.baseCurrency)) || it.baseCurrency || ""; return { src: "mst", isin: isin, name: titleCase(String(nm)), sub: typeof cur === "string" ? cur : "", cur: typeof cur === "string" ? cur : "", clas: "", tipo: "", geo: "" }; })
           .filter(function(x){ return ISIN_RE.test(x.isin); }).slice(0, 12);
         P.mstQ = asked; P.mstState = "ok"; render(true);
       }).catch(function(e){ if (P.q !== asked) return; console.warn("[buscador] Morningstar", e); P.mst = []; P.mstQ = asked; P.mstState = "err"; render(true); });

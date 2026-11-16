@@ -11078,12 +11078,16 @@ y0.addEventListener("change", ()=>computeAndRender());
     // ISIN: ya teníamos camino directo a security_details (sin proxy), no toca
     if (mstIsIsin(tRaw)){
       try {
-        const results = await mstSearchLegacyAPI(tRaw, 5);
+        const d = await mstFetchSecurityDetails(tRaw);
+        if (d && d.name) return [{ name: d.name, isin: (d.isin || tRaw).toUpperCase(), msId: d.msId || "", baseCurrency: d.currency || "" }];
+      } catch(_){}
+      try {
+        const results = await mstWithTimeout(mstSearchLegacyAPI(tRaw, 5), 6000);
         if (results.length) return results;
       } catch(e){
         if (e && e.message && /aws-waf-token/i.test(e.message)) console.warn("[Morningstar] cookie expirada, fallback");
       }
-      return await mstSearchGlobal(tRaw, 5);
+      return await mstWithTimeout(mstSearchGlobal(tRaw, 5), 8000).catch(() => []);
     }
     // Por nombre: catálogo local primero (offline, sin cookie ni proxy, instant).
     try {
@@ -11094,12 +11098,15 @@ y0.addEventListener("change", ()=>computeAndRender());
     }
     // Fallback: API protegida (en caso de que la cookie esté viva por algún motivo)
     try {
-      const results = await mstSearchLegacyAPI(tRaw, limit || 25);
+      const results = await mstWithTimeout(mstSearchLegacyAPI(tRaw, limit || 25), 6000);
       if (results.length) return results;
     } catch(e){
       if (e && e.message && /aws-waf-token/i.test(e.message)) throw e;
     }
-    return await mstSearchGlobal(tRaw, limit);
+    return await mstWithTimeout(mstSearchGlobal(tRaw, limit), 8000).catch(() => []);
+  }
+  function mstWithTimeout(p, ms){
+    return Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("Morningstar no responde")), ms))]);
   }
 
     function mstCurrencyCandidate(it){
@@ -18623,10 +18630,10 @@ body.hf-dark.hf2-legacy #screen1 > *:not(#hf2Fund), body.hf-dark.hf2-legacy #scr
     P.mstState = "busy";
     mstT = setTimeout(function(){
       var asked = P.q; if (typeof window.mstSearch !== "function"){ P.mstState = "err"; P.mstQ = asked; render(true); return; }
-      window.mstSearch(q, 12).then(function(items){
+      Promise.race([window.mstSearch(q, 12), new Promise(function(_, rej){ setTimeout(function(){ rej(new Error("tiempo agotado")); }, 15000); })]).then(function(items){
         if (P.q !== asked) return;
         P.mst = (items || []).map(function(it){ var isin = String(it.isin || (it.fields && it.fields.isin && it.fields.isin.value) || "").toUpperCase(); var nm = it.name || (it.fields && it.fields.name && it.fields.name.value) || isin;
-          var cur = (it.fields && it.fields.baseCurrency && (it.fields.baseCurrency.value || it.fields.baseCurrency)) || ""; return { src: "mst", isin: isin, name: titleCase(String(nm)), sub: typeof cur === "string" ? cur : "", cur: typeof cur === "string" ? cur : "", clas: "", tipo: "", geo: "" }; })
+          var cur = (it.fields && it.fields.baseCurrency && (it.fields.baseCurrency.value || it.fields.baseCurrency)) || it.baseCurrency || ""; return { src: "mst", isin: isin, name: titleCase(String(nm)), sub: typeof cur === "string" ? cur : "", cur: typeof cur === "string" ? cur : "", clas: "", tipo: "", geo: "" }; })
           .filter(function(x){ return ISIN_RE.test(x.isin); }).slice(0, 12);
         P.mstQ = asked; P.mstState = "ok"; render(true);
       }).catch(function(e){ if (P.q !== asked) return; console.warn("[buscador] Morningstar", e); P.mst = []; P.mstQ = asked; P.mstState = "err"; render(true); });
