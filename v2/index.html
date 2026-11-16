@@ -18179,7 +18179,7 @@ body.hf-dark.hf2-legacy #screen1 > *:not(#hf2Fund), body.hf-dark.hf2-legacy #scr
     var data = items.map(function(it){
       var c = it.dda[m].c, q = m === "d" ? downMin(c, 700) : c, col = single ? NEG : it.color; if (it.dda[m].mdd < lo) lo = it.dda[m].mdd;
       var t = { type: "scatter", mode: "lines", name: clip(it.short, 34), x: q.map(function(x){ return dISO(x[0]); }), y: q.map(function(x){ return x[1]; }),
-        line: { color: col, width: 1.6, dash: it.dash ? "dash" : "solid", shape: m === "d" ? "linear" : "hv" }, hovertemplate: "%{y:.1%}" };
+        line: { color: col, width: 1.6, dash: it.dash ? "dash" : "solid", shape: "linear" }, hovertemplate: "%{y:.1%}" };
       if (single || items.length <= 2){ t.fill = "tozeroy"; t.fillcolor = rgba(col, single ? 0.12 : 0.10); }
       var w = it.dda[m];
       if (w.mdd < -0.005) ann.push({ x: dISO(w.tV), y: w.mdd, xref: "x", yref: "y", text: "<b>" + pct(w.mdd, 1) + "</b>", showarrow: true, arrowhead: 0, arrowwidth: 1, arrowcolor: col, ax: 0, ay: 16, font: { family: FONT, size: 11.5, color: col }, bgcolor: rgba(SURF, 0.85) });
@@ -18538,7 +18538,17 @@ body.hf-dark.hf2-legacy #screen1 > *:not(#hf2Fund), body.hf-dark.hf2-legacy #scr
     if (rr.length){
       clear("hf2RR");
       var xs = rr.map(function(o){ return o.x; }), yv = rr.map(function(o){ return o.y; });
-      var xr = (Math.max.apply(null, xs) - Math.min.apply(null, xs.concat([0]))) || 0.01, yr2 = (Math.max.apply(null, yv) - Math.min.apply(null, yv)) || 0.01, posn = [];
+      /* ejes ajustados a los datos para que se vean las diferencias, pero sin exagerarlas: el tramo visible
+         es como mínimo un 40 % del valor absoluto mayor (dos fondos con 21 % y 23 % de volatilidad no
+         parecen opuestos) y no cruza el cero si todos los valores están del mismo lado */
+      function axRange(v){
+        var lo = Math.min.apply(null, v), hi = Math.max.apply(null, v), sc = Math.max(Math.abs(lo), Math.abs(hi), 0.005);
+        var sp = Math.max(hi - lo, 0.4 * sc), c = (lo + hi) / 2, a = c - sp * 0.65, b = c + sp * 0.65;
+        if (lo >= 0 && a < 0){ b -= a; a = 0; } if (hi <= 0 && b > 0){ a -= b; b = 0; }
+        return [a, b];
+      }
+      var XR = axRange(xs), YR = axRange(yv);
+      var xr = XR[1] - XR[0], yr2 = YR[1] - YR[0], posn = [];
       var ord = rr.map(function(_, i){ return i; }).sort(function(a,b){ return yv[b] - yv[a]; });
       ord.forEach(function(i, k){
         var p = "top center";
@@ -18547,12 +18557,11 @@ body.hf-dark.hf2-legacy #screen1 > *:not(#hf2Fund), body.hf-dark.hf2-legacy #scr
       });
       var hideT = {};
       if (rr.length > 4) ord.forEach(function(i, k){ for (var q = 0; q < k; q++){ var j = ord[q]; if (!hideT[j] && Math.abs(xs[i]-xs[j]) < xr*0.2 && Math.abs(yv[i]-yv[j]) < yr2*0.13){ hideT[i] = 1; break; } } });
-      var xNeg = xs.every(function(v){ return v <= 0; });
       plot("hf2RR", rr.map(function(o, i){ return { type: "scatter", mode: "markers+text", x: [o.x], y: [o.y], text: [hideT[i] ? "" : clip(o.it.short, 18)], textposition: posn[i], textfont: { family: FONT, size: 11.5, color: INK },
           marker: { color: o.it.color, size: 14, line: { color: SURF, width: 2 } }, hovertemplate: "<b>" + esc(o.it.short) + "</b><br>" + esc(axLab(C.ry)) + " %{y:" + fmtA(C.ry) + "}<br>" + esc(axLab(C.rx)) + " %{x:" + fmtA(C.rx) + "}<extra></extra>", cliponaxis: false }; }),
         base(H2, { margin: { l: 54, r: 24, t: 22, b: 40 }, hovermode: "closest",
-          xaxis: { tickformat: C.rx === "fee" ? ".1%" : fmtA(C.rx).replace(".1", ".0"), rangemode: xNeg ? "normal" : "tozero", showgrid: true, gridcolor: HAIR, title: { text: axLab(C.rx), font: { size: 11.5, color: FAINT }, standoff: 8 }, nticks: 7 },
-          yaxis: { tickformat: C.ry === "fee" ? ".1%" : fmtA(C.ry).replace(".1", ".0"), title: { text: axLab(C.ry), font: { size: 11.5, color: FAINT }, standoff: 6 } } }));
+          xaxis: { tickformat: C.rx === "fee" ? ".1%" : fmtA(C.rx).replace(".1", ".0"), range: XR, showgrid: true, gridcolor: HAIR, title: { text: axLab(C.rx), font: { size: 11.5, color: FAINT }, standoff: 8 }, nticks: 7 },
+          yaxis: { range: YR, tickformat: C.ry === "fee" ? ".1%" : fmtA(C.ry).replace(".1", ".0"), title: { text: axLab(C.ry), font: { size: 11.5, color: FAINT }, standoff: 6 } } }));
     } else msg("hf2RR", "Ningún fondo tiene historial suficiente para estos ejes.");
     var tipx = [axTip(C.ry) ? "Vertical: " + axTip(C.ry) : "", axTip(C.rx) ? "Horizontal: " + axTip(C.rx) : ""].filter(Boolean).join(" · ");
     $("hf2RRF").innerHTML = esc(tipx) + (miss.length ? (tipx ? "<br>" : "") + "Sin dato: " + esc(miss.join(", ")) : "");
