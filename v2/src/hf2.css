@@ -308,3 +308,14 @@ body.hf-dark.hf2-legacy #screen1 > *:not(#hf2Fund), body.hf-dark.hf2-legacy #scr
 .hf2dds.many.big td.on span{ font-weight:700; }
 .hf2dds.many td span{ white-space:nowrap; }
 .hf2dds.many.big table{ table-layout:auto; }
+
+/* caídas en Comparación: tabla debajo del gráfico, a todo el ancho */
+.hf2ddw.stack{ flex-direction:column; gap:6px; }
+.hf2ddw.stack .hf2dds.many{ width:100%; }
+.hf2ddw.stack .hf2dds.many table{ table-layout:auto; }
+.hf2ddw.stack .hf2dds.many td:first-child{ width:auto; max-width:none; }
+.hf2ddw.stack .hf2dds.many th, .hf2ddw.stack .hf2dds.many td{ padding:5px 8px; }
+/* por año: la celda es una barra; texto siempre legible encima */
+.hf2heat td.bar{ text-align:right; padding:0 5px; min-width:0; color:var(--h2-ink); font-size:12px; }
+.hf2heat{ table-layout:fixed; }
+.hf2heat th:first-child{ width:30%; }

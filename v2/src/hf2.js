@@ -271,6 +271,7 @@
     items.forEach(function(it){ it.dda = ddAll(it.p); });
     var k = $(pre + "DDk");
     if (single){
+      if (k.parentNode) k.parentNode.classList.remove("stack");
       var d = items[0].dda;
       k.className = "hf2dds one";
       k.innerHTML = DDF.map(function(f){ var x = d[f[0]]; return '<button type="button" class="r' + (f[0] === m ? " on" : "") + '" data-m="' + f[0] + '"><span>' + f[2] + "</span><b>" + pct(x.mdd, 1) + "</b><small>" + (x.tP != null && x.mdd < 0 ? sd2(x.tP) + " a " + sd2(x.tV) : "sin caídas") + "</small></button>"; }).join("");
@@ -278,9 +279,10 @@
       /* con más de 4 fondos, solo la tabla (barra en la frecuencia elegida); con menos, curvas + tabla al lado */
       var big = items.length > 4, worst = Math.min.apply(null, items.map(function(it){ return it.dda[m].mdd; }).concat([-0.01]));
       k.className = "hf2dds many" + (big ? " big" : "");
+      if (k.parentNode) k.parentNode.classList.toggle("stack", true);   /* tabla debajo del gráfico */
       var rows = big ? items.slice().sort(function(a, b){ return a.dda[m].mdd - b.dda[m].mdd; }) : items;
-      k.innerHTML = '<table><thead><tr><th></th>' + DDF.map(function(f){ return '<th class="' + (f[0] === m ? "on" : "") + '" data-m="' + f[0] + '" title="' + f[3] + '">' + (big ? f[2] : f[2].slice(0, 3) + ".") + "</th>"; }).join("") + "</tr></thead><tbody>" +
-        rows.map(function(it){ return '<tr><td title="' + esc(it.short) + '"><i style="background:' + it.color + '"></i>' + esc(clip(it.short, big ? 30 : 14)) + "</td>" + DDF.map(function(f){ var x = it.dda[f[0]], on = f[0] === m;
+      k.innerHTML = '<table><thead><tr><th></th>' + DDF.map(function(f){ return '<th class="' + (f[0] === m ? "on" : "") + '" data-m="' + f[0] + '" title="' + f[3] + '">' + f[2] + "</th>"; }).join("") + "</tr></thead><tbody>" +
+        rows.map(function(it){ return '<tr><td title="' + esc(it.short) + '"><i style="background:' + it.color + '"></i>' + esc(clip(it.short, 40)) + "</td>" + DDF.map(function(f){ var x = it.dda[f[0]], on = f[0] === m;
           return '<td class="' + (on ? "on" : "") + '" title="' + (x.tP != null && x.mdd < 0 ? "De " + dES(x.tP) + " a " + dES(x.tV) : "") + '">' + (big && on ? '<u style="width:' + Math.round(x.mdd / worst * 100) + "%;background:" + it.color + '"></u>' : "") + "<span>" + pct(x.mdd, 1) + "</span></td>"; }).join("") + "</tr>"; }).join("") + "</tbody></table>" +
         (big ? '<div class="hf2foot">Pasa el ratón por una cifra para ver las fechas de pico y valle.</div>' : "");
     }
@@ -298,6 +300,7 @@
       if (w.mdd < -0.005) ann.push({ x: dISO(w.tV), y: w.mdd, xref: "x", yref: "y", text: "<b>" + pct(w.mdd, 1) + "</b>", showarrow: true, arrowhead: 0, arrowwidth: 1, arrowcolor: col, ax: 0, ay: 16, font: { family: FONT, size: 11.5, color: col }, bgcolor: rgba(SURF, 0.85) });
       return t;
     });
+    if (!single) H = Math.max(180, H - 34 - 32 * items.length);   /* la tabla va debajo: el conjunto ocupa lo mismo */
     plot(id, data, base(H, { hovermode: "x unified", annotations: items.length <= 4 ? ann : [], margin: { l: 46, r: 10, t: 8, b: 26 }, xaxis: { hoverformat: m === "d" ? "%d/%m/%Y" : "%m/%Y", nticks: 6 },
       yaxis: { tickformat: ".0%", range: [Math.min(-0.02, lo) * 1.22, 0.004], zeroline: false } }));
   }
@@ -618,12 +621,18 @@
     var allY = {}; items.forEach(function(it){ it.yv.forEach(function(y){ allY[y.y] = allY[y.y] || y; if (y.ytd) allY[y.y] = y; }); });
     var yl = Object.keys(allY).map(Number).sort().slice(-9);
     var ht = '<table class="hf2heat"><thead><tr><th></th>' + yl.map(function(y){ var o = allY[y]; return "<th" + (o.ytd ? ' class="ytd" title="Hasta el ' + dES(o.t) + '"' : "") + ">" + y + (o.ytd ? "*" : "") + "</th>"; }).join("") + "</tr></thead><tbody>";
+    /* cada celda es una barra: el relleno crece con el valor (sobre el mayor de la tabla) y se intensifica;
+       verde si sube, rojo si baja; en volatilidad, un solo tono */
+    var mx = 0; items.forEach(function(it){ it.yv.forEach(function(y){ if (yl.indexOf(y.y) >= 0 && isFinite(y.r)) mx = Math.max(mx, Math.abs(y.r)); }); });
+    if (!(mx > 0)) mx = 0.01;
     items.forEach(function(it){
       var m = {}; it.yv.forEach(function(y){ m[y.y] = y; });
       ht += "<tr><td title='" + esc(it.short) + "'><i style='background:" + it.color + "'></i>" + esc(clip(it.short, 26)) + "</td>" + yl.map(function(y){
         var o = m[y]; if (!o) return '<td class="na">–</td>';
-        var a = Math.min(0.5, 0.07 + Math.abs(o.r) / 0.30 * 0.43) * (DARK ? 1.25 : 1), bg = isV ? rgba(PAL[0], (a * 0.8).toFixed(2)) : rgba(o.r >= 0 ? POS : NEG, a.toFixed(2));
-        return '<td style="background:' + bg + '">' + pct(o.r, 1) + "</td>";
+        var f = Math.min(1, Math.abs(o.r) / mx), w = Math.max(4, Math.round(f * 100)), a = (0.22 + 0.5 * f) * (DARK ? 1.15 : 1);
+        var col = isV ? PAL[0] : (o.r >= 0 ? POS : NEG), bar = rgba(col, Math.min(0.85, a).toFixed(2));
+        var bg = "linear-gradient(to right," + bar + " 0," + bar + " " + w + "%," + rgba(col, DARK ? "0.07" : "0.05") + " " + w + "%)";
+        return '<td class="bar" style="background:' + bg + '">' + pct(o.r, 1) + "</td>";
       }).join("") + "</tr>";
     });
     var ytd = yl.map(function(y){ return allY[y]; }).filter(function(o){ return o.ytd; })[0];
